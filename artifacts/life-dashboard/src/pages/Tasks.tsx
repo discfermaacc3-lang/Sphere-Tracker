@@ -9,12 +9,14 @@ const XP_COLORS: Record<string, string> = {
 
 function TaskCard({
   task,
+  goalTitle,
   onToggle,
   onEdit,
   onDelete,
   onReschedule,
 }: {
   task: Task;
+  goalTitle?: string;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -79,8 +81,8 @@ function TaskCard({
                 {task.timeTo && `–${task.timeTo}`}
               </span>
             )}
-            {task.goalRef && (
-              <span className="text-[10px] text-white/25">🎯 {task.goalRef}</span>
+            {goalTitle && (
+              <span className="text-[10px] text-white/25">🎯 {goalTitle}</span>
             )}
           </div>
         </div>
@@ -189,8 +191,13 @@ export function Tasks() {
   const {
     tasks, toggleTask, addTask, editTask, deleteTask, rescheduleTask,
     routineTemplates, addRoutineTemplate, editRoutineTemplate, deleteRoutineTemplate, refreshDay,
-    totalXP, dayXP,
+    totalXP, dayXP, goals,
   } = useStore();
+
+  const goalTitleById = (id?: string) => {
+    if (!id) return undefined;
+    return goals.find((g) => g.id === id)?.title;
+  };
 
   const [tab, setTab] = useState<"tasks" | "templates">("tasks");
   const [showModal, setShowModal] = useState(false);
@@ -347,6 +354,7 @@ export function Tasks() {
                   <TaskCard
                     key={task.id}
                     task={task}
+                    goalTitle={goalTitleById(task.goalId)}
                     onToggle={() => toggleTask(task.id)}
                     onEdit={() => { setEditingTask(task); setShowModal(true); }}
                     onDelete={() => deleteTask(task.id)}
@@ -369,6 +377,7 @@ export function Tasks() {
                   <TaskCard
                     key={task.id}
                     task={task}
+                    goalTitle={goalTitleById(task.goalId)}
                     onToggle={() => toggleTask(task.id)}
                     onEdit={() => { setEditingTask(task); setShowModal(true); }}
                     onDelete={() => deleteTask(task.id)}

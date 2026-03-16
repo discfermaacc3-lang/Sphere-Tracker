@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Task, TaskCategory, XpDifficulty, RoutineTemplate } from "@/lib/store";
+import { useState } from "react";
+import { Task, TaskCategory, XpDifficulty, RoutineTemplate, useStore } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 
 const CATEGORIES: TaskCategory[] = [
@@ -36,7 +36,7 @@ type TaskFields = BaseFields & {
   dueDate?: string;
   timeFrom?: string;
   timeTo?: string;
-  goalRef?: string;
+  goalId?: string;
 };
 
 type TemplateFields = BaseFields;
@@ -70,6 +70,9 @@ function inputCls(extra = "") {
 
 export function TaskModal(props: Props) {
   const { onClose } = props;
+  const { goals } = useStore();
+
+  const weekGoals = goals.filter((g) => g.level === "week");
 
   const [text, setText] = useState(props.initial?.text ?? "");
   const [description, setDescription] = useState(props.initial?.description ?? "");
@@ -81,7 +84,6 @@ export function TaskModal(props: Props) {
       ? String(props.initial.xp)
       : "30"
   );
-
   const [taskType, setTaskType] = useState<"routine" | "special">(
     props.mode === "task" ? (props.initial?.type ?? "special") : "routine"
   );
@@ -100,8 +102,8 @@ export function TaskModal(props: Props) {
   const [timeTo, setTimeTo] = useState(
     props.mode === "task" ? (props.initial?.timeTo ?? "") : ""
   );
-  const [goalRef, setGoalRef] = useState(
-    props.mode === "task" ? (props.initial?.goalRef ?? "") : ""
+  const [goalId, setGoalId] = useState(
+    props.mode === "task" ? (props.initial?.goalId ?? "") : ""
   );
 
   const resolvedXp =
@@ -125,7 +127,7 @@ export function TaskModal(props: Props) {
         dueDate: noDeadline ? undefined : dueDate,
         timeFrom: timeFrom || undefined,
         timeTo: timeTo || undefined,
-        goalRef: goalRef || undefined,
+        goalId: goalId || undefined,
       });
     } else {
       props.onSave({
@@ -149,7 +151,9 @@ export function TaskModal(props: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
           <h2 className="text-base font-semibold text-white/80">
-            {props.mode === "task" ? (props.initial ? "Редактировать задачу" : "Новая задача") : (props.initial ? "Редактировать шаблон" : "Новый шаблон рутины")}
+            {props.mode === "task"
+              ? (props.initial ? "Редактировать задачу" : "Новая задача")
+              : (props.initial ? "Редактировать шаблон" : "Новый шаблон рутины")}
           </h2>
           <button onClick={onClose} className="text-white/25 hover:text-white/60 transition-colors text-lg">✕</button>
         </div>
@@ -157,7 +161,6 @@ export function TaskModal(props: Props) {
         {/* Body */}
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5">
 
-          {/* Title */}
           <Field label="Название">
             <input
               className={inputCls()}
@@ -169,7 +172,6 @@ export function TaskModal(props: Props) {
             />
           </Field>
 
-          {/* Description */}
           <Field label="Описание (опционально)">
             <textarea
               className={inputCls("resize-none")}
@@ -180,7 +182,6 @@ export function TaskModal(props: Props) {
             />
           </Field>
 
-          {/* Category */}
           <Field label="Категория жизни">
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
@@ -200,7 +201,6 @@ export function TaskModal(props: Props) {
             </div>
           </Field>
 
-          {/* Sphere */}
           <Field label="Сфера жизни">
             <div className="grid grid-cols-4 gap-2">
               {sphereKeys.map((k) => {
@@ -216,15 +216,18 @@ export function TaskModal(props: Props) {
                       border: `1px solid ${active ? s.color + "50" : "rgba(255,255,255,0.06)"}`,
                     }}
                   >
-                    <span className="text-lg" style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}>{s.icon}</span>
-                    <span className="text-[9px]" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>{s.label}</span>
+                    <span className="text-lg" style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}>
+                      {s.icon}
+                    </span>
+                    <span className="text-[9px]" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>
+                      {s.label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </Field>
 
-          {/* Task-specific fields */}
           {props.mode === "task" && (
             <Field label="Тип задачи">
               <div className="flex gap-2">
@@ -246,9 +249,8 @@ export function TaskModal(props: Props) {
             </Field>
           )}
 
-          {/* Priority */}
           {props.mode === "task" && (
-            <label className="flex items-center gap-3 cursor-pointer group">
+            <label className="flex items-center gap-3 cursor-pointer">
               <div
                 onClick={() => setPriority(!priority)}
                 className="w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0"
@@ -266,7 +268,6 @@ export function TaskModal(props: Props) {
             </label>
           )}
 
-          {/* XP */}
           <Field label="Сложность (XP)">
             <div className="flex flex-col gap-2">
               <div className="grid grid-cols-2 gap-2">
@@ -302,7 +303,6 @@ export function TaskModal(props: Props) {
             </div>
           </Field>
 
-          {/* Deadline */}
           {props.mode === "task" && (
             <Field label="Срок">
               <div className="flex flex-col gap-2">
@@ -349,15 +349,25 @@ export function TaskModal(props: Props) {
             </Field>
           )}
 
-          {/* Goal */}
+          {/* Goal link — shows actual weekly goals from store */}
           {props.mode === "task" && (
-            <Field label="Цель (привязка)">
-              <input
-                className={inputCls()}
-                placeholder="Цель недели или месяца..."
-                value={goalRef}
-                onChange={(e) => setGoalRef(e.target.value)}
-              />
+            <Field label="Цель недели (привязка)">
+              <select
+                className={inputCls("cursor-pointer")}
+                value={goalId}
+                onChange={(e) => setGoalId(e.target.value)}
+                style={{ colorScheme: "dark" }}
+              >
+                <option value="">— Без привязки к цели —</option>
+                {weekGoals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {sphereColors[g.sphere].icon} {g.title}
+                  </option>
+                ))}
+              </select>
+              {weekGoals.length === 0 && (
+                <p className="text-[10px] text-white/20 mt-1">Сначала создай цели недели на странице «Цели»</p>
+              )}
             </Field>
           )}
         </div>
