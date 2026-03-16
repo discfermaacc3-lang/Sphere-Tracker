@@ -7,12 +7,23 @@ export type TaskCategory =
 
 export type XpDifficulty = "easy" | "medium" | "hard" | "custom";
 export type GoalLevel = "year" | "month" | "week";
+export type IdeaCategory =
+  | "gift" | "hobby" | "creativity" | "travel" | "learn" | "other";
 
 export const GOAL_XP: Record<GoalLevel, number> = {
   year: 1000,
   month: 250,
   week: 100,
 };
+
+export const IDEA_CATEGORIES: { key: IdeaCategory; label: string; emoji: string; color: string }[] = [
+  { key: "gift",       label: "Подарок",        emoji: "🎁", color: "#f43f5e" },
+  { key: "hobby",      label: "Хобби",          emoji: "🎯", color: "#f59e0b" },
+  { key: "creativity", label: "Творчество",     emoji: "🎨", color: "#a855f7" },
+  { key: "travel",     label: "Путешествия",    emoji: "✈️", color: "#06b6d4" },
+  { key: "learn",      label: "Изучить",        emoji: "📚", color: "#3b82f6" },
+  { key: "other",      label: "Другое",         emoji: "💡", color: "#64748b" },
+];
 
 export type Goal = {
   id: string;
@@ -24,6 +35,14 @@ export type Goal = {
   parentId?: string;
   done: boolean;
   xp: number;
+};
+
+export type Idea = {
+  id: string;
+  title: string;
+  description?: string;
+  category: IdeaCategory;
+  createdAt: string;
 };
 
 export type Task = {
@@ -56,6 +75,7 @@ export type RoutineTemplate = {
 
 export type Note = {
   id: string;
+  title: string;
   text: string;
   createdAt: string;
 };
@@ -89,6 +109,11 @@ type Store = {
   deleteGoal: (id: string) => void;
   toggleGoal: (id: string) => void;
 
+  ideas: Idea[];
+  addIdea: (idea: Omit<Idea, "id">) => void;
+  editIdea: (id: string, updates: Partial<Omit<Idea, "id">>) => void;
+  deleteIdea: (id: string) => void;
+
   tasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id">) => void;
@@ -103,7 +128,7 @@ type Store = {
   refreshDay: () => void;
 
   notes: Note[];
-  addNote: (text: string) => void;
+  addNote: (note: Omit<Note, "id">) => void;
   deleteNote: (id: string) => void;
 };
 
@@ -138,6 +163,13 @@ const defaultGoals: Goal[] = [
     id: "g-w2", title: "Написать техническое задание", description: "",
     sphere: "work", category: "Work", level: "week", parentId: "g-m2", done: false, xp: 100,
   },
+];
+
+const defaultIdeas: Idea[] = [
+  { id: "i1", title: "Поездка в Японию", description: "Сакура в апреле, Токио и Киото", category: "travel", createdAt: "2026-03-15" },
+  { id: "i2", title: "Научиться рисовать акварелью", description: "Начать с простых пейзажей", category: "creativity", createdAt: "2026-03-14" },
+  { id: "i3", title: "Подарить маме SPA", description: "На день рождения в мае", category: "gift", createdAt: "2026-03-13" },
+  { id: "i4", title: "Курс по машинному обучению", description: "Fast.ai или Coursera", category: "learn", createdAt: "2026-03-12" },
 ];
 
 const defaultTasks: Task[] = [
@@ -183,6 +215,11 @@ const defaultTemplates: RoutineTemplate[] = [
   { id: "t1", text: "Утренняя зарядка", category: "Body", sphere: "health", xp: 10, xpDifficulty: "easy" },
   { id: "t2", text: "Медитация 10 мин", category: "Mindset", sphere: "spirituality", xp: 10, xpDifficulty: "easy" },
   { id: "t3", text: "Прочитать главу книги", category: "Mindset", sphere: "hobby", xp: 10, xpDifficulty: "easy" },
+];
+
+const defaultNotes: Note[] = [
+  { id: "n1", title: "Фокус на главном", text: "Сегодня важный день — сосредоточиться на главном.", createdAt: TODAY },
+  { id: "n2", title: "Идея проекта", text: "Нужно записать идею про автоматизацию утра.", createdAt: "2026-03-15" },
 ];
 
 export const useStore = create<Store>((set, get) => ({
@@ -251,6 +288,14 @@ export const useStore = create<Store>((set, get) => ({
       }
       return { goals: s.goals.map((g) => (g.id === id ? { ...g, done: !g.done } : g)) };
     }),
+
+  ideas: defaultIdeas,
+  addIdea: (idea) =>
+    set((s) => ({ ideas: [{ ...idea, id: "i-" + Date.now() }, ...s.ideas] })),
+  editIdea: (id, updates) =>
+    set((s) => ({ ideas: s.ideas.map((i) => (i.id === id ? { ...i, ...updates } : i)) })),
+  deleteIdea: (id) =>
+    set((s) => ({ ideas: s.ideas.filter((i) => i.id !== id) })),
 
   tasks: defaultTasks,
   toggleTask: (id) =>
@@ -321,15 +366,10 @@ export const useStore = create<Store>((set, get) => ({
       return { tasks: [...s.tasks, ...newTasks] };
     }),
 
-  notes: [
-    { id: "1", text: "Сегодня важный день — сосредоточиться на главном.", createdAt: "2026-03-16" },
-  ],
-  addNote: (text) =>
+  notes: defaultNotes,
+  addNote: (note) =>
     set((s) => ({
-      notes: [
-        ...s.notes,
-        { id: Date.now().toString(), text, createdAt: new Date().toISOString().slice(0, 10) },
-      ],
+      notes: [{ ...note, id: "note-" + Date.now() }, ...s.notes],
     })),
   deleteNote: (id) =>
     set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),

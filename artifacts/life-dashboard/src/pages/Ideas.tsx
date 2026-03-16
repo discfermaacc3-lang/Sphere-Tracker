@@ -1,80 +1,297 @@
 import { useState } from "react";
-import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
+import { useStore, IdeaCategory, IDEA_CATEGORIES, Idea } from "@/lib/store";
+import { TaskModal } from "@/components/TaskModal";
+import { sphereColors } from "@/lib/sphereColors";
 
-type Idea = { id: string; text: string; sphere: SphereKey; createdAt: string };
+const MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 
-const initial: Idea[] = [
-  { id: "1", text: "Создать систему утренних ритуалов", sphere: "health", createdAt: "2026-03-16" },
-  { id: "2", text: "Инвестировать в индексный фонд", sphere: "finance", createdAt: "2026-03-15" },
-  { id: "3", text: "Запустить side-project по автоматизации", sphere: "work", createdAt: "2026-03-14" },
-];
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function inputCls(extra = "") {
+  return `w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/70 placeholder-white/20 outline-none focus:border-indigo-500/40 transition-colors ${extra}`;
+}
+
+function getCatMeta(key: IdeaCategory) {
+  return IDEA_CATEGORIES.find((c) => c.key === key)!;
+}
 
 export function Ideas() {
-  const [ideas, setIdeas] = useState<Idea[]>(initial);
-  const [text, setText] = useState("");
-  const [sphere, setSphere] = useState<SphereKey>("work");
+  const { ideas, addIdea, deleteIdea, addTask } = useStore();
 
-  function addIdea() {
-    if (!text.trim()) return;
-    setIdeas((prev) => [
-      { id: Date.now().toString(), text: text.trim(), sphere, createdAt: new Date().toISOString().slice(0, 10) },
-      ...prev,
-    ]);
-    setText("");
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<IdeaCategory>("other");
+  const [filterCat, setFilterCat] = useState<IdeaCategory | "all">("all");
+
+  const [ideaToTask, setIdeaToTask] = useState<Idea | null>(null);
+
+  const TODAY = new Date().toISOString().slice(0, 10);
+
+  function handleSave() {
+    if (!title.trim()) return;
+    addIdea({ title: title.trim(), description: description.trim() || undefined, category, createdAt: TODAY });
+    setTitle("");
+    setDescription("");
+    setCategory("other");
+    setShowForm(false);
   }
+
+  const filtered = filterCat === "all"
+    ? ideas
+    : ideas.filter((i) => i.category === filterCat);
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-10">
-      <h1 className="text-xl font-semibold text-white/80 tracking-wide pt-2">Идеи</h1>
 
-      <div className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
-        <input
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white/70 placeholder-white/20 outline-none focus:border-indigo-500/50 transition-colors mb-3"
-          placeholder="Новая идея..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addIdea()}
-        />
-        <div className="flex gap-2 flex-wrap mb-3">
-          {sphereKeys.map((k) => {
-            const s = sphereColors[k];
-            return (
-              <button key={k} onClick={() => setSphere(k)}
-                className="text-xs px-3 py-1 rounded-full transition-all"
-                style={{
-                  background: sphere === k ? s.color + "30" : "rgba(255,255,255,0.05)",
-                  color: sphere === k ? s.color : "rgba(255,255,255,0.3)",
-                  border: `1px solid ${sphere === k ? s.color + "60" : "transparent"}`,
-                }}>
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={addIdea}
-          className="px-5 py-2 rounded-xl text-sm font-medium"
-          style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}>
-          Добавить
+      {/* Header */}
+      <div className="flex items-center justify-between pt-2">
+        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Идеи</h1>
+        <button
+          onClick={() => setShowForm(true)}
+          className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+          style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
+        >
+          + Идея
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {ideas.map((idea) => {
-          const s = sphereColors[idea.sphere];
-          return (
-            <div key={idea.id} className="rounded-2xl border p-4 flex items-start gap-3 transition-all"
-              style={{ borderColor: s.color + "25", background: `${s.color}07` }}>
-              <span className="text-xl mt-0.5" style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}>{s.icon}</span>
-              <div className="flex-1">
-                <p className="text-sm text-white/70">{idea.text}</p>
-                <p className="text-[10px] text-white/25 mt-1">{idea.createdAt}</p>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0" style={{ color: s.color, background: s.color + "20" }}>
-                {s.label}
-              </span>
+      {/* Create form */}
+      {showForm && (
+        <div
+          className="rounded-2xl border border-white/10 p-5 flex flex-col gap-4"
+          style={{ background: "rgba(255,255,255,0.025)" }}
+        >
+          <div>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Название</p>
+            <input
+              className={inputCls()}
+              placeholder="О чём идея?"
+              value={title}
+              autoFocus
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSave()}
+            />
+          </div>
+
+          <div>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Описание (опционально)</p>
+            <textarea
+              className={inputCls("resize-none")}
+              placeholder="Подробнее..."
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Категория</p>
+            <div className="grid grid-cols-3 gap-2">
+              {IDEA_CATEGORIES.map((cat) => {
+                const active = category === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => setCategory(cat.key)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
+                    style={{
+                      background: active ? cat.color + "20" : "rgba(255,255,255,0.04)",
+                      color: active ? cat.color : "rgba(255,255,255,0.35)",
+                      border: `1px solid ${active ? cat.color + "50" : "rgba(255,255,255,0.06)"}`,
+                    }}
+                  >
+                    <span>{cat.emoji}</span>
+                    <span>{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => { setShowForm(false); setTitle(""); setDescription(""); }}
+              className="flex-1 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 border border-white/8 transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!title.trim()}
+              className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-30 transition-all"
+              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div className="flex gap-1.5 flex-wrap">
+        <button
+          onClick={() => setFilterCat("all")}
+          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          style={{
+            background: filterCat === "all" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+            color: filterCat === "all" ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)",
+            border: `1px solid ${filterCat === "all" ? "rgba(255,255,255,0.2)" : "transparent"}`,
+          }}
+        >
+          Все · {ideas.length}
+        </button>
+        {IDEA_CATEGORIES.map((cat) => {
+          const count = ideas.filter((i) => i.category === cat.key).length;
+          if (count === 0) return null;
+          const active = filterCat === cat.key;
+          return (
+            <button
+              key={cat.key}
+              onClick={() => setFilterCat(active ? "all" : cat.key)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+              style={{
+                background: active ? cat.color + "22" : "rgba(255,255,255,0.04)",
+                color: active ? cat.color : "rgba(255,255,255,0.35)",
+                border: `1px solid ${active ? cat.color + "45" : "transparent"}`,
+              }}
+            >
+              {cat.emoji} {cat.label} · {count}
+            </button>
           );
         })}
+      </div>
+
+      {/* Ideas grid */}
+      {filtered.length === 0 && (
+        <div
+          className="rounded-2xl border border-white/5 p-10 text-center"
+          style={{ background: "rgba(255,255,255,0.015)" }}
+        >
+          <p className="text-3xl mb-3">💡</p>
+          <p className="text-white/30 text-sm">Нет идей в этой категории</p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        {filtered.map((idea) => {
+          const cat = getCatMeta(idea.category);
+          return (
+            <IdeaCard
+              key={idea.id}
+              idea={idea}
+              cat={cat}
+              onDelete={() => deleteIdea(idea.id)}
+              onConvert={() => setIdeaToTask(idea)}
+            />
+          );
+        })}
+      </div>
+
+      {/* Convert idea to task modal */}
+      {ideaToTask && (
+        <TaskModal
+          mode="task"
+          initial={{
+            text: ideaToTask.title,
+            description: ideaToTask.description,
+            type: "special",
+            noDeadline: true,
+            sphere: "work",
+            category: "Other",
+            xp: 25,
+            xpDifficulty: "medium",
+          }}
+          onSave={(fields) => {
+            addTask({ ...fields, done: false });
+            setIdeaToTask(null);
+          }}
+          onClose={() => setIdeaToTask(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function IdeaCard({
+  idea,
+  cat,
+  onDelete,
+  onConvert,
+}: {
+  idea: Idea;
+  cat: typeof IDEA_CATEGORIES[0];
+  onDelete: () => void;
+  onConvert: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className="group rounded-2xl border transition-all duration-200"
+      style={{
+        borderColor: cat.color + "28",
+        background: `${cat.color}07`,
+      }}
+    >
+      <div className="flex items-start gap-4 px-5 py-4">
+        {/* Category emoji */}
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg mt-0.5"
+          style={{ background: cat.color + "18" }}
+        >
+          {cat.emoji}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 flex-wrap">
+            <p className="text-sm font-medium text-white/80 flex-1 min-w-0">{idea.title}</p>
+            <span
+              className="text-[9px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+              style={{ color: cat.color, background: cat.color + "18" }}
+            >
+              {cat.label}
+            </span>
+          </div>
+
+          {idea.description && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-left"
+            >
+              {expanded ? (
+                <p className="text-xs text-white/45 mt-1.5 leading-relaxed">{idea.description}</p>
+              ) : (
+                <p className="text-xs text-white/35 mt-1 truncate">{idea.description}</p>
+              )}
+            </button>
+          )}
+
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-[10px] text-white/25">{formatDate(idea.createdAt)}</span>
+          </div>
+        </div>
+
+        {/* Actions — show on hover */}
+        <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button
+            onClick={onConvert}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"
+            style={{ background: cat.color + "18", color: cat.color }}
+            title="Превратить в задачу"
+          >
+            ✓ В задачу
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-2.5 py-1.5 rounded-lg text-[10px] text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-all text-center"
+          >
+            удалить
+          </button>
+        </div>
       </div>
     </div>
   );
