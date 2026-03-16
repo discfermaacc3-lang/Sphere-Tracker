@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SphereKey } from "./sphereColors";
+import { SphereKey, sphereKeys } from "./sphereColors";
 
 export type Task = {
   id: string;
@@ -15,6 +15,8 @@ export type Note = {
   createdAt: string;
 };
 
+export type SphereLevels = Record<SphereKey, number>;
+
 type Store = {
   currentPage: string;
   setCurrentPage: (page: string) => void;
@@ -28,6 +30,9 @@ type Store = {
   spherePanelOpen: boolean;
   toggleSpherePanel: () => void;
 
+  sphereLevels: SphereLevels;
+  setSphereLevel: (key: SphereKey, value: number) => void;
+
   tasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id">) => void;
@@ -36,6 +41,10 @@ type Store = {
   addNote: (text: string) => void;
   deleteNote: (id: string) => void;
 };
+
+const defaultLevels = Object.fromEntries(
+  sphereKeys.map((k) => [k, 5])
+) as SphereLevels;
 
 export const useStore = create<Store>((set) => ({
   currentPage: "home",
@@ -65,6 +74,12 @@ export const useStore = create<Store>((set) => ({
   spherePanelOpen: true,
   toggleSpherePanel: () =>
     set((s) => ({ spherePanelOpen: !s.spherePanelOpen })),
+
+  sphereLevels: defaultLevels,
+  setSphereLevel: (key, value) =>
+    set((s) => ({
+      sphereLevels: { ...s.sphereLevels, [key]: Math.min(10, Math.max(0, value)) },
+    })),
 
   tasks: [
     { id: "1", text: "Утренняя зарядка", sphere: "health", type: "routine", done: false },
