@@ -7,12 +7,27 @@ const MONTH_NAMES = [
   "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
 ];
 
+const XP_COLORS: Record<string, string> = {
+  easy: "#22c55e", medium: "#eab308", hard: "#ef4444", custom: "#a855f7",
+};
+
+const XP_LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000];
+
+function getLevel(xp: number) {
+  let level = 1;
+  for (let i = 0; i < XP_LEVEL_THRESHOLDS.length; i++) {
+    if (xp >= XP_LEVEL_THRESHOLDS[i]) level = i + 1;
+  }
+  const curr = XP_LEVEL_THRESHOLDS[Math.min(level - 1, XP_LEVEL_THRESHOLDS.length - 1)];
+  const next = XP_LEVEL_THRESHOLDS[Math.min(level, XP_LEVEL_THRESHOLDS.length - 1)];
+  const pct = next === curr ? 100 : Math.round(((xp - curr) / (next - curr)) * 100);
+  return { level, pct, curr, next };
+}
+
 function PrioritySphereSlot({
-  idx,
   sphereKey,
   onClear,
 }: {
-  idx: 0 | 1;
   sphereKey: SphereKey | null;
   onClear: () => void;
 }) {
@@ -66,18 +81,23 @@ export function Home() {
     spherePanelOpen, toggleSpherePanel,
     tasks, toggleTask,
     notes, addNote, deleteNote,
+    totalXP, dayXP,
   } = useStore();
 
   const [newNote, setNewNote] = useState("");
 
-  const totalTasks = tasks.length;
-  const doneTasks = tasks.filter((t) => t.done).length;
-  const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+  const TODAY = new Date().toISOString().slice(0, 10);
 
-  const routine = tasks.filter((t) => t.type === "routine");
-  const special = tasks.filter((t) => t.type === "special");
+  const todayTasks = tasks.filter((t) => !t.noDeadline && t.dueDate === TODAY || t.noDeadline);
+  const routine = todayTasks.filter((t) => t.type === "routine");
+  const special = todayTasks.filter((t) => t.type === "special");
 
   const monthLabel = `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+  const { level, pct } = getLevel(totalXP);
+
+  const DAY_XP_GOAL = 100;
+  const dayPct = Math.min(100, Math.round((dayXP / DAY_XP_GOAL) * 100));
 
   function handleSphereClick(key: SphereKey) {
     if (prioritySpheres[0] === key) { setPrioritySphere(0, null); return; }
@@ -103,8 +123,8 @@ export function Home() {
       <section>
         <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">Приоритеты</p>
         <div className="flex gap-4">
-          <PrioritySphereSlot idx={0} sphereKey={prioritySpheres[0]} onClear={() => setPrioritySphere(0, null)} />
-          <PrioritySphereSlot idx={1} sphereKey={prioritySpheres[1]} onClear={() => setPrioritySphere(1, null)} />
+          <PrioritySphereSlot sphereKey={prioritySpheres[0]} onClear={() => setPrioritySphere(0, null)} />
+          <PrioritySphereSlot sphereKey={prioritySpheres[1]} onClear={() => setPrioritySphere(1, null)} />
         </div>
       </section>
 
@@ -135,16 +155,11 @@ export function Home() {
                 >
                   <span
                     className="text-2xl transition-all duration-200"
-                    style={{
-                      filter: active ? `drop-shadow(0 0 10px ${s.color})` : "grayscale(1) opacity(0.4)",
-                    }}
+                    style={{ filter: active ? `drop-shadow(0 0 10px ${s.color})` : "grayscale(1) opacity(0.4)" }}
                   >
                     {s.icon}
                   </span>
-                  <span
-                    className="text-[10px] font-medium"
-                    style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}
-                  >
+                  <span className="text-[10px] font-medium" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>
                     {s.label}
                   </span>
                 </button>
@@ -154,23 +169,49 @@ export function Home() {
         )}
       </section>
 
-      {/* Overall progress */}
-      <section>
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-xs text-white/30 uppercase tracking-widest font-medium">Общий прогресс</p>
-          <span className="text-xs font-semibold" style={{ color: "#6366f1" }}>{progress}%</span>
+      {/* XP & Progress */}
+      <section className="rounded-2xl border border-white/5 p-5 flex flex-col gap-4" style={{ background: "rgba(255,255,255,0.02)" }}>
+        {/* Overall level */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/30 uppercase tracking-widest font-medium">Общий уровень</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#6366f120", color: "#818cf8" }}>
+                Ур. {level}
+              </span>
+            </div>
+            <span className="text-xs font-semibold" style={{ color: "#818cf8" }}>✦ {totalXP} XP</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${pct}%`,
+                background: "linear-gradient(90deg,#6366f1,#a855f7)",
+                boxShadow: "0 0 12px #6366f170",
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-white/20 mt-1">До следующего уровня: {XP_LEVEL_THRESHOLDS[Math.min(level, XP_LEVEL_THRESHOLDS.length - 1)] - totalXP} XP</p>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${progress}%`,
-              background: "linear-gradient(90deg, #6366f1, #a855f7)",
-              boxShadow: "0 0 12px #6366f170",
-            }}
-          />
+
+        {/* Day progress */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-white/30 uppercase tracking-widest font-medium">Прогресс дня</span>
+            <span className="text-xs font-semibold" style={{ color: "#c084fc" }}>⚡ {dayXP} / {DAY_XP_GOAL} XP</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${dayPct}%`,
+                background: "linear-gradient(90deg,#a855f7,#ec4899)",
+                boxShadow: "0 0 8px #a855f770",
+              }}
+            />
+          </div>
         </div>
-        <p className="text-xs text-white/25 mt-1">{doneTasks} из {totalTasks} задач выполнено</p>
       </section>
 
       {/* Tasks section */}
@@ -181,22 +222,32 @@ export function Home() {
         <div className="mb-5">
           <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">Рутина</p>
           <div className="flex flex-col gap-2">
+            {routine.length === 0 && (
+              <p className="text-white/20 text-xs py-2 text-center">Нет задач рутины на сегодня</p>
+            )}
             {routine.map((task) => {
               const s = sphereColors[task.sphere];
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-white/3"
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover:bg-white/3"
                   onClick={() => toggleTask(task.id)}
+                  style={{ opacity: task.done ? 0.6 : 1 }}
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
-                  <span
-                    className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-30" : "text-white/70"}`}
-                  >
+                  <span className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-40" : "text-white/70"}`}>
                     {task.text}
                   </span>
+                  {!task.done && (
+                    <span className="text-[10px] font-semibold" style={{ color: XP_COLORS[task.xpDifficulty] }}>
+                      +{task.xp} XP
+                    </span>
+                  )}
+                  {task.done && (
+                    <span className="text-[10px] text-green-400/60 font-semibold">✓ {task.xp} XP</span>
+                  )}
                   <div
-                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0`}
+                    className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
                     style={{
                       borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
                       background: task.done ? s.color + "30" : "transparent",
@@ -212,27 +263,40 @@ export function Home() {
 
         {/* Special */}
         <div>
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">Специальные задачи</p>
+          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">План на день</p>
           <div className="flex flex-col gap-2">
+            {special.length === 0 && (
+              <p className="text-white/20 text-xs py-2 text-center">Нет специальных задач на сегодня</p>
+            )}
             {special.map((task) => {
               const s = sphereColors[task.sphere];
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-white/3"
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover:bg-white/3"
                   onClick={() => toggleTask(task.id)}
+                  style={{ opacity: task.done ? 0.6 : 1 }}
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
-                  <span
-                    className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-30" : "text-white/70"}`}
-                  >
+                  <span className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-40" : "text-white/70"}`}>
                     {task.text}
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full mr-2" style={{ color: s.color, background: s.color + "18" }}>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full mr-1 flex-shrink-0" style={{ color: s.color, background: s.color + "18" }}>
                     {s.label}
                   </span>
+                  {task.priority && (
+                    <span className="text-[9px] text-indigo-400 mr-1 flex-shrink-0">★</span>
+                  )}
+                  {!task.done && (
+                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: XP_COLORS[task.xpDifficulty] }}>
+                      +{task.xp} XP
+                    </span>
+                  )}
+                  {task.done && (
+                    <span className="text-[10px] text-green-400/60 font-semibold flex-shrink-0">✓ {task.xp} XP</span>
+                  )}
                   <div
-                    className="w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0"
+                    className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
                     style={{
                       borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
                       background: task.done ? s.color + "30" : "transparent",
@@ -269,10 +333,7 @@ export function Home() {
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && newNote.trim()) {
-                addNote(newNote.trim());
-                setNewNote("");
-              }
+              if (e.key === "Enter" && newNote.trim()) { addNote(newNote.trim()); setNewNote(""); }
             }}
           />
           <button
