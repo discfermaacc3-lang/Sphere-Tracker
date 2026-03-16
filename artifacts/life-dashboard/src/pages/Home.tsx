@@ -1,0 +1,289 @@
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
+
+const MONTH_NAMES = [
+  "Январь","Февраль","Март","Апрель","Май","Июнь",
+  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
+];
+
+function PrioritySphereSlot({
+  idx,
+  sphereKey,
+  onClear,
+}: {
+  idx: 0 | 1;
+  sphereKey: SphereKey | null;
+  onClear: () => void;
+}) {
+  const sphere = sphereKey ? sphereColors[sphereKey] : null;
+  return (
+    <div
+      className="flex-1 rounded-2xl border flex flex-col items-center justify-center gap-3 relative overflow-hidden min-h-[140px] transition-all duration-300"
+      style={{
+        borderColor: sphere ? sphere.color + "50" : "rgba(255,255,255,0.07)",
+        background: sphere
+          ? `linear-gradient(135deg, ${sphere.color}15, ${sphere.color}05)`
+          : "rgba(255,255,255,0.02)",
+      }}
+    >
+      {sphere ? (
+        <>
+          <div
+            className="absolute inset-0 opacity-10 blur-2xl"
+            style={{ background: `radial-gradient(circle at 50% 50%, ${sphere.color}, transparent 70%)` }}
+          />
+          <span
+            className="text-5xl animate-bounce"
+            style={{ filter: `drop-shadow(0 0 16px ${sphere.color})`, animationDuration: "2.5s" }}
+          >
+            {sphere.icon}
+          </span>
+          <span className="font-semibold text-base tracking-wide" style={{ color: sphere.color }}>
+            {sphere.label}
+          </span>
+          <button
+            onClick={onClear}
+            className="absolute top-2 right-3 text-white/20 hover:text-white/60 text-xs transition-colors"
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <div className="text-center">
+          <div className="text-3xl text-white/10 mb-1">+</div>
+          <p className="text-white/20 text-xs">Выбери сферу ниже</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Home() {
+  const {
+    currentMonth, prevMonth, nextMonth,
+    prioritySpheres, setPrioritySphere,
+    spherePanelOpen, toggleSpherePanel,
+    tasks, toggleTask,
+    notes, addNote, deleteNote,
+  } = useStore();
+
+  const [newNote, setNewNote] = useState("");
+
+  const totalTasks = tasks.length;
+  const doneTasks = tasks.filter((t) => t.done).length;
+  const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+
+  const routine = tasks.filter((t) => t.type === "routine");
+  const special = tasks.filter((t) => t.type === "special");
+
+  const monthLabel = `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+  function handleSphereClick(key: SphereKey) {
+    if (prioritySpheres[0] === key) { setPrioritySphere(0, null); return; }
+    if (prioritySpheres[1] === key) { setPrioritySphere(1, null); return; }
+    if (prioritySpheres[0] === null) { setPrioritySphere(0, key); return; }
+    if (prioritySpheres[1] === null) { setPrioritySphere(1, key); return; }
+    setPrioritySphere(0, key);
+  }
+
+  return (
+    <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-10">
+      {/* Header */}
+      <div className="flex items-center justify-between px-1 pt-2">
+        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Дашборд</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={prevMonth} className="text-white/30 hover:text-white/70 transition-colors text-lg px-1">‹</button>
+          <span className="text-sm text-white/60 font-medium min-w-[130px] text-center">{monthLabel}</span>
+          <button onClick={nextMonth} className="text-white/30 hover:text-white/70 transition-colors text-lg px-1">›</button>
+        </div>
+      </div>
+
+      {/* Priority spheres */}
+      <section>
+        <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">Приоритеты</p>
+        <div className="flex gap-4">
+          <PrioritySphereSlot idx={0} sphereKey={prioritySpheres[0]} onClear={() => setPrioritySphere(0, null)} />
+          <PrioritySphereSlot idx={1} sphereKey={prioritySpheres[1]} onClear={() => setPrioritySphere(1, null)} />
+        </div>
+      </section>
+
+      {/* Sphere picker */}
+      <section className="rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.02)" }}>
+        <button
+          onClick={toggleSpherePanel}
+          className="w-full flex items-center justify-between px-5 py-3 text-sm text-white/50 hover:text-white/70 transition-colors"
+        >
+          <span className="font-medium">Все сферы</span>
+          <span className="text-xs">{spherePanelOpen ? "▲" : "▼"}</span>
+        </button>
+        {spherePanelOpen && (
+          <div className="grid grid-cols-4 gap-3 px-5 pb-5">
+            {sphereKeys.map((key) => {
+              const s = sphereColors[key];
+              const active = prioritySpheres.includes(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleSphereClick(key)}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 cursor-pointer"
+                  style={{
+                    background: active ? s.color + "20" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${active ? s.color + "60" : "rgba(255,255,255,0.05)"}`,
+                    transform: active ? "scale(1.03)" : "scale(1)",
+                  }}
+                >
+                  <span
+                    className="text-2xl transition-all duration-200"
+                    style={{
+                      filter: active ? `drop-shadow(0 0 10px ${s.color})` : "grayscale(1) opacity(0.4)",
+                    }}
+                  >
+                    {s.icon}
+                  </span>
+                  <span
+                    className="text-[10px] font-medium"
+                    style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}
+                  >
+                    {s.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Overall progress */}
+      <section>
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-xs text-white/30 uppercase tracking-widest font-medium">Общий прогресс</p>
+          <span className="text-xs font-semibold" style={{ color: "#6366f1" }}>{progress}%</span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${progress}%`,
+              background: "linear-gradient(90deg, #6366f1, #a855f7)",
+              boxShadow: "0 0 12px #6366f170",
+            }}
+          />
+        </div>
+        <p className="text-xs text-white/25 mt-1">{doneTasks} из {totalTasks} задач выполнено</p>
+      </section>
+
+      {/* Tasks section */}
+      <section className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
+        <p className="text-sm font-semibold text-white/70 mb-4 tracking-wide">Задачи на сегодня</p>
+
+        {/* Routine */}
+        <div className="mb-5">
+          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">Рутина</p>
+          <div className="flex flex-col gap-2">
+            {routine.map((task) => {
+              const s = sphereColors[task.sphere];
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-white/3"
+                  onClick={() => toggleTask(task.id)}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                  <span
+                    className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-30" : "text-white/70"}`}
+                  >
+                    {task.text}
+                  </span>
+                  <div
+                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0`}
+                    style={{
+                      borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
+                      background: task.done ? s.color + "30" : "transparent",
+                    }}
+                  >
+                    {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Special */}
+        <div>
+          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">Специальные задачи</p>
+          <div className="flex flex-col gap-2">
+            {special.map((task) => {
+              const s = sphereColors[task.sphere];
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-white/3"
+                  onClick={() => toggleTask(task.id)}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                  <span
+                    className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-30" : "text-white/70"}`}
+                  >
+                    {task.text}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full mr-2" style={{ color: s.color, background: s.color + "18" }}>
+                    {s.label}
+                  </span>
+                  <div
+                    className="w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0"
+                    style={{
+                      borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
+                      background: task.done ? s.color + "30" : "transparent",
+                    }}
+                  >
+                    {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Notes */}
+      <section className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
+        <p className="text-sm font-semibold text-white/70 mb-4 tracking-wide">Заметки дня</p>
+        <div className="flex flex-col gap-2 mb-4">
+          {notes.map((note) => (
+            <div key={note.id} className="group flex items-start gap-3 p-3 rounded-xl border border-white/5 hover:border-white/10 transition-colors"
+              style={{ background: "rgba(255,255,255,0.02)" }}>
+              <p className="flex-1 text-sm text-white/60 leading-relaxed">{note.text}</p>
+              <button
+                onClick={() => deleteNote(note.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 text-xs"
+              >✕</button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white/70 placeholder-white/20 outline-none focus:border-indigo-500/50 transition-colors"
+            placeholder="Новая заметка..."
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newNote.trim()) {
+                addNote(newNote.trim());
+                setNewNote("");
+              }
+            }}
+          />
+          <button
+            onClick={() => { if (newNote.trim()) { addNote(newNote.trim()); setNewNote(""); } }}
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
+          >
+            +
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
