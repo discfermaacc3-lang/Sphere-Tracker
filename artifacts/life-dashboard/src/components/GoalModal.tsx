@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Goal, GoalLevel, GOAL_XP, TaskCategory } from "@/lib/store";
+import { Goal, GoalLevel, GOAL_XP, GOAL_TARGET_XP_DEFAULT, TaskCategory } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 
 export const CATEGORIES: TaskCategory[] = [
@@ -18,6 +18,14 @@ const LEVEL_META: Record<GoalLevel, { label: string; emoji: string; color: strin
   month: { label: "Месячная",  emoji: "🌙", color: "#6366f1" },
   week:  { label: "Недельная", emoji: "⚡", color: "#22c55e" },
 };
+
+const MONTH_NAMES = [
+  "Январь","Февраль","Март","Апрель","Май","Июнь",
+  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь",
+];
+
+const CURRENT_MONTH = new Date().getMonth();
+const CURRENT_YEAR = new Date().getFullYear();
 
 type Props = {
   level: GoalLevel;
@@ -42,13 +50,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Props) {
   const meta = LEVEL_META[level];
-  const xp = GOAL_XP[level];
+  const bonusXP = GOAL_XP[level];
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [sphere, setSphere] = useState<SphereKey>(initial?.sphere ?? "work");
   const [category, setCategory] = useState<TaskCategory>(initial?.category ?? "Other");
   const [parentId, setParentId] = useState<string | undefined>(initial?.parentId);
+  const [targetXP, setTargetXP] = useState(
+    String(initial?.targetXP ?? GOAL_TARGET_XP_DEFAULT[level])
+  );
+  const [month, setMonth] = useState<number>(
+    initial?.month ?? CURRENT_MONTH
+  );
+  const [year, setYear] = useState<number>(
+    initial?.year ?? CURRENT_YEAR
+  );
 
   function handleSave() {
     if (!title.trim()) return;
@@ -60,19 +77,27 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
       level,
       parentId: parentId || undefined,
       done: initial?.done ?? false,
-      xp,
+      xp: bonusXP,
+      targetXP: Math.max(1, parseInt(targetXP) || GOAL_TARGET_XP_DEFAULT[level]),
+      month: level !== "year" ? month : undefined,
+      year,
     });
     onClose();
   }
 
+  const targetXPPresets =
+    level === "week"  ? [50, 100, 150, 200] :
+    level === "month" ? [250, 500, 750, 1000] :
+                        [1000, 2000, 3000, 5000];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
     >
       <div
         className="w-full max-w-lg rounded-3xl border border-white/10 flex flex-col overflow-hidden"
-        style={{ background: "rgba(14,14,26,0.98)", maxHeight: "88vh" }}
+        style={{ background: "rgba(14,14,26,0.98)", maxHeight: "90vh" }}
       >
         {/* Header */}
         <div
@@ -86,7 +111,7 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
                 {initial ? "Редактировать цель" : "Новая цель"}
               </h2>
               <p className="text-[10px]" style={{ color: meta.color }}>
-                {meta.label} · {xp} XP за выполнение
+                {meta.label} · бонус +{bonusXP} XP при выполнении
               </p>
             </div>
           </div>
@@ -117,6 +142,85 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </Field>
+
+          {/* Month / Year selector */}
+          {level === "month" && (
+            <Field label="Месяц планирования">
+              <div className="flex gap-2">
+                <select
+                  className={inputCls("cursor-pointer flex-1")}
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                  style={{ colorScheme: "dark" }}
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i}>{name}</option>
+                  ))}
+                </select>
+                <select
+                  className={inputCls("cursor-pointer w-28")}
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  style={{ colorScheme: "dark" }}
+                >
+                  {[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </Field>
+          )}
+
+          {level === "week" && (
+            <Field label="Год">
+              <select
+                className={inputCls("cursor-pointer")}
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                style={{ colorScheme: "dark" }}
+              >
+                {[CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {/* Target XP */}
+          <Field label="Целевое XP (нужно набрать)">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {targetXPPresets.map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setTargetXP(String(preset))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: targetXP === String(preset) ? meta.color + "25" : "rgba(255,255,255,0.05)",
+                      color: targetXP === String(preset) ? meta.color : "rgba(255,255,255,0.35)",
+                      border: `1px solid ${targetXP === String(preset) ? meta.color + "50" : "transparent"}`,
+                    }}
+                  >
+                    {preset} XP
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls("flex-1")}
+                  placeholder="Или введи своё значение..."
+                  value={targetXP}
+                  onChange={(e) => setTargetXP(e.target.value)}
+                />
+                <span className="text-xs text-white/30 flex-shrink-0">XP</span>
+              </div>
+              <p className="text-[10px] text-white/25">
+                Цель выполнится автоматически, когда сумма XP привязанных задач достигнет этого значения
+              </p>
+            </div>
           </Field>
 
           {/* Sphere */}
@@ -189,7 +293,7 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
             </Field>
           )}
 
-          {/* XP info */}
+          {/* Bonus XP info */}
           <div
             className="rounded-xl px-4 py-3 flex items-center gap-3"
             style={{ background: `${meta.color}12`, border: `1px solid ${meta.color}25` }}
@@ -197,12 +301,12 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
             <span className="text-xl">{meta.emoji}</span>
             <div>
               <p className="text-xs font-semibold" style={{ color: meta.color }}>
-                +{xp} XP за выполнение
+                Бонус +{bonusXP} XP при достижении
               </p>
               <p className="text-[10px] text-white/25">
-                {level === "year" && "Годовые цели дают максимум XP"}
-                {level === "month" && "Месячные цели — крупные шаги к годовой"}
-                {level === "week" && "Недельные цели — конкретные шаги к месячной"}
+                {level === "year" && "Бонус зачтётся, когда набранный XP достигнет целевого"}
+                {level === "month" && "Выполнение месячной цели добавляет XP в родительскую годовую"}
+                {level === "week" && "Выполнение недельной цели добавляет XP в родительскую месячную"}
               </p>
             </div>
           </div>

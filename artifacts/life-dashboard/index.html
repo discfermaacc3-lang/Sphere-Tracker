@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Life Dashboard</title>
+    <script>
+      // Suppress browser-extension errors (MetaMask, crypto wallets) from Vite overlay
+      window.addEventListener('unhandledrejection', function(e) {
+        var stack = (e.reason && e.reason.stack) || '';
+        var msg = (e.reason && e.reason.message) || '';
+        if (
+          stack.indexOf('chrome-extension://') !== -1 ||
+          msg.indexOf('MetaMask') !== -1 ||
+          msg.indexOf('Receiving end does not exist') !== -1 ||
+          msg.indexOf('Could not establish connection') !== -1
+        ) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

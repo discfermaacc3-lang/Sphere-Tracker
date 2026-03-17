@@ -16,13 +16,19 @@ export const GOAL_XP: Record<GoalLevel, number> = {
   week: 100,
 };
 
+export const GOAL_TARGET_XP_DEFAULT: Record<GoalLevel, number> = {
+  year: 2000,
+  month: 500,
+  week: 100,
+};
+
 export const IDEA_CATEGORIES: { key: IdeaCategory; label: string; emoji: string; color: string }[] = [
-  { key: "gift",       label: "Подарок",        emoji: "🎁", color: "#f43f5e" },
-  { key: "hobby",      label: "Хобби",          emoji: "🎯", color: "#f59e0b" },
-  { key: "creativity", label: "Творчество",     emoji: "🎨", color: "#a855f7" },
-  { key: "travel",     label: "Путешествия",    emoji: "✈️", color: "#06b6d4" },
-  { key: "learn",      label: "Изучить",        emoji: "📚", color: "#3b82f6" },
-  { key: "other",      label: "Другое",         emoji: "💡", color: "#64748b" },
+  { key: "gift",       label: "Подарок",     emoji: "🎁", color: "#f43f5e" },
+  { key: "hobby",      label: "Хобби",       emoji: "🎯", color: "#f59e0b" },
+  { key: "creativity", label: "Творчество",  emoji: "🎨", color: "#a855f7" },
+  { key: "travel",     label: "Путешествия", emoji: "✈️", color: "#06b6d4" },
+  { key: "learn",      label: "Изучить",     emoji: "📚", color: "#3b82f6" },
+  { key: "other",      label: "Другое",      emoji: "💡", color: "#64748b" },
 ];
 
 export type Goal = {
@@ -34,7 +40,10 @@ export type Goal = {
   level: GoalLevel;
   parentId?: string;
   done: boolean;
-  xp: number;
+  xp: number;        // bonus XP awarded when goal auto-completes
+  targetXP: number;  // XP needed to auto-complete
+  month?: number;    // 0-11, for month-level goals
+  year?: number;     // full year, e.g. 2026
 };
 
 export type Idea = {
@@ -81,6 +90,23 @@ export type Note = {
 };
 
 export type SphereLevels = Record<SphereKey, number>;
+
+// Compute earned XP for a goal from tasks + completed children
+export function computeGoalEarnedXP(
+  goal: Goal,
+  allGoals: Goal[],
+  allTasks: Task[]
+): number {
+  const directXP = allTasks
+    .filter((t) => t.goalId === goal.id && t.done)
+    .reduce((s, t) => s + t.xp, 0);
+
+  const childXP = allGoals
+    .filter((g) => g.parentId === goal.id && g.done)
+    .reduce((s, g) => s + g.xp, 0);
+
+  return directXP + childXP;
+}
 
 type Store = {
   currentPage: string;
@@ -137,31 +163,51 @@ const defaultLevels = Object.fromEntries(
 ) as SphereLevels;
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = new Date().getMonth();
 
 const defaultGoals: Goal[] = [
   {
-    id: "g-y1", title: "Выстроить здоровый образ жизни", description: "Бег, питание, сон",
-    sphere: "health", category: "Body", level: "year", done: false, xp: 1000,
+    id: "g-y1", title: "Выстроить здоровый образ жизни",
+    description: "Бег, питание, сон",
+    sphere: "health", category: "Body", level: "year",
+    done: false, xp: 1000, targetXP: 2000,
+    year: CURRENT_YEAR,
   },
   {
-    id: "g-y2", title: "Продвинуться по карьере", description: "Новый проект или повышение",
-    sphere: "work", category: "Work", level: "year", done: false, xp: 1000,
+    id: "g-y2", title: "Продвинуться по карьере",
+    description: "Новый проект или повышение",
+    sphere: "work", category: "Work", level: "year",
+    done: false, xp: 1000, targetXP: 2000,
+    year: CURRENT_YEAR,
   },
   {
-    id: "g-m1", title: "Начать бегать 5 км", description: "Выработать утреннюю привычку",
-    sphere: "health", category: "Body", level: "month", parentId: "g-y1", done: false, xp: 250,
+    id: "g-m1", title: "Начать бегать 5 км",
+    description: "Выработать утреннюю привычку",
+    sphere: "health", category: "Body", level: "month",
+    parentId: "g-y1", done: false, xp: 250, targetXP: 500,
+    month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
   {
-    id: "g-m2", title: "Запустить новый проект", description: "MVP до конца месяца",
-    sphere: "work", category: "Work", level: "month", parentId: "g-y2", done: false, xp: 250,
+    id: "g-m2", title: "Запустить новый проект",
+    description: "MVP до конца месяца",
+    sphere: "work", category: "Work", level: "month",
+    parentId: "g-y2", done: false, xp: 250, targetXP: 500,
+    month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
   {
-    id: "g-w1", title: "Пробежать 3 раза на этой неделе", description: "",
-    sphere: "health", category: "Body", level: "week", parentId: "g-m1", done: false, xp: 100,
+    id: "g-w1", title: "Пробежать 3 раза на этой неделе",
+    description: "",
+    sphere: "health", category: "Body", level: "week",
+    parentId: "g-m1", done: false, xp: 100, targetXP: 100,
+    month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
   {
-    id: "g-w2", title: "Написать техническое задание", description: "",
-    sphere: "work", category: "Work", level: "week", parentId: "g-m2", done: false, xp: 100,
+    id: "g-w2", title: "Написать техническое задание",
+    description: "",
+    sphere: "work", category: "Work", level: "week",
+    parentId: "g-m2", done: false, xp: 100, targetXP: 100,
+    month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
 ];
 
@@ -222,11 +268,67 @@ const defaultNotes: Note[] = [
   { id: "n2", title: "Идея проекта", text: "Нужно записать идею про автоматизацию утра.", createdAt: "2026-03-15" },
 ];
 
+// Auto-complete goals cascade: after tasks change, recheck goals
+function autoCompleteGoals(
+  tasks: Task[],
+  goals: Goal[],
+  bonusXP: number
+): { goals: Goal[]; bonusXP: number } {
+  let changed = true;
+  let currentGoals = [...goals];
+  let totalBonus = bonusXP;
+
+  while (changed) {
+    changed = false;
+    const nextGoals = currentGoals.map((g) => {
+      if (g.done) return g;
+      const earned = computeGoalEarnedXP(g, currentGoals, tasks);
+      if (earned >= g.targetXP) {
+        changed = true;
+        totalBonus += g.xp;
+        return { ...g, done: true };
+      }
+      return g;
+    });
+    currentGoals = nextGoals;
+  }
+
+  return { goals: currentGoals, bonusXP: totalBonus };
+}
+
+// Reverse: when task is un-done, un-complete goals that no longer have enough XP
+function autoUncompleteGoals(
+  tasks: Task[],
+  goals: Goal[],
+  penaltyXP: number
+): { goals: Goal[]; penaltyXP: number } {
+  let changed = true;
+  let currentGoals = [...goals];
+  let totalPenalty = penaltyXP;
+
+  while (changed) {
+    changed = false;
+    const nextGoals = currentGoals.map((g) => {
+      if (!g.done) return g;
+      const earned = computeGoalEarnedXP(g, currentGoals, tasks);
+      if (earned < g.targetXP) {
+        changed = true;
+        totalPenalty += g.xp;
+        return { ...g, done: false };
+      }
+      return g;
+    });
+    currentGoals = nextGoals;
+  }
+
+  return { goals: currentGoals, penaltyXP: totalPenalty };
+}
+
 export const useStore = create<Store>((set, get) => ({
   currentPage: "home",
   setCurrentPage: (page) => set({ currentPage: page }),
 
-  currentMonth: new Date(2026, 2, 1),
+  currentMonth: new Date(CURRENT_YEAR, CURRENT_MONTH, 1),
   prevMonth: () =>
     set((s) => {
       const d = new Date(s.currentMonth);
@@ -281,12 +383,13 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const goal = s.goals.find((g) => g.id === id);
       if (!goal) return {};
-      if (goal.done) {
-        get().subtractXP(goal.xp);
-      } else {
-        get().addXP(goal.xp);
-      }
-      return { goals: s.goals.map((g) => (g.id === id ? { ...g, done: !g.done } : g)) };
+      const newDone = !goal.done;
+      const xpDelta = newDone ? goal.xp : -goal.xp;
+      return {
+        goals: s.goals.map((g) => (g.id === id ? { ...g, done: newDone } : g)),
+        totalXP: Math.max(0, s.totalXP + xpDelta),
+        dayXP: Math.max(0, s.dayXP + xpDelta),
+      };
     }),
 
   ideas: defaultIdeas,
@@ -302,13 +405,31 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const task = s.tasks.find((t) => t.id === id);
       if (!task) return {};
-      if (task.done) {
-        get().subtractXP(task.xp);
+      const wasDone = task.done;
+      const newTasks = s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+
+      let taskXPDelta = wasDone ? -task.xp : task.xp;
+      let goalsDelta = 0;
+      let newGoals = s.goals;
+
+      if (!wasDone) {
+        // Task just completed — auto-complete any goals that now have enough XP
+        const result = autoCompleteGoals(newTasks, s.goals, 0);
+        newGoals = result.goals;
+        goalsDelta = result.bonusXP;
       } else {
-        get().addXP(task.xp);
+        // Task un-completed — un-complete any goals that no longer have enough XP
+        const result = autoUncompleteGoals(newTasks, s.goals, 0);
+        newGoals = result.goals;
+        goalsDelta = -result.penaltyXP;
       }
+
+      const totalDelta = taskXPDelta + goalsDelta;
       return {
-        tasks: s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+        tasks: newTasks,
+        goals: newGoals,
+        totalXP: Math.max(0, s.totalXP + totalDelta),
+        dayXP: Math.max(0, s.dayXP + taskXPDelta),
       };
     }),
   addTask: (task) =>

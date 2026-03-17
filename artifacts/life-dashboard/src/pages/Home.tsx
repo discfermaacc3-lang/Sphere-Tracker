@@ -314,30 +314,49 @@ export function Home() {
       {/* Notes */}
       <section className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
         <p className="text-sm font-semibold text-white/70 mb-4 tracking-wide">Заметки дня</p>
+        {/* Show today's notes */}
         <div className="flex flex-col gap-2 mb-4">
-          {notes.map((note) => (
-            <div key={note.id} className="group flex items-start gap-3 p-3 rounded-xl border border-white/5 hover:border-white/10 transition-colors"
-              style={{ background: "rgba(255,255,255,0.02)" }}>
-              <p className="flex-1 text-sm text-white/60 leading-relaxed">{note.text}</p>
-              <button
-                onClick={() => deleteNote(note.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 text-xs"
-              >✕</button>
-            </div>
-          ))}
+          {notes
+            .filter((n) => n.createdAt === TODAY)
+            .slice(0, 3)
+            .map((note) => (
+              <div key={note.id} className="group flex items-start gap-3 p-3 rounded-xl border border-indigo-500/15 hover:border-indigo-500/25 transition-colors"
+                style={{ background: "rgba(99,102,241,0.04)" }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white/60 mb-0.5">{note.title}</p>
+                  {note.text && <p className="text-xs text-white/35 leading-relaxed truncate">{note.text}</p>}
+                </div>
+                <button
+                  onClick={() => deleteNote(note.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 text-xs flex-shrink-0"
+                >✕</button>
+              </div>
+            ))}
+          {notes.filter((n) => n.createdAt === TODAY).length === 0 && (
+            <p className="text-xs text-white/20 text-center py-2">Нет заметок за сегодня</p>
+          )}
         </div>
+        {/* Quick add */}
         <div className="flex gap-2">
           <input
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white/70 placeholder-white/20 outline-none focus:border-indigo-500/50 transition-colors"
-            placeholder="Новая заметка..."
+            placeholder="Быстрая заметка..."
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && newNote.trim()) { addNote(newNote.trim()); setNewNote(""); }
+              if (e.key === "Enter" && newNote.trim()) {
+                addNote({ title: newNote.trim(), text: "", createdAt: TODAY });
+                setNewNote("");
+              }
             }}
           />
           <button
-            onClick={() => { if (newNote.trim()) { addNote(newNote.trim()); setNewNote(""); } }}
+            onClick={() => {
+              if (newNote.trim()) {
+                addNote({ title: newNote.trim(), text: "", createdAt: TODAY });
+                setNewNote("");
+              }
+            }}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
           >
