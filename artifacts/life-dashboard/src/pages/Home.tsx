@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useStore } from "@/lib/store";
+import { useState, useCallback } from "react";
+import { useStore, Task } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 
 const MONTH_NAMES = [

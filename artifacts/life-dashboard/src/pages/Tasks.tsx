@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useStore, Task, RoutineTemplate } from "@/lib/store";
 import { sphereColors, sphereKeys } from "@/lib/sphereColors";
 import { TaskModal } from "@/components/TaskModal";
+import { CustomDatePicker } from "@/components/CustomDatePicker";
 
 const XP_COLORS: Record<string, string> = {
   easy: "#22c55e", medium: "#eab308", hard: "#ef4444", custom: "#a855f7",
 };
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function TaskCard({
   task,
@@ -37,7 +40,6 @@ function TaskCard({
     >
       {/* Main row */}
       <div className="flex items-start gap-3">
-        {/* Checkbox */}
         <button
           onClick={onToggle}
           className="mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
@@ -49,7 +51,6 @@ function TaskCard({
           {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
         </button>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-sm font-medium ${task.done ? "line-through text-white/30" : "text-white/75"}`}>
@@ -74,11 +75,16 @@ function TaskCard({
             >
               +{task.xp} XP
             </span>
-            {!task.noDeadline && task.dueDate && (
+            {!task.noDeadline && task.dueDate && task.dueDate !== TODAY && (
               <span className="text-[10px] text-white/25">
                 📅 {task.dueDate}
                 {task.timeFrom && ` · ${task.timeFrom}`}
                 {task.timeTo && `–${task.timeTo}`}
+              </span>
+            )}
+            {task.timeFrom && task.dueDate === TODAY && (
+              <span className="text-[10px] text-white/25">
+                🕐 {task.timeFrom}{task.timeTo && `–${task.timeTo}`}
               </span>
             )}
             {goalTitle && (
@@ -87,54 +93,52 @@ function TaskCard({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={() => setShowReschedule(!showReschedule)}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
             title="Перенести"
-          >
-            📅
-          </button>
+          >📅</button>
           <button
             onClick={onEdit}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
-            title="Редактировать"
-          >
-            ✎
-          </button>
+          >✎</button>
           <button
             onClick={onDelete}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all"
-            title="Удалить"
-          >
-            ✕
-          </button>
+          >✕</button>
         </div>
       </div>
 
-      {/* Reschedule picker */}
+      {/* Reschedule - custom dark date picker */}
       {showReschedule && (
-        <div className="flex gap-2 items-center pl-8">
-          <input
-            type="date"
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white/60 outline-none focus:border-indigo-500/40 transition-colors"
+        <div className="pl-8">
+          <CustomDatePicker
             value={newDate}
-            onChange={(e) => setNewDate(e.target.value)}
+            onChange={setNewDate}
+            accentColor="#6366f1"
+            placeholder="Выбрать новую дату"
           />
-          <button
-            onClick={() => { onReschedule(newDate); setShowReschedule(false); }}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
-          >
-            Перенести
-          </button>
-          <button
-            onClick={() => setShowReschedule(false)}
-            className="text-xs text-white/25 hover:text-white/50"
-          >
-            Отмена
-          </button>
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => {
+                if (newDate) {
+                  onReschedule(newDate);
+                  setShowReschedule(false);
+                }
+              }}
+              className="flex-1 px-3 py-1.5 rounded-xl text-xs font-medium"
+              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
+            >
+              Перенести
+            </button>
+            <button
+              onClick={() => setShowReschedule(false)}
+              className="px-3 py-1.5 rounded-xl text-xs text-white/30 hover:text-white/60 border border-white/10"
+            >
+              Отмена
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -173,15 +177,11 @@ function TemplateCard({
         <button
           onClick={onEdit}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
-        >
-          ✎
-        </button>
+        >✎</button>
         <button
           onClick={onDelete}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all"
-        >
-          ✕
-        </button>
+        >✕</button>
       </div>
     </div>
   );
@@ -199,14 +199,27 @@ export function Tasks() {
     return goals.find((g) => g.id === id)?.title;
   };
 
-  const [tab, setTab] = useState<"tasks" | "templates">("tasks");
+  const [tab, setTab] = useState<"tasks" | "upcoming" | "templates">("tasks");
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<RoutineTemplate | null>(null);
   const [filterSphere, setFilterSphere] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
-  const filtered = tasks.filter((t) => {
+  // Today's tasks = dueDate === TODAY, or noDeadline
+  const todayTasks = tasks.filter((t) => {
+    if (t.noDeadline) return true;
+    return t.dueDate === TODAY;
+  });
+
+  // Upcoming tasks = future date (not today or no deadline)
+  const upcomingTasks = tasks.filter((t) => {
+    if (t.noDeadline) return false;
+    return t.dueDate && t.dueDate > TODAY;
+  }).sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+
+  // Apply filters to today's tasks
+  const filtered = todayTasks.filter((t) => {
     if (filterSphere !== "all" && t.sphere !== filterSphere) return false;
     if (filterType !== "all" && t.type !== filterType) return false;
     return true;
@@ -215,28 +228,33 @@ export function Tasks() {
   const routine = filtered.filter((t) => t.type === "routine");
   const special = filtered.filter((t) => t.type === "special");
 
-  const doneTasks = tasks.filter((t) => t.done).length;
+  const doneTodayCount = todayTasks.filter((t) => t.done).length;
+  const totalTodayCount = todayTasks.length;
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-10">
 
       {/* Header */}
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Задачи</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-white/80 tracking-wide">Задачи</h1>
+          <p className="text-xs text-white/30 mt-0.5">
+            {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
+        </div>
         <div className="flex items-center gap-3">
-          {/* XP badges */}
           <div className="flex gap-2">
             <span className="text-xs px-3 py-1 rounded-full font-semibold"
               style={{ background: "#6366f115", color: "#818cf8", border: "1px solid #6366f125" }}>
-              ✦ {totalXP} XP всего
+              ✦ {totalXP} XP
             </span>
             <span className="text-xs px-3 py-1 rounded-full font-semibold"
               style={{ background: "#a855f715", color: "#c084fc", border: "1px solid #a855f725" }}>
-              ⚡ {dayXP} XP сегодня
+              ⚡ {dayXP} сегодня
             </span>
           </div>
           <button
-            onClick={() => { setEditingTask(null); setShowModal(true); }}
+            onClick={() => { setEditingTask(null); setShowModal(true); setTab("tasks"); }}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
           >
@@ -247,38 +265,43 @@ export function Tasks() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)" }}>
-        {([["tasks", "Задачи"], ["templates", "Шаблоны рутины"]] as const).map(([key, label]) => (
+        {([
+          ["tasks", "Сегодня", doneTodayCount + "/" + totalTodayCount],
+          ["upcoming", "Предстоящие", upcomingTasks.length > 0 ? String(upcomingTasks.length) : ""],
+          ["templates", "Шаблоны рутины", ""],
+        ] as const).map(([key, label, badge]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+            className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5"
             style={{
               background: tab === key ? "rgba(255,255,255,0.08)" : "transparent",
               color: tab === key ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.3)",
             }}
           >
             {label}
+            {badge && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: tab === key ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
+                  color: tab === key ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)",
+                }}
+              >
+                {badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
+      {/* ─── TODAY ─── */}
       {tab === "tasks" && (
         <>
           {/* Filters */}
           <div className="flex gap-3 flex-wrap items-center">
             <div className="flex gap-1.5 flex-wrap">
-              <button
-                onClick={() => setFilterType("all")}
-                className="text-xs px-3 py-1 rounded-full transition-all"
-                style={{
-                  background: filterType === "all" ? "#6366f120" : "rgba(255,255,255,0.04)",
-                  color: filterType === "all" ? "#818cf8" : "rgba(255,255,255,0.3)",
-                  border: `1px solid ${filterType === "all" ? "#6366f140" : "transparent"}`,
-                }}
-              >
-                Все
-              </button>
-              {(["routine", "special"] as const).map((t) => (
+              {(["all", "routine", "special"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setFilterType(t)}
@@ -289,7 +312,7 @@ export function Tasks() {
                     border: `1px solid ${filterType === t ? "#6366f140" : "transparent"}`,
                   }}
                 >
-                  {t === "routine" ? "Рутина" : "Специальные"}
+                  {t === "all" ? "Все" : t === "routine" ? "Рутина" : "Специальные"}
                 </button>
               ))}
             </div>
@@ -326,20 +349,24 @@ export function Tasks() {
             </div>
           </div>
 
-          {/* Stats bar */}
-          <div className="rounded-2xl border border-white/5 px-5 py-3 flex items-center gap-4"
-            style={{ background: "rgba(255,255,255,0.02)" }}>
+          {/* Progress bar */}
+          <div
+            className="rounded-2xl border border-white/5 px-5 py-3 flex items-center gap-4"
+            style={{ background: "rgba(255,255,255,0.02)" }}
+          >
             <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
-                  width: `${tasks.length ? (doneTasks / tasks.length) * 100 : 0}%`,
+                  width: `${totalTodayCount ? (doneTodayCount / totalTodayCount) * 100 : 0}%`,
                   background: "linear-gradient(90deg,#6366f1,#a855f7)",
                   boxShadow: "0 0 10px #6366f160",
                 }}
               />
             </div>
-            <span className="text-xs text-white/40 flex-shrink-0">{doneTasks}/{tasks.length} выполнено</span>
+            <span className="text-xs text-white/40 flex-shrink-0">
+              {doneTodayCount}/{totalTodayCount} выполнено сегодня
+            </span>
           </div>
 
           {/* Routine group */}
@@ -348,7 +375,13 @@ export function Tasks() {
               <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">Рутина</p>
               <div className="flex flex-col gap-2">
                 {routine.length === 0 && (
-                  <p className="text-white/20 text-sm py-3 text-center">Нет задач рутины</p>
+                  <div
+                    className="rounded-2xl border border-white/5 p-5 text-center"
+                    style={{ background: "rgba(255,255,255,0.01)" }}
+                  >
+                    <p className="text-white/20 text-sm">Нет рутины на сегодня</p>
+                    <p className="text-white/10 text-xs mt-1">Нажми «Обновить день» на вкладке Шаблоны</p>
+                  </div>
                 )}
                 {routine.map((task) => (
                   <TaskCard
@@ -368,10 +401,18 @@ export function Tasks() {
           {/* Special group */}
           {(filterType === "all" || filterType === "special") && (
             <section>
-              <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">Специальные задачи</p>
+              <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">
+                План на день
+              </p>
               <div className="flex flex-col gap-2">
                 {special.length === 0 && (
-                  <p className="text-white/20 text-sm py-3 text-center">Нет специальных задач</p>
+                  <div
+                    className="rounded-2xl border border-dashed border-white/8 p-8 text-center"
+                    style={{ background: "rgba(255,255,255,0.01)" }}
+                  >
+                    <p className="text-white/20 text-sm">Чистый лист ✨</p>
+                    <p className="text-white/10 text-xs mt-1">Добавь задачи на сегодня через кнопку «+ Задача»</p>
+                  </div>
                 )}
                 {special.map((task) => (
                   <TaskCard
@@ -390,13 +431,48 @@ export function Tasks() {
         </>
       )}
 
+      {/* ─── UPCOMING ─── */}
+      {tab === "upcoming" && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-medium text-white/60">Предстоящие задачи</p>
+            <span className="text-xs text-white/25">{upcomingTasks.length} задач</span>
+          </div>
+          {upcomingTasks.length === 0 ? (
+            <div
+              className="rounded-2xl border border-white/5 p-8 text-center"
+              style={{ background: "rgba(255,255,255,0.015)" }}
+            >
+              <p className="text-3xl mb-3">📅</p>
+              <p className="text-white/30 text-sm">Нет предстоящих задач</p>
+              <p className="text-white/15 text-xs mt-1">Задачи с будущей датой появятся здесь</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {upcomingTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  goalTitle={goalTitleById(task.goalId)}
+                  onToggle={() => toggleTask(task.id)}
+                  onEdit={() => { setEditingTask(task); setShowModal(true); }}
+                  onDelete={() => deleteTask(task.id)}
+                  onReschedule={(d) => rescheduleTask(task.id, d)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ─── TEMPLATES ─── */}
       {tab === "templates" && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-white/70">Шаблоны рутины</p>
               <p className="text-xs text-white/25 mt-0.5">
-                Каждое утро или по кнопке — автоматически копируются в раздел рутины на сегодня
+                Каждое утро или по кнопке — автоматически копируются в Сегодня
               </p>
             </div>
             <div className="flex gap-2">
@@ -417,8 +493,10 @@ export function Tasks() {
           </div>
           <div className="flex flex-col gap-2">
             {routineTemplates.length === 0 && (
-              <div className="rounded-2xl border border-white/5 p-6 text-center"
-                style={{ background: "rgba(255,255,255,0.015)" }}>
+              <div
+                className="rounded-2xl border border-white/5 p-6 text-center"
+                style={{ background: "rgba(255,255,255,0.015)" }}
+              >
                 <p className="text-white/25 text-sm">Нет шаблонов рутины</p>
                 <p className="text-white/15 text-xs mt-1">Создай шаблон — он будет появляться каждый день</p>
               </div>
@@ -436,7 +514,7 @@ export function Tasks() {
       )}
 
       {/* Modals */}
-      {showModal && tab === "tasks" && (
+      {showModal && tab !== "templates" && (
         <TaskModal
           mode="task"
           initial={editingTask ?? undefined}

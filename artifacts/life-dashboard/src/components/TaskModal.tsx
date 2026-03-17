@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Task, TaskCategory, XpDifficulty, RoutineTemplate, useStore } from "@/lib/store";
+import { Task, TaskCategory, XpDifficulty, RoutineTemplate, useStore, computeGoalEarnedXP } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
+import { CustomDatePicker } from "./CustomDatePicker";
+import { CustomTimePicker } from "./CustomTimePicker";
 
 const CATEGORIES: TaskCategory[] = [
   "Body", "Mindset", "Creativity", "Hobby",
@@ -70,7 +72,7 @@ function inputCls(extra = "") {
 
 export function TaskModal(props: Props) {
   const { onClose } = props;
-  const { goals } = useStore();
+  const { goals, tasks } = useStore();
 
   const weekGoals = goals.filter((g) => g.level === "week");
 
@@ -94,7 +96,9 @@ export function TaskModal(props: Props) {
     props.mode === "task" ? (props.initial?.noDeadline ?? false) : true
   );
   const [dueDate, setDueDate] = useState(
-    props.mode === "task" ? (props.initial?.dueDate ?? new Date().toISOString().slice(0, 10)) : ""
+    props.mode === "task"
+      ? (props.initial?.dueDate ?? new Date().toISOString().slice(0, 10))
+      : ""
   );
   const [timeFrom, setTimeFrom] = useState(
     props.mode === "task" ? (props.initial?.timeFrom ?? "") : ""
@@ -110,6 +114,13 @@ export function TaskModal(props: Props) {
     xpPreset === "custom"
       ? (parseInt(customXp) || 0)
       : XP_PRESETS.find((p) => p.diff === xpPreset)!.value;
+
+  // Selected goal info for mini-card
+  const selectedGoal = weekGoals.find((g) => g.id === goalId) ?? null;
+  const goalEarnedXP = selectedGoal ? computeGoalEarnedXP(selectedGoal, goals, tasks) : 0;
+  const goalPct = selectedGoal
+    ? Math.min(100, Math.round((goalEarnedXP / selectedGoal.targetXP) * 100))
+    : 0;
 
   function handleSave() {
     if (!text.trim()) return;
@@ -143,10 +154,13 @@ export function TaskModal(props: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}
+    >
       <div
         className="w-full max-w-lg rounded-3xl border border-white/10 flex flex-col overflow-hidden"
-        style={{ background: "rgba(14,14,26,0.98)", maxHeight: "90vh" }}
+        style={{ background: "rgba(14,14,26,0.98)", maxHeight: "92vh" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
@@ -216,7 +230,10 @@ export function TaskModal(props: Props) {
                       border: `1px solid ${active ? s.color + "50" : "rgba(255,255,255,0.06)"}`,
                     }}
                   >
-                    <span className="text-lg" style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}>
+                    <span
+                      className="text-lg"
+                      style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}
+                    >
                       {s.icon}
                     </span>
                     <span className="text-[9px]" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>
@@ -262,8 +279,8 @@ export function TaskModal(props: Props) {
                 {priority && <span className="text-xs text-indigo-400">✓</span>}
               </div>
               <div>
-                <p className="text-sm text-white/70">Сделать приоритетной этого месяца</p>
-                <p className="text-[10px] text-white/25">Задача попадёт в блок приоритетов на Главной</p>
+                <p className="text-sm text-white/70">Сделать приоритетной</p>
+                <p className="text-[10px] text-white/25">Попадёт в блок приоритетов на Главной</p>
               </div>
             </label>
           )}
@@ -303,9 +320,10 @@ export function TaskModal(props: Props) {
             </div>
           </Field>
 
+          {/* Date / Time */}
           {props.mode === "task" && (
             <Field label="Срок">
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <div
                     onClick={() => setNoDeadline(!noDeadline)}
@@ -319,29 +337,32 @@ export function TaskModal(props: Props) {
                   </div>
                   <span className="text-xs text-white/50">Без срока</span>
                 </label>
+
                 {!noDeadline && (
                   <div className="flex flex-col gap-2">
-                    <input
-                      type="date"
-                      className={inputCls()}
+                    <CustomDatePicker
                       value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
+                      onChange={setDueDate}
+                      accentColor="#6366f1"
+                      placeholder="Выбрать дату"
                     />
                     <div className="flex gap-2">
-                      <input
-                        type="time"
-                        className={inputCls("flex-1")}
-                        placeholder="С"
-                        value={timeFrom}
-                        onChange={(e) => setTimeFrom(e.target.value)}
-                      />
-                      <input
-                        type="time"
-                        className={inputCls("flex-1")}
-                        placeholder="До"
-                        value={timeTo}
-                        onChange={(e) => setTimeTo(e.target.value)}
-                      />
+                      <div className="flex-1">
+                        <CustomTimePicker
+                          value={timeFrom}
+                          onChange={setTimeFrom}
+                          placeholder="Начало"
+                          accentColor="#6366f1"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <CustomTimePicker
+                          value={timeTo}
+                          onChange={setTimeTo}
+                          placeholder="Конец"
+                          accentColor="#6366f1"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -349,25 +370,98 @@ export function TaskModal(props: Props) {
             </Field>
           )}
 
-          {/* Goal link — shows actual weekly goals from store */}
+          {/* Goal link with mini-card */}
           {props.mode === "task" && (
-            <Field label="Цель недели (привязка)">
-              <select
-                className={inputCls("cursor-pointer")}
-                value={goalId}
-                onChange={(e) => setGoalId(e.target.value)}
-                style={{ colorScheme: "dark" }}
-              >
-                <option value="">— Без привязки к цели —</option>
-                {weekGoals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {sphereColors[g.sphere].icon} {g.title}
-                  </option>
-                ))}
-              </select>
-              {weekGoals.length === 0 && (
-                <p className="text-[10px] text-white/20 mt-1">Сначала создай цели недели на странице «Цели»</p>
-              )}
+            <Field label="Привязать к цели недели">
+              <div className="flex flex-col gap-2">
+                <select
+                  className={inputCls("cursor-pointer")}
+                  value={goalId}
+                  onChange={(e) => setGoalId(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                >
+                  <option value="">— Без привязки к цели —</option>
+                  {weekGoals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {sphereColors[g.sphere].icon} {g.title}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Goal mini-card */}
+                {selectedGoal && (() => {
+                  const s = sphereColors[selectedGoal.sphere];
+                  return (
+                    <div
+                      className="rounded-2xl px-4 py-3 flex flex-col gap-2"
+                      style={{
+                        background: s.color + "0c",
+                        border: `1px solid ${s.color}30`,
+                      }}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-xl"
+                          style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                        >
+                          {s.icon}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-white/75 truncate">
+                            {selectedGoal.title}
+                          </p>
+                          <p className="text-[9px] text-white/35 mt-0.5">
+                            {s.label} · 🎯 Цель недели
+                          </p>
+                        </div>
+                        {selectedGoal.done && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 flex-shrink-0">
+                            Выполнена
+                          </span>
+                        )}
+                      </div>
+
+                      {/* XP progress */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-[9px] text-white/30">
+                            Прогресс · {goalEarnedXP} / {selectedGoal.targetXP} XP
+                          </span>
+                          <span
+                            className="text-[9px] font-bold"
+                            style={{ color: s.color }}
+                          >
+                            {goalPct}%
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 rounded-full overflow-hidden"
+                          style={{ background: "rgba(255,255,255,0.07)" }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${goalPct}%`,
+                              background: `linear-gradient(90deg, ${s.color}70, ${s.color})`,
+                              boxShadow: `0 0 6px ${s.color}50`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[9px] text-white/20 mt-1.5">
+                          ⚡ Твоя задача добавит {resolvedXp} XP к этой цели
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {weekGoals.length === 0 && (
+                  <p className="text-[10px] text-white/20">
+                    Сначала создай цели недели на странице «Цели»
+                  </p>
+                )}
+              </div>
             </Field>
           )}
         </div>
