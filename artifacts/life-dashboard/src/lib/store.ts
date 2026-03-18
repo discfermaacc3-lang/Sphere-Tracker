@@ -222,6 +222,10 @@ type Store = {
   addCalendarEvent: (e: Omit<CalendarEvent, "id">) => void;
   deleteCalendarEvent: (id: string) => void;
 
+  calendarDrafts: { id: string; text: string }[];
+  addCalendarDraft: (text: string) => void;
+  removeCalendarDraft: (id: string) => void;
+
   recurringTaskTemplates: RecurringTaskTemplate[];
   addRecurringTaskTemplate: (t: Omit<RecurringTaskTemplate, "id">) => void;
   deleteRecurringTaskTemplate: (id: string) => void;
@@ -609,6 +613,12 @@ export const useStore = create<Store>()(
       deleteCalendarEvent: (id) =>
         set((s) => ({ calendarEvents: s.calendarEvents.filter((e) => e.id !== id) })),
 
+      calendarDrafts: [],
+      addCalendarDraft: (text) =>
+        set((s) => ({ calendarDrafts: [...s.calendarDrafts, { id: "draft-" + Date.now(), text }] })),
+      removeCalendarDraft: (id) =>
+        set((s) => ({ calendarDrafts: s.calendarDrafts.filter((d) => d.id !== id) })),
+
       recurringTaskTemplates: [],
       addRecurringTaskTemplate: (t) =>
         set((s) => ({ recurringTaskTemplates: [...s.recurringTaskTemplates, { ...t, id: "rt-" + Date.now() }] })),
@@ -635,6 +645,7 @@ export const useStore = create<Store>()(
         routineTemplates: s.routineTemplates,
         notes: s.notes,
         calendarEvents: s.calendarEvents,
+        calendarDrafts: s.calendarDrafts,
         recurringTaskTemplates: s.recurringTaskTemplates,
       }),
       // Revive Date objects and recompute derived state after loading
