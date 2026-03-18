@@ -35,7 +35,12 @@ export function Calendar() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto pb-10">
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Календарь</h1>
+        <h1
+          className="text-xl font-light tracking-[0.15em] uppercase"
+          style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}
+        >
+          Календарь
+        </h1>
         <div className="flex items-center gap-3">
           <button onClick={prevMonth} className="text-white/30 hover:text-white/70 transition-colors text-lg px-1">‹</button>
           <span className="text-sm text-white/60 font-medium">{MONTH_NAMES[month]} {year}</span>

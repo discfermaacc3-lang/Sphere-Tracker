@@ -87,7 +87,12 @@ export function Ideas() {
 
       {/* Header */}
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Идеи</h1>
+        <h1
+          className="text-xl font-light tracking-[0.15em] uppercase"
+          style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}
+        >
+          Идеи
+        </h1>
         <div className="flex gap-2">
           <button
             onClick={() => setShowCatForm((v) => !v)}

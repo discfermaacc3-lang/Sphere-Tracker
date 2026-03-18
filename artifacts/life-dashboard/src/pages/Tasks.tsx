@@ -237,8 +237,13 @@ export function Tasks() {
       {/* Header */}
       <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-xl font-semibold text-white/80 tracking-wide">Задачи</h1>
-          <p className="text-xs text-white/30 mt-0.5">
+          <h1
+            className="text-xl font-light tracking-[0.15em] uppercase"
+            style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}
+          >
+            Задачи
+          </h1>
+          <p className="text-[10px] text-white/25 mt-0.5 tracking-widest uppercase font-light">
             {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>

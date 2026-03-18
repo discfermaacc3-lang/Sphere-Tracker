@@ -48,7 +48,12 @@ export function Notes() {
 
       {/* Header */}
       <div className="flex items-center justify-between pt-2">
-        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Заметки</h1>
+        <h1
+          className="text-xl font-light tracking-[0.15em] uppercase"
+          style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}
+        >
+          Заметки
+        </h1>
         <button
           onClick={() => setShowForm(true)}
           className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
