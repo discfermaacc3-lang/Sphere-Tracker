@@ -6,15 +6,16 @@ const LAVENDER = "#a78bfa";
 const ARROW_PATH = "M 0 0 L 0 16.5 L 4 12.5 L 6.5 18.5 L 9 17.5 L 6.5 11.5 L 11.5 11.5 Z";
 const ARROW_VIEWBOX = "0 0 14 21";
 
-// Clean single pointing finger — rendered at 13×20px (same visual weight as arrow)
-// Slim pill: rounded tip at top, tapering base
-const FINGER_PATH = "M 1.5 6 C 1.5 1 8.5 1 8.5 6 L 8.5 14 C 8.5 16.5 7 18 5 18 C 3 18 1.5 16.5 1.5 14 Z";
-const FINGER_VIEWBOX = "0 0 10 20";
+// Classic pointer hand: extended index finger + fist with knuckle bumps
+// viewBox "0 0 12 21" rendered at 13×20 — same visual weight as arrow
+const HAND_PATH =
+  "M4.5,0 C4.5,0 7.5,0 7.5,2 L7.5,10 L9.5,10 C9.5,8.5 11.5,8.5 11.5,10 L11.5,12 L11.5,15 C11.5,18 9.5,21 6.5,21 L3,21 C1,21 0,19.5 0,17 L0,8 C0,6.5 1.5,6 3,6 L3,2 C3,0 4.5,0 4.5,0 Z";
+const HAND_VIEWBOX = "0 0 12 21";
 
 export function CustomCursor() {
   const cursorRef    = useRef<HTMLDivElement>(null);
   const arrowSvgRef  = useRef<SVGSVGElement>(null);
-  const fingerSvgRef = useRef<SVGSVGElement>(null);
+  const handSvgRef   = useRef<SVGSVGElement>(null);
   const glowRef      = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<HTMLDivElement>(null);
   const isPointer    = useRef(false);
@@ -25,11 +26,11 @@ export function CustomCursor() {
   const particleN    = useRef(0);
 
   useEffect(() => {
-    const el        = cursorRef.current!;
-    const arrowSvg  = arrowSvgRef.current!;
-    const fingerSvg = fingerSvgRef.current!;
-    const glow      = glowRef.current!;
-    const pBox      = particlesRef.current!;
+    const el       = cursorRef.current!;
+    const arrowSvg = arrowSvgRef.current!;
+    const handSvg  = handSvgRef.current!;
+    const glow     = glowRef.current!;
+    const pBox     = particlesRef.current!;
 
     function tick() {
       el.style.transform = `translate(${mx.current}px,${my.current}px)`;
@@ -78,17 +79,17 @@ export function CustomCursor() {
       if (on === isPointer.current) return;
       isPointer.current = on;
       if (on) {
-        arrowSvg.style.opacity  = "0";
-        fingerSvg.style.opacity = "1";
-        glow.style.width        = "44px";
-        glow.style.height       = "44px";
-        glow.style.opacity      = ".75";
+        arrowSvg.style.opacity = "0";
+        handSvg.style.opacity  = "1";
+        glow.style.width       = "44px";
+        glow.style.height      = "44px";
+        glow.style.opacity     = ".75";
       } else {
-        arrowSvg.style.opacity  = "1";
-        fingerSvg.style.opacity = "0";
-        glow.style.width        = "28px";
-        glow.style.height       = "28px";
-        glow.style.opacity      = ".45";
+        arrowSvg.style.opacity = "1";
+        handSvg.style.opacity  = "0";
+        glow.style.width       = "28px";
+        glow.style.height      = "28px";
+        glow.style.opacity     = ".45";
       }
     }
 
@@ -127,7 +128,7 @@ export function CustomCursor() {
         ref={cursorRef}
         style={{ position:"fixed", top:0, left:0, pointerEvents:"none", zIndex:99999, willChange:"transform", transform:"translate(-300px,-300px)" }}
       >
-        {/* Ambient halo — always lavender */}
+        {/* Ambient halo */}
         <div
           ref={glowRef}
           style={{
@@ -143,7 +144,7 @@ export function CustomCursor() {
           }}
         />
 
-        {/* Arrow (default) */}
+        {/* Arrow (default state) */}
         <svg
           ref={arrowSvgRef}
           viewBox={ARROW_VIEWBOX}
@@ -154,15 +155,21 @@ export function CustomCursor() {
           <path d={ARROW_PATH} fill={LAVENDER} style={shadowStyle} />
         </svg>
 
-        {/* Finger (hover) — same lavender, same size */}
+        {/* Hand pointer (hover state) — fist + extended index finger */}
         <svg
-          ref={fingerSvgRef}
-          viewBox={FINGER_VIEWBOX}
+          ref={handSvgRef}
+          viewBox={HAND_VIEWBOX}
           width="13" height="20"
           style={{ position:"absolute", left:"-1px", top:0, overflow:"visible", opacity:0, transition:"opacity .15s ease" }}
         >
-          <path d={FINGER_PATH} fill="rgba(10,5,25,.80)" transform="translate(1,1)" />
-          <path d={FINGER_PATH} fill={LAVENDER} style={shadowStyle} />
+          {/* Drop shadow */}
+          <path d={HAND_PATH} fill="rgba(10,5,25,.80)" transform="translate(1,1)" />
+          {/* Main fill */}
+          <path d={HAND_PATH} fill={LAVENDER} style={shadowStyle} />
+          {/* Knuckle crease — separates index from fist */}
+          <line x1="3" y1="10.3" x2="7.5" y2="10.3" stroke="rgba(10,5,25,0.45)" strokeWidth="0.7" />
+          {/* Middle finger separation crease */}
+          <line x1="9.4" y1="10.5" x2="9.4" y2="12.5" stroke="rgba(10,5,25,0.40)" strokeWidth="0.6" />
         </svg>
       </div>
     </>

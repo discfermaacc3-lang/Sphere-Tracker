@@ -8,8 +8,16 @@ export type TaskCategory =
 
 export type XpDifficulty = "easy" | "medium" | "hard" | "custom";
 export type GoalLevel = "year" | "month" | "week";
-export type IdeaCategory =
+export type BuiltInIdeaCategory =
   | "gift" | "hobby" | "creativity" | "travel" | "learn" | "other";
+export type IdeaCategory = BuiltInIdeaCategory | string;
+
+export type CustomIdeaCategory = {
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+};
 
 export const GOAL_XP: Record<GoalLevel, number> = {
   year: 1000,
@@ -53,6 +61,7 @@ export type Idea = {
   description?: string;
   category: IdeaCategory;
   createdAt: string;
+  giftFor?: string[];
 };
 
 export type Task = {
@@ -154,6 +163,9 @@ type Store = {
   editGoal: (id: string, updates: Partial<Omit<Goal, "id">>) => void;
   deleteGoal: (id: string) => void;
   toggleGoal: (id: string) => void;
+
+  customIdeaCategories: CustomIdeaCategory[];
+  addIdeaCategory: (cat: Omit<CustomIdeaCategory, "key">) => void;
 
   ideas: Idea[];
   addIdea: (idea: Omit<Idea, "id">) => void;
@@ -270,7 +282,7 @@ const defaultGoals: Goal[] = [
 const defaultIdeas: Idea[] = [
   { id: "i1", title: "Поездка в Японию", description: "Сакура в апреле, Токио и Киото", category: "travel", createdAt: "2026-03-15" },
   { id: "i2", title: "Научиться рисовать акварелью", description: "Начать с простых пейзажей", category: "creativity", createdAt: "2026-03-14" },
-  { id: "i3", title: "Подарить маме SPA", description: "На день рождения в мае", category: "gift", createdAt: "2026-03-13" },
+  { id: "i3", title: "Подарить маме SPA", description: "На день рождения в мае", category: "gift", createdAt: "2026-03-13", giftFor: ["Мама"] },
   { id: "i4", title: "Курс по машинному обучению", description: "Fast.ai или Coursera", category: "learn", createdAt: "2026-03-12" },
 ];
 
@@ -465,6 +477,12 @@ export const useStore = create<Store>()(
           };
         }),
 
+      customIdeaCategories: [],
+      addIdeaCategory: (cat) =>
+        set((s) => ({
+          customIdeaCategories: [...s.customIdeaCategories, { ...cat, key: "custom-" + Date.now() }],
+        })),
+
       ideas: defaultIdeas,
       addIdea: (idea) => set((s) => ({ ideas: [{ ...idea, id: "i-" + Date.now() }, ...s.ideas] })),
       editIdea: (id, updates) =>
@@ -550,6 +568,7 @@ export const useStore = create<Store>()(
         dayXP: s.dayXP,
         monthXP: s.monthXP,
         goals: s.goals,
+        customIdeaCategories: s.customIdeaCategories,
         ideas: s.ideas,
         tasks: s.tasks,
         routineTemplates: s.routineTemplates,

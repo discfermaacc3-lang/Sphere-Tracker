@@ -419,7 +419,7 @@ export function Home() {
       {/* ── Sphere picker — collapsible accordion ─────────────── */}
       <div
         ref={spherePickerRef}
-        className="rounded-[1.5rem] overflow-hidden"
+        className="rounded-[1.5rem]"
         style={{
           background: selectedSlot !== null
             ? "rgba(167,139,250,0.04)"
@@ -469,8 +469,8 @@ export function Home() {
         {/* Accordion body */}
         <div
           style={{
-            maxHeight: sphereOpen ? "80px" : "0px",
-            overflow: "hidden",
+            maxHeight: sphereOpen ? "110px" : "0px",
+            overflow: sphereOpen ? "visible" : "hidden",
             transition: "max-height 0.35s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
