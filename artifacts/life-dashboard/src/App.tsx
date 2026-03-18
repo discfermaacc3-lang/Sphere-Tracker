@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Sidebar } from "@/components/Sidebar";
+import { CustomCursor } from "@/components/CustomCursor";
 import { useStore } from "@/lib/store";
 import { Home } from "@/pages/Home";
 import { Tasks } from "@/pages/Tasks";
@@ -99,6 +100,7 @@ function App() {
           </main>
         </div>
       </div>
+      <CustomCursor />
     </QueryClientProvider>
   );
 }

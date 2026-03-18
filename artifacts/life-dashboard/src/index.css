@@ -54,6 +54,9 @@
 
 @layer base {
   * { @apply border-border; }
+  html, body, * {
+    cursor: none !important;
+  }
   body {
     @apply font-sans antialiased text-foreground;
     background: linear-gradient(160deg, #1f1b40 0%, #161230 45%, #101026 100%);
