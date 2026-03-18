@@ -40,10 +40,10 @@ export type Goal = {
   level: GoalLevel;
   parentId?: string;
   done: boolean;
-  xp: number;        // bonus XP awarded when goal auto-completes
-  targetXP: number;  // XP needed to auto-complete
-  month?: number;    // 0-11, for month-level goals
-  year?: number;     // full year, e.g. 2026
+  xp: number;
+  targetXP: number;
+  month?: number;
+  year?: number;
 };
 
 export type Idea = {
@@ -70,6 +70,7 @@ export type Task = {
   goalId?: string;
   done: boolean;
   noDeadline: boolean;
+  completedAt?: string; // ISO date string "YYYY-MM-DD" set when task is toggled done
 };
 
 export type RoutineTemplate = {
@@ -90,6 +91,18 @@ export type Note = {
 };
 
 export type SphereLevels = Record<SphereKey, number>;
+
+// Snapshot of a past month's data (read-only archive)
+export type MonthSnapshot = {
+  prioritySpheres: [SphereKey | null, SphereKey | null];
+  sphereLevels: SphereLevels;
+  totalXPAtEnd: number;
+};
+
+// Compute month key "YYYY-MM"
+export function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
 // Compute earned XP for a goal from tasks + completed children
 export function computeGoalEarnedXP(
@@ -112,20 +125,30 @@ type Store = {
   currentPage: string;
   setCurrentPage: (page: string) => void;
 
+  // Month navigation (what month is being viewed)
   currentMonth: Date;
   prevMonth: () => void;
   nextMonth: () => void;
+  isArchiveMode: boolean; // true when viewing a past month
+  isFutureMonth: boolean; // true when viewing a future month
 
+  // Month archive snapshots (past months)
+  monthSnapshots: Record<string, MonthSnapshot>;
+
+  // Priority spheres — live data for current month
   prioritySpheres: [SphereKey | null, SphereKey | null];
   setPrioritySphere: (idx: 0 | 1, key: SphereKey | null) => void;
   spherePanelOpen: boolean;
   toggleSpherePanel: () => void;
 
+  // Sphere satisfaction levels — live data for current month
   sphereLevels: SphereLevels;
   setSphereLevel: (key: SphereKey, value: number) => void;
 
+  // XP — global, never resets
   totalXP: number;
   dayXP: number;
+  monthXP: number; // XP earned in current month (for stats)
   addXP: (amount: number) => void;
   subtractXP: (amount: number) => void;
 
@@ -165,21 +188,20 @@ const defaultLevels = Object.fromEntries(
 const TODAY = new Date().toISOString().slice(0, 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
+const REAL_MONTH_KEY = monthKey(new Date(CURRENT_YEAR, CURRENT_MONTH, 1));
 
 const defaultGoals: Goal[] = [
   {
     id: "g-y1", title: "Выстроить здоровый образ жизни",
     description: "Бег, питание, сон",
     sphere: "health", category: "Body", level: "year",
-    done: false, xp: 1000, targetXP: 2000,
-    year: CURRENT_YEAR,
+    done: false, xp: 1000, targetXP: 2000, year: CURRENT_YEAR,
   },
   {
     id: "g-y2", title: "Продвинуться по карьере",
     description: "Новый проект или повышение",
     sphere: "work", category: "Work", level: "year",
-    done: false, xp: 1000, targetXP: 2000,
-    year: CURRENT_YEAR,
+    done: false, xp: 1000, targetXP: 2000, year: CURRENT_YEAR,
   },
   {
     id: "g-m1", title: "Начать бегать 5 км",
@@ -229,7 +251,7 @@ const defaultTasks: Task[] = [
     id: "2", text: "Медитация 10 мин", description: "",
     category: "Mindset", sphere: "spirituality", type: "routine",
     priority: false, xp: 10, xpDifficulty: "easy",
-    noDeadline: false, dueDate: TODAY, done: true,
+    noDeadline: false, dueDate: TODAY, done: true, completedAt: TODAY,
   },
   {
     id: "3", text: "Прочитать главу книги", description: "",
@@ -268,7 +290,7 @@ const defaultNotes: Note[] = [
   { id: "n2", title: "Идея проекта", text: "Нужно записать идею про автоматизацию утра.", createdAt: "2026-03-15" },
 ];
 
-// Auto-complete goals cascade: after tasks change, recheck goals
+// Auto-complete goals cascade
 function autoCompleteGoals(
   tasks: Task[],
   goals: Goal[],
@@ -296,7 +318,6 @@ function autoCompleteGoals(
   return { goals: currentGoals, bonusXP: totalBonus };
 }
 
-// Reverse: when task is un-done, un-complete goals that no longer have enough XP
 function autoUncompleteGoals(
   tasks: Task[],
   goals: Goal[],
@@ -324,23 +345,59 @@ function autoUncompleteGoals(
   return { goals: currentGoals, penaltyXP: totalPenalty };
 }
 
+function computeViewingState(date: Date): { isArchiveMode: boolean; isFutureMonth: boolean } {
+  const vk = monthKey(date);
+  return {
+    isArchiveMode: vk < REAL_MONTH_KEY,
+    isFutureMonth: vk > REAL_MONTH_KEY,
+  };
+}
+
 export const useStore = create<Store>((set, get) => ({
   currentPage: "home",
   setCurrentPage: (page) => set({ currentPage: page }),
 
   currentMonth: new Date(CURRENT_YEAR, CURRENT_MONTH, 1),
+  isArchiveMode: false,
+  isFutureMonth: false,
+
   prevMonth: () =>
     set((s) => {
       const d = new Date(s.currentMonth);
       d.setMonth(d.getMonth() - 1);
-      return { currentMonth: d };
+      return { currentMonth: d, ...computeViewingState(d) };
     }),
+
   nextMonth: () =>
     set((s) => {
+      const currentKey = monthKey(s.currentMonth);
       const d = new Date(s.currentMonth);
       d.setMonth(d.getMonth() + 1);
-      return { currentMonth: d };
+      const nextKey = monthKey(d);
+      const { isArchiveMode, isFutureMonth } = computeViewingState(d);
+
+      // If we're advancing PAST the real current month → save snapshot & reset
+      if (currentKey === REAL_MONTH_KEY && nextKey > REAL_MONTH_KEY) {
+        const snapshot: MonthSnapshot = {
+          prioritySpheres: [...s.prioritySpheres],
+          sphereLevels: { ...s.sphereLevels },
+          totalXPAtEnd: s.totalXP,
+        };
+        return {
+          currentMonth: d,
+          isArchiveMode,
+          isFutureMonth,
+          monthSnapshots: { ...s.monthSnapshots, [currentKey]: snapshot },
+          prioritySpheres: [null, null],
+          sphereLevels: { ...defaultLevels },
+          monthXP: 0,
+        };
+      }
+
+      return { currentMonth: d, isArchiveMode, isFutureMonth };
     }),
+
+  monthSnapshots: {},
 
   prioritySpheres: [null, null],
   setPrioritySphere: (idx, key) =>
@@ -360,12 +417,18 @@ export const useStore = create<Store>((set, get) => ({
 
   totalXP: 10,
   dayXP: 10,
+  monthXP: 10,
   addXP: (amount) =>
-    set((s) => ({ totalXP: s.totalXP + amount, dayXP: s.dayXP + amount })),
+    set((s) => ({
+      totalXP: s.totalXP + amount,
+      dayXP: s.dayXP + amount,
+      monthXP: s.monthXP + amount,
+    })),
   subtractXP: (amount) =>
     set((s) => ({
       totalXP: Math.max(0, s.totalXP - amount),
       dayXP: Math.max(0, s.dayXP - amount),
+      monthXP: Math.max(0, s.monthXP - amount),
     })),
 
   goals: defaultGoals,
@@ -389,6 +452,7 @@ export const useStore = create<Store>((set, get) => ({
         goals: s.goals.map((g) => (g.id === id ? { ...g, done: newDone } : g)),
         totalXP: Math.max(0, s.totalXP + xpDelta),
         dayXP: Math.max(0, s.dayXP + xpDelta),
+        monthXP: Math.max(0, s.monthXP + xpDelta),
       };
     }),
 
@@ -406,19 +470,22 @@ export const useStore = create<Store>((set, get) => ({
       const task = s.tasks.find((t) => t.id === id);
       if (!task) return {};
       const wasDone = task.done;
-      const newTasks = s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+      const today = new Date().toISOString().slice(0, 10);
+      const newTasks = s.tasks.map((t) =>
+        t.id === id
+          ? { ...t, done: !t.done, completedAt: !t.done ? today : undefined }
+          : t
+      );
 
       let taskXPDelta = wasDone ? -task.xp : task.xp;
       let goalsDelta = 0;
       let newGoals = s.goals;
 
       if (!wasDone) {
-        // Task just completed — auto-complete any goals that now have enough XP
         const result = autoCompleteGoals(newTasks, s.goals, 0);
         newGoals = result.goals;
         goalsDelta = result.bonusXP;
       } else {
-        // Task un-completed — un-complete any goals that no longer have enough XP
         const result = autoUncompleteGoals(newTasks, s.goals, 0);
         newGoals = result.goals;
         goalsDelta = -result.penaltyXP;
@@ -430,6 +497,7 @@ export const useStore = create<Store>((set, get) => ({
         goals: newGoals,
         totalXP: Math.max(0, s.totalXP + totalDelta),
         dayXP: Math.max(0, s.dayXP + taskXPDelta),
+        monthXP: Math.max(0, s.monthXP + taskXPDelta),
       };
     }),
   addTask: (task) =>

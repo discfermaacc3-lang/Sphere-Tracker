@@ -16,7 +16,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40"
+      className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40 sidebar-scroll"
       style={{
         background: "rgba(16,12,38,0.75)",
         backdropFilter: "blur(28px)",

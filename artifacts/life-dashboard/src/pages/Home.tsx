@@ -188,12 +188,19 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEven
 export function Home() {
   const {
     currentMonth, prevMonth, nextMonth,
+    isArchiveMode, isFutureMonth, monthSnapshots,
     prioritySpheres, setPrioritySphere,
-    spherePanelOpen, toggleSpherePanel,
     tasks, toggleTask,
     notes, addNote, deleteNote,
     totalXP, dayXP,
   } = useStore();
+
+  // Use archived priorities when viewing a past month
+  const archiveKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
+  const archiveSnap = isArchiveMode ? monthSnapshots[archiveKey] : null;
+  const viewPriorities: [SphereKey | null, SphereKey | null] = archiveSnap
+    ? archiveSnap.prioritySpheres
+    : prioritySpheres;
 
   const [newNote, setNewNote] = useState("");
   const [xpFloats, setXpFloats] = useState<XpFloat[]>([]);
@@ -209,8 +216,8 @@ export function Home() {
   const dayPct = Math.min(100, Math.round((dayXP / DAY_XP_GOAL) * 100));
 
   // Priority spheres from active priorities to build gradient colors for progress
-  const p0 = prioritySpheres[0] ? sphereColors[prioritySpheres[0]].color : "#a78bfa";
-  const p1 = prioritySpheres[1] ? sphereColors[prioritySpheres[1]].color : "#22d3ee";
+  const p0 = viewPriorities[0] ? sphereColors[viewPriorities[0]].color : "#a78bfa";
+  const p1 = viewPriorities[1] ? sphereColors[viewPriorities[1]].color : "#22d3ee";
 
   function handleTaskToggle(task: Task, e: React.MouseEvent) {
     if (!task.done) {
@@ -271,12 +278,38 @@ export function Home() {
               border: "1px solid rgba(255,255,255,0.07)",
             }}
           >‹</button>
-          <span
-            className="text-sm font-light tracking-[0.12em] min-w-[140px] text-center"
-            style={{ color: "rgba(255,255,255,0.55)", textShadow: "0 0 16px rgba(167,139,250,0.3)" }}
-          >
-            {monthLabel}
-          </span>
+          <div className="flex flex-col items-center gap-1 min-w-[140px]">
+            <span
+              className="text-sm font-light tracking-[0.12em] text-center"
+              style={{ color: "rgba(255,255,255,0.55)", textShadow: "0 0 16px rgba(167,139,250,0.3)" }}
+            >
+              {monthLabel}
+            </span>
+            {isArchiveMode && (
+              <span
+                className="text-[8px] px-2 py-0.5 rounded-full tracking-widest uppercase"
+                style={{
+                  background: "rgba(167,139,250,0.12)",
+                  color: "#c4b5fd",
+                  border: "1px solid rgba(167,139,250,0.25)",
+                }}
+              >
+                📖 Архив
+              </span>
+            )}
+            {isFutureMonth && (
+              <span
+                className="text-[8px] px-2 py-0.5 rounded-full tracking-widest uppercase"
+                style={{
+                  background: "rgba(134,239,172,0.10)",
+                  color: "#86efac",
+                  border: "1px solid rgba(134,239,172,0.22)",
+                }}
+              >
+                ✦ Новый месяц
+              </span>
+            )}
+          </div>
           <button
             onClick={nextMonth}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
@@ -291,81 +324,87 @@ export function Home() {
 
       {/* ── Priority Spheres ──────────────────────────────────── */}
       <section>
-        <p
-          className="text-[9px] uppercase tracking-[0.25em] mb-4 font-medium"
-          style={{ color: "rgba(255,255,255,0.2)", textShadow: "none" }}
-        >
-          Приоритеты
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <p
+            className="text-[9px] uppercase tracking-[0.25em] font-medium"
+            style={{ color: "rgba(255,255,255,0.2)" }}
+          >
+            Приоритеты
+          </p>
+          {isArchiveMode && (
+            <p className="text-[9px]" style={{ color: "rgba(167,139,250,0.5)" }}>
+              только просмотр
+            </p>
+          )}
+        </div>
         <div className="flex gap-4">
-          <PrioritySphereSlot sphereKey={prioritySpheres[0]} onClear={() => setPrioritySphere(0, null)} />
-          <PrioritySphereSlot sphereKey={prioritySpheres[1]} onClear={() => setPrioritySphere(1, null)} />
+          <PrioritySphereSlot
+            sphereKey={viewPriorities[0]}
+            onClear={() => !isArchiveMode && setPrioritySphere(0, null)}
+          />
+          <PrioritySphereSlot
+            sphereKey={viewPriorities[1]}
+            onClear={() => !isArchiveMode && setPrioritySphere(1, null)}
+          />
         </div>
       </section>
 
-      {/* ── Sphere picker ─────────────────────────────────────── */}
+      {/* ── Sphere picker — compact single row ─────────────────── */}
       <div
-        className="rounded-[1.5rem] overflow-hidden"
+        className="rounded-[1.5rem] px-4 py-3"
         style={{
           background: "rgba(255,255,255,0.025)",
           backdropFilter: "blur(20px)",
           border: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <button
-          onClick={toggleSpherePanel}
-          className="w-full flex items-center justify-between px-5 py-3.5 transition-all"
-          style={{ color: "rgba(255,255,255,0.35)" }}
+        <p
+          className="text-[8px] uppercase tracking-[0.22em] mb-3 font-medium"
+          style={{ color: "rgba(255,255,255,0.18)" }}
         >
-          <span className="text-xs font-light tracking-[0.15em] uppercase">Все сферы</span>
-          <span
-            className="text-[10px] transition-transform duration-300"
-            style={{ transform: spherePanelOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-          >
-            ▼
-          </span>
-        </button>
-        {spherePanelOpen && (
-          <div className="grid grid-cols-4 gap-3 px-5 pb-5">
-            {sphereKeys.map((key) => {
-              const s = sphereColors[key];
-              const active = prioritySpheres.includes(key);
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleSphereClick(key)}
-                  className="flex flex-col items-center gap-2 py-3 px-2 rounded-2xl transition-all duration-300"
+          Все сферы
+        </p>
+        <div className="flex gap-1 justify-between">
+          {sphereKeys.map((key) => {
+            const s = sphereColors[key];
+            const active = viewPriorities.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() => !isArchiveMode && handleSphereClick(key)}
+                disabled={isArchiveMode}
+                className="flex flex-col items-center gap-1.5 flex-1 py-1 transition-all duration-300"
+                title={s.label}
+              >
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-all duration-300"
                   style={{
-                    background: active ? `rgba(${hexToRgb(s.color)},0.12)` : "rgba(255,255,255,0.03)",
-                    border: `1px solid rgba(${hexToRgb(s.color)},${active ? "0.30" : "0.00"})`,
-                    boxShadow: active ? `0 0 20px rgba(${hexToRgb(s.color)},0.15)` : "none",
-                    transform: active ? "scale(1.04)" : "scale(1)",
+                    background: active
+                      ? `rgba(${hexToRgb(s.color)},0.18)`
+                      : "rgba(255,255,255,0.04)",
+                    border: `1px solid rgba(${hexToRgb(s.color)},${active ? "0.40" : "0.10"})`,
+                    boxShadow: active ? `0 0 16px rgba(${hexToRgb(s.color)},0.30)` : "none",
+                    transform: active ? "scale(1.12)" : "scale(1)",
+                    filter: active
+                      ? `drop-shadow(0 0 6px ${s.color})`
+                      : "grayscale(0.5) opacity(0.5)",
                   }}
                 >
-                  <span
-                    className="text-2xl transition-all duration-300"
-                    style={{
-                      filter: active
-                        ? `drop-shadow(0 0 10px ${s.color}) drop-shadow(0 0 20px ${s.color}50)`
-                        : "grayscale(0.6) opacity(0.45)",
-                    }}
-                  >
-                    {s.icon}
-                  </span>
-                  <span
-                    className="text-[9px] font-medium tracking-wide"
-                    style={{
-                      color: active ? s.color : "rgba(255,255,255,0.25)",
-                      textShadow: active ? `0 0 10px ${s.color}60` : "none",
-                    }}
-                  >
-                    {s.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  {s.icon}
+                </div>
+                <span
+                  className="text-[7.5px] font-medium tracking-wide leading-tight text-center"
+                  style={{
+                    color: active ? s.color : "rgba(255,255,255,0.22)",
+                    textShadow: active ? `0 0 8px ${s.color}60` : "none",
+                  }}
+                >
+                  {s.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── XP & Level ───────────────────────────────────────── */}

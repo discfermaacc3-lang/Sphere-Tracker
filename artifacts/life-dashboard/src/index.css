@@ -65,6 +65,15 @@
   }
 }
 
+/* ── Sidebar scroll (hidden scrollbar) ───────────────────── */
+.sidebar-scroll {
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* ── Stars ─────────────────────────────────────────────────── */
 @keyframes star-pulse {
   0%, 100% { opacity: 0.15; transform: scale(1); }
