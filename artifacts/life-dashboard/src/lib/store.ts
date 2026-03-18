@@ -81,6 +81,7 @@ export type Task = {
   done: boolean;
   noDeadline: boolean;
   completedAt?: string;
+  recurringDays?: number[];
 };
 
 export type RoutineTemplate = {
@@ -98,6 +99,34 @@ export type Note = {
   title: string;
   text: string;
   createdAt: string;
+};
+
+export type EventCategory = "birthday" | "holiday" | "deadline" | "meeting";
+
+export const EVENT_META: Record<EventCategory, { label: string; emoji: string; color: string }> = {
+  birthday: { label: "День рождения", emoji: "🎂", color: "#f43f5e" },
+  holiday:  { label: "Праздник",      emoji: "✨", color: "#f59e0b" },
+  deadline: { label: "Дедлайн",       emoji: "⏰", color: "#ef4444" },
+  meeting:  { label: "Встреча",       emoji: "📅", color: "#6366f1" },
+};
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  date: string;
+  category: EventCategory;
+  repeatYearly: boolean;
+};
+
+export type RecurringTaskTemplate = {
+  id: string;
+  text: string;
+  description?: string;
+  category: TaskCategory;
+  sphere: SphereKey;
+  xp: number;
+  xpDifficulty: XpDifficulty;
+  days: number[];
 };
 
 export type SphereLevels = Record<SphereKey, number>;
@@ -188,6 +217,14 @@ type Store = {
   notes: Note[];
   addNote: (note: Omit<Note, "id">) => void;
   deleteNote: (id: string) => void;
+
+  calendarEvents: CalendarEvent[];
+  addCalendarEvent: (e: Omit<CalendarEvent, "id">) => void;
+  deleteCalendarEvent: (id: string) => void;
+
+  recurringTaskTemplates: RecurringTaskTemplate[];
+  addRecurringTaskTemplate: (t: Omit<RecurringTaskTemplate, "id">) => void;
+  deleteRecurringTaskTemplate: (id: string) => void;
 };
 
 const defaultLevels = Object.fromEntries(
@@ -535,8 +572,10 @@ export const useStore = create<Store>()(
       refreshDay: () =>
         set((s) => {
           const today = new Date().toISOString().slice(0, 10);
-          const existingTexts = s.tasks.filter((t) => t.type === "routine" && t.dueDate === today).map((t) => t.text);
-          const newTasks: Task[] = s.routineTemplates
+          const todayJsDay = new Date().getDay(); // 0=Sun
+          const todayMonDay = todayJsDay === 0 ? 6 : todayJsDay - 1; // Mon=0..Sun=6
+          const existingTexts = s.tasks.filter((t) => t.dueDate === today).map((t) => t.text);
+          const routineTasks: Task[] = s.routineTemplates
             .filter((tmpl) => !existingTexts.includes(tmpl.text))
             .map((tmpl) => ({
               id: Date.now().toString() + Math.random(),
@@ -546,13 +585,35 @@ export const useStore = create<Store>()(
               xp: tmpl.xp, xpDifficulty: tmpl.xpDifficulty,
               noDeadline: false, dueDate: today, done: false,
             }));
-          return { tasks: [...s.tasks, ...newTasks] };
+          const recurringTasks: Task[] = s.recurringTaskTemplates
+            .filter((rt) => rt.days.includes(todayMonDay) && !existingTexts.includes(rt.text))
+            .map((rt) => ({
+              id: Date.now().toString() + Math.random(),
+              text: rt.text, description: rt.description,
+              category: rt.category, sphere: rt.sphere,
+              type: "routine" as const, priority: false,
+              xp: rt.xp, xpDifficulty: rt.xpDifficulty,
+              noDeadline: false, dueDate: today, done: false,
+            }));
+          return { tasks: [...s.tasks, ...routineTasks, ...recurringTasks] };
         }),
 
       notes: defaultNotes,
       addNote: (note) =>
         set((s) => ({ notes: [{ ...note, id: "note-" + Date.now() }, ...s.notes] })),
       deleteNote: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
+
+      calendarEvents: [],
+      addCalendarEvent: (e) =>
+        set((s) => ({ calendarEvents: [...s.calendarEvents, { ...e, id: "ev-" + Date.now() }] })),
+      deleteCalendarEvent: (id) =>
+        set((s) => ({ calendarEvents: s.calendarEvents.filter((e) => e.id !== id) })),
+
+      recurringTaskTemplates: [],
+      addRecurringTaskTemplate: (t) =>
+        set((s) => ({ recurringTaskTemplates: [...s.recurringTaskTemplates, { ...t, id: "rt-" + Date.now() }] })),
+      deleteRecurringTaskTemplate: (id) =>
+        set((s) => ({ recurringTaskTemplates: s.recurringTaskTemplates.filter((t) => t.id !== id) })),
     }),
     {
       name: "life-dashboard-v2",
@@ -573,6 +634,8 @@ export const useStore = create<Store>()(
         tasks: s.tasks,
         routineTemplates: s.routineTemplates,
         notes: s.notes,
+        calendarEvents: s.calendarEvents,
+        recurringTaskTemplates: s.recurringTaskTemplates,
       }),
       // Revive Date objects and recompute derived state after loading
       onRehydrateStorage: () => (state) => {

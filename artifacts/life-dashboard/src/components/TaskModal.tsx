@@ -32,6 +32,8 @@ type BaseFields = {
   xpDifficulty: XpDifficulty;
 };
 
+const DAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
 type TaskFields = BaseFields & {
   type: "routine" | "special";
   priority: boolean;
@@ -40,6 +42,7 @@ type TaskFields = BaseFields & {
   timeFrom?: string;
   timeTo?: string;
   goalId?: string;
+  recurringDays?: number[];
 };
 
 type TemplateFields = BaseFields;
@@ -110,6 +113,15 @@ export function TaskModal(props: Props) {
   const [goalId, setGoalId] = useState(
     props.mode === "task" ? (props.initial?.goalId ?? "") : ""
   );
+  const [recurringDays, setRecurringDays] = useState<number[]>(
+    props.mode === "task" ? (props.initial?.recurringDays ?? []) : []
+  );
+
+  function toggleDay(idx: number) {
+    setRecurringDays((prev) =>
+      prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx]
+    );
+  }
 
   const resolvedXp =
     xpPreset === "custom"
@@ -140,6 +152,7 @@ export function TaskModal(props: Props) {
         timeFrom: timeFrom || undefined,
         timeTo: timeTo || undefined,
         goalId: goalId || undefined,
+        recurringDays: recurringDays.length > 0 ? recurringDays : undefined,
       });
     } else {
       props.onSave({
@@ -461,6 +474,47 @@ export function TaskModal(props: Props) {
                 {weekGoals.length === 0 && (
                   <p className="text-[10px] text-white/20">
                     Сначала создай цели недели на странице «Цели»
+                  </p>
+                )}
+              </div>
+            </Field>
+          )}
+
+          {/* Recurring days */}
+          {props.mode === "task" && (
+            <Field label="Повтор (дни недели)">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((label, idx) => {
+                    const active = recurringDays.includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => toggleDay(idx)}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all"
+                        style={{
+                          background: active ? "#6366f125" : "rgba(255,255,255,0.04)",
+                          color: active ? "#818cf8" : "rgba(255,255,255,0.30)",
+                          border: `1px solid ${active ? "#6366f148" : "transparent"}`,
+                          boxShadow: active ? "0 0 8px rgba(99,102,241,0.15)" : "none",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {recurringDays.length > 0 && (
+                  <p className="text-[10px] text-white/25">
+                    🔁 Задача будет автоматически появляться в:{" "}
+                    <span className="text-indigo-400">
+                      {recurringDays.sort().map((d) => DAY_LABELS[d]).join(", ")}
+                    </span>
+                  </p>
+                )}
+                {recurringDays.length === 0 && (
+                  <p className="text-[10px] text-white/18">
+                    Выбери дни — задача будет создаваться автоматически
                   </p>
                 )}
               </div>

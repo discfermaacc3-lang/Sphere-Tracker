@@ -191,6 +191,7 @@ export function Tasks() {
   const {
     tasks, toggleTask, addTask, editTask, deleteTask, rescheduleTask,
     routineTemplates, addRoutineTemplate, editRoutineTemplate, deleteRoutineTemplate, refreshDay,
+    recurringTaskTemplates, addRecurringTaskTemplate,
     totalXP, dayXP, goals,
   } = useStore();
 
@@ -526,6 +527,17 @@ export function Tasks() {
           onSave={(fields) => {
             if (editingTask) {
               editTask(editingTask.id, fields);
+            } else if (fields.recurringDays && fields.recurringDays.length > 0) {
+              addRecurringTaskTemplate({
+                text: fields.text,
+                description: fields.description,
+                category: fields.category,
+                sphere: fields.sphere,
+                xp: fields.xp,
+                xpDifficulty: fields.xpDifficulty,
+                days: fields.recurringDays,
+              });
+              refreshDay();
             } else {
               addTask({ ...fields, done: false });
             }
