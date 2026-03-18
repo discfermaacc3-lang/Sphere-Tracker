@@ -82,6 +82,7 @@ export type Task = {
   noDeadline: boolean;
   completedAt?: string;
   recurringDays?: number[];
+  recurringTemplateId?: string;
 };
 
 export type RoutineTemplate = {
@@ -598,6 +599,7 @@ export const useStore = create<Store>()(
               type: "routine" as const, priority: false,
               xp: rt.xp, xpDifficulty: rt.xpDifficulty,
               noDeadline: false, dueDate: today, done: false,
+              recurringTemplateId: rt.id,
             }));
           return { tasks: [...s.tasks, ...routineTasks, ...recurringTasks] };
         }),

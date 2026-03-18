@@ -16,6 +16,7 @@ function TaskCard({
   onToggle,
   onEdit,
   onDelete,
+  onDeleteSeries,
   onReschedule,
 }: {
   task: Task;
@@ -23,12 +24,24 @@ function TaskCard({
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDeleteSeries?: () => void;
   onReschedule: (date: string) => void;
 }) {
   const isMission = task.category === "Mission";
   const s = isMission ? null : sphereColors[task.sphere];
   const [showReschedule, setShowReschedule] = useState(false);
   const [newDate, setNewDate] = useState(task.dueDate ?? "");
+  const [deleteMode, setDeleteMode] = useState<"idle" | "confirm" | "series">("idle");
+
+  const isRecurring = !!task.recurringTemplateId;
+
+  function handleDeleteClick() {
+    if (isRecurring) {
+      setDeleteMode("series");
+    } else {
+      setDeleteMode("confirm");
+    }
+  }
 
   const borderColor = task.done
     ? "rgba(255,255,255,0.05)"
@@ -162,9 +175,57 @@ function TaskCard({
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button onClick={() => setShowReschedule(!showReschedule)} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all" title="Перенести">📅</button>
           <button onClick={onEdit} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all">✎</button>
-          <button onClick={onDelete} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all">✕</button>
+          {deleteMode === "idle" ? (
+            <button onClick={handleDeleteClick} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all" title="Удалить">🗑</button>
+          ) : (
+            <button onClick={() => setDeleteMode("idle")} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/40 hover:text-white/60 hover:bg-white/5 transition-all" title="Отмена">✕</button>
+          )}
         </div>
       </div>
+
+      {/* Simple confirm */}
+      {deleteMode === "confirm" && (
+        <div className="ml-6 flex items-center gap-2 mt-1">
+          <span className="text-xs text-white/40">Удалить задачу?</span>
+          <button
+            onClick={() => { onDelete(); setDeleteMode("idle"); }}
+            className="px-3 py-1 rounded-lg text-[11px] font-semibold transition-all"
+            style={{ background: "rgba(239,68,68,0.18)", color: "#f87171", border: "1px solid rgba(239,68,68,0.30)" }}
+          >
+            Удалить
+          </button>
+          <button
+            onClick={() => setDeleteMode("idle")}
+            className="px-3 py-1 rounded-lg text-[11px] text-white/30 hover:text-white/60 border border-white/10 transition-all"
+          >
+            Отмена
+          </button>
+        </div>
+      )}
+
+      {/* Series choice for recurring tasks */}
+      {deleteMode === "series" && (
+        <div className="ml-6 flex flex-col gap-2 mt-1 p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.20)" }}>
+          <p className="text-[11px] text-white/50">Это повторяющаяся задача. Что удалить?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { onDelete(); setDeleteMode("idle"); }}
+              className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+              style={{ background: "rgba(239,68,68,0.14)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.28)" }}
+            >
+              Только сегодня
+            </button>
+            <button
+              onClick={() => { onDelete(); onDeleteSeries?.(); setDeleteMode("idle"); }}
+              className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+              style={{ background: "rgba(239,68,68,0.22)", color: "#f87171", border: "1px solid rgba(239,68,68,0.40)" }}
+            >
+              Всю серию 🗑
+            </button>
+          </div>
+          <button onClick={() => setDeleteMode("idle")} className="text-[10px] text-white/20 hover:text-white/50 text-center transition-all">Отмена</button>
+        </div>
+      )}
 
       {showReschedule && (
         <div className="pl-8">
@@ -225,7 +286,7 @@ export function Tasks() {
   const {
     tasks, toggleTask, addTask, editTask, deleteTask, rescheduleTask,
     routineTemplates, addRoutineTemplate, editRoutineTemplate, deleteRoutineTemplate, refreshDay,
-    recurringTaskTemplates, addRecurringTaskTemplate,
+    recurringTaskTemplates, addRecurringTaskTemplate, deleteRecurringTaskTemplate,
     totalXP, dayXP, goals,
   } = useStore();
 
@@ -437,6 +498,7 @@ export function Tasks() {
                     onToggle={() => toggleTask(task.id)}
                     onEdit={() => { setEditingTask(task); setShowModal(true); }}
                     onDelete={() => deleteTask(task.id)}
+                    onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
                     onReschedule={(d) => rescheduleTask(task.id, d)}
                   />
                 ))}
@@ -468,6 +530,7 @@ export function Tasks() {
                     onToggle={() => toggleTask(task.id)}
                     onEdit={() => { setEditingTask(task); setShowModal(true); }}
                     onDelete={() => deleteTask(task.id)}
+                    onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
                     onReschedule={(d) => rescheduleTask(task.id, d)}
                   />
                 ))}
@@ -503,6 +566,7 @@ export function Tasks() {
                   onToggle={() => toggleTask(task.id)}
                   onEdit={() => { setEditingTask(task); setShowModal(true); }}
                   onDelete={() => deleteTask(task.id)}
+                  onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
                   onReschedule={(d) => rescheduleTask(task.id, d)}
                 />
               ))}

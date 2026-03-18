@@ -129,7 +129,7 @@ export function Calendar() {
   const {
     currentMonth, prevMonth, nextMonth,
     tasks, goals, calendarEvents, addCalendarEvent, deleteCalendarEvent,
-    toggleTask, addTask,
+    toggleTask, addTask, deleteTask,
     calendarDrafts, addCalendarDraft, removeCalendarDraft,
   } = useStore();
 
@@ -375,13 +375,32 @@ export function Calendar() {
             <div className="flex flex-col gap-1">
               <p className="text-[8px] uppercase tracking-widest text-white/20 mb-1">Задачи</p>
               {dayTasks.map((t) => {
-                const s = sphereColors[t.sphere];
+                const s = t.category === "Mission" ? null : sphereColors[t.sphere];
+                const dotColor = t.category === "Mission" ? "#fbbf24" : s!.color;
                 return (
-                  <div key={t.id} className="flex items-center gap-3 py-2 px-1">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 4px ${s.color}60` }} />
-                    <span className="flex-1 text-sm min-w-0 truncate" style={{ color: t.done ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
-                    {t.done && <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/12 text-green-400 flex-shrink-0">✓ выполнено</span>}
+                  <div key={t.id} className="group flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-white/2 transition-all">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0 cursor-pointer"
+                      style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}60` }}
+                      onClick={() => toggleTask(t.id)}
+                    />
+                    <span
+                      className="flex-1 text-sm min-w-0 truncate cursor-pointer"
+                      style={{ color: t.done ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}
+                      onClick={() => toggleTask(t.id)}
+                    >
+                      {t.category === "Mission" && <span className="mr-1 text-xs">💎</span>}
+                      {t.text}
+                    </span>
+                    {t.done && <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/12 text-green-400 flex-shrink-0">✓</span>}
                     <span className="text-[9px] text-white/20 flex-shrink-0">{t.xp} XP</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteTask(t.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all text-xs flex-shrink-0 w-5 h-5 flex items-center justify-center rounded"
+                      title="Удалить"
+                    >
+                      🗑
+                    </button>
                   </div>
                 );
               })}
@@ -444,7 +463,9 @@ export function Calendar() {
               </p>
               {overviewTasks.length === 0 && <p className="text-[10px] text-white/15">Нет задач на этот период</p>}
               {overviewTasks.map((t) => {
-                const s = sphereColors[t.sphere];
+                const isMission = t.category === "Mission";
+                const s = isMission ? null : sphereColors[t.sphere];
+                const dotColor = isMission ? "#fbbf24" : s!.color;
                 const isHighlighted = t.dueDate === activeHighlight;
                 const isPinned = t.dueDate === pinnedDate;
                 const dayNum = t.dueDate ? parseInt(t.dueDate.slice(8)) : null;
@@ -455,28 +476,38 @@ export function Calendar() {
                     onMouseEnter={() => handleTaskEnter(t.dueDate)}
                     onMouseLeave={handleTaskLeave}
                     onClick={() => handleTaskPin(t.dueDate)}
-                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-all"
+                    className="group flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-all"
                     style={{
-                      background: isHighlighted ? s.color + "12" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${isHighlighted ? s.color + "45" : "transparent"}`,
-                      boxShadow: isPinned ? `0 0 12px ${s.color}25` : "none",
+                      background: isHighlighted ? dotColor + "12" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${isHighlighted ? dotColor + "45" : "transparent"}`,
+                      boxShadow: isPinned ? `0 0 12px ${dotColor}25` : "none",
                       transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >
                     <div
                       onClick={(e) => { e.stopPropagation(); toggleTask(t.id); }}
                       className="w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
-                      style={{ borderColor: t.done ? s.color : "rgba(255,255,255,0.2)", background: t.done ? s.color + "30" : "transparent", boxShadow: t.done ? `0 0 6px ${s.color}40` : "none" }}
+                      style={{ borderColor: t.done ? dotColor : "rgba(255,255,255,0.2)", background: t.done ? dotColor + "30" : "transparent", boxShadow: t.done ? `0 0 6px ${dotColor}40` : "none" }}
                     >
-                      {t.done && <span className="text-[9px]" style={{ color: s.color }}>✓</span>}
+                      {t.done && <span className="text-[9px]" style={{ color: dotColor }}>✓</span>}
                     </div>
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: isHighlighted ? `0 0 5px ${s.color}` : "none" }} />
-                    <span className="flex-1 text-[11px] min-w-0 truncate" style={{ color: t.done ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor, boxShadow: isHighlighted ? `0 0 5px ${dotColor}` : "none" }} />
+                    <span className="flex-1 text-[11px] min-w-0 truncate" style={{ color: t.done ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}>
+                      {isMission && <span className="mr-0.5">💎</span>}
+                      {t.text}
+                    </span>
                     {dayNum !== null && dayMon !== null && (
-                      <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: isHighlighted ? s.color + "25" : "rgba(255,255,255,0.06)", color: isHighlighted ? s.color : "rgba(255,255,255,0.25)", border: `1px solid ${isHighlighted ? s.color + "45" : "transparent"}` }}>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: isHighlighted ? dotColor + "25" : "rgba(255,255,255,0.06)", color: isHighlighted ? dotColor : "rgba(255,255,255,0.25)", border: `1px solid ${isHighlighted ? dotColor + "45" : "transparent"}` }}>
                         {dayNum} {MONTH_NAMES_GEN[dayMon].slice(0, 3)}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteTask(t.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-white/15 hover:text-red-400 transition-all text-xs flex-shrink-0 w-5 h-5 flex items-center justify-center rounded"
+                      title="Удалить"
+                    >
+                      ✕
+                    </button>
                   </div>
                 );
               })}
