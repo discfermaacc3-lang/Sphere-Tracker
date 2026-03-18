@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useStore, Task } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 
@@ -26,13 +26,34 @@ type XpFloat = { id: number; xp: number; color: string; x: number; y: number };
 function PrioritySphereSlot({
   sphereKey,
   onClear,
+  sphereLevel,
+  isSelected,
+  onClick,
 }: {
   sphereKey: SphereKey | null;
   onClear: () => void;
+  sphereLevel?: number;
+  isSelected?: boolean;
+  onClick?: () => void;
 }) {
   const s = sphereKey ? sphereColors[sphereKey] : null;
   return (
-    <div className="flex-1 relative min-h-[150px] flex items-center justify-center">
+    <div
+      className="flex-1 relative min-h-[150px] flex items-center justify-center"
+      onClick={onClick}
+      style={{ cursor: onClick ? "default" : undefined }}
+    >
+      {/* Selection pulse ring */}
+      {isSelected && (
+        <div
+          className="absolute inset-0 rounded-[2rem] pointer-events-none"
+          style={{
+            boxShadow: "0 0 0 2px rgba(167,139,250,0.65), 0 0 28px rgba(167,139,250,0.22)",
+            animation: "aura-pulse 2s ease-in-out infinite",
+            zIndex: 2,
+          }}
+        />
+      )}
       {/* Outer aura glow */}
       {s && (
         <div
@@ -45,17 +66,22 @@ function PrioritySphereSlot({
       )}
       {/* Glass card */}
       <div
-        className="relative w-full h-full rounded-[2rem] flex flex-col items-center justify-center gap-3 overflow-hidden min-h-[150px]"
+        className="relative w-full h-full rounded-[2rem] flex flex-col items-center justify-center gap-2 overflow-hidden min-h-[150px]"
         style={{
           background: s
             ? `rgba(${hexToRgb(s.color)}, 0.06)`
             : "rgba(255,255,255,0.03)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          border: s
-            ? `1px solid rgba(${hexToRgb(s.color)}, 0.20)`
-            : "1px solid rgba(255,255,255,0.06)",
-          boxShadow: s ? `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(${hexToRgb(s.color)},0.08)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
+          border: isSelected
+            ? "1px solid rgba(167,139,250,0.45)"
+            : s
+              ? `1px solid rgba(${hexToRgb(s.color)}, 0.20)`
+              : "1px solid rgba(255,255,255,0.06)",
+          boxShadow: s
+            ? `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(${hexToRgb(s.color)},0.08)`
+            : "inset 0 1px 0 rgba(255,255,255,0.04)",
+          transition: "border-color .3s ease",
         }}
       >
         {s ? (
@@ -72,18 +98,31 @@ function PrioritySphereSlot({
             >
               {s.icon}
             </span>
-            <span
-              className="relative z-10 font-light text-base tracking-[0.12em] uppercase"
-              style={{
-                color: s.color,
-                textShadow: `0 0 16px ${s.color}80`,
-                letterSpacing: "0.15em",
-              }}
-            >
-              {s.label}
-            </span>
+            <div className="relative z-10 flex flex-col items-center gap-1">
+              <span
+                className="font-light text-base tracking-[0.12em] uppercase"
+                style={{
+                  color: s.color,
+                  textShadow: `0 0 16px ${s.color}80`,
+                  letterSpacing: "0.15em",
+                }}
+              >
+                {s.label}
+              </span>
+              {sphereLevel !== undefined && (
+                <span
+                  className="text-[10px] font-light tracking-[0.1em]"
+                  style={{
+                    color: `rgba(${hexToRgb(s.color)}, 0.65)`,
+                    textShadow: `0 0 8px ${s.color}40`,
+                  }}
+                >
+                  ◆ {sphereLevel} / 10
+                </span>
+              )}
+            </div>
             <button
-              onClick={onClear}
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
               className="absolute top-3 right-3 z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] transition-all"
               style={{
                 background: "rgba(255,255,255,0.07)",
@@ -190,10 +229,14 @@ export function Home() {
     currentMonth, prevMonth, nextMonth,
     isArchiveMode, isFutureMonth, monthSnapshots,
     prioritySpheres, setPrioritySphere,
+    sphereLevels,
     tasks, toggleTask,
     notes, addNote, deleteNote,
     totalXP, dayXP,
   } = useStore();
+
+  const [selectedSlot, setSelectedSlot] = useState<0 | 1 | null>(null);
+  const spherePickerRef = useRef<HTMLDivElement>(null);
 
   // Use archived priorities when viewing a past month
   const archiveKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -230,11 +273,24 @@ export function Home() {
   }
 
   function handleSphereClick(key: SphereKey) {
+    if (selectedSlot !== null) {
+      setPrioritySphere(selectedSlot, key);
+      setSelectedSlot(null);
+      return;
+    }
     if (prioritySpheres[0] === key) { setPrioritySphere(0, null); return; }
     if (prioritySpheres[1] === key) { setPrioritySphere(1, null); return; }
     if (prioritySpheres[0] === null) { setPrioritySphere(0, key); return; }
     if (prioritySpheres[1] === null) { setPrioritySphere(1, key); return; }
     setPrioritySphere(0, key);
+  }
+
+  function handleSlotClick(slot: 0 | 1) {
+    if (isArchiveMode) return;
+    setSelectedSlot((prev) => (prev === slot ? null : slot));
+    setTimeout(() => {
+      spherePickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   }
 
   const todayNotes = notes.filter((n) => n.createdAt === TODAY);
@@ -340,30 +396,53 @@ export function Home() {
         <div className="flex gap-4">
           <PrioritySphereSlot
             sphereKey={viewPriorities[0]}
-            onClear={() => !isArchiveMode && setPrioritySphere(0, null)}
+            sphereLevel={viewPriorities[0] ? sphereLevels[viewPriorities[0]] : undefined}
+            isSelected={selectedSlot === 0}
+            onClick={() => handleSlotClick(0)}
+            onClear={() => { !isArchiveMode && setPrioritySphere(0, null); setSelectedSlot(null); }}
           />
           <PrioritySphereSlot
             sphereKey={viewPriorities[1]}
-            onClear={() => !isArchiveMode && setPrioritySphere(1, null)}
+            sphereLevel={viewPriorities[1] ? sphereLevels[viewPriorities[1]] : undefined}
+            isSelected={selectedSlot === 1}
+            onClick={() => handleSlotClick(1)}
+            onClear={() => { !isArchiveMode && setPrioritySphere(1, null); setSelectedSlot(null); }}
           />
         </div>
       </section>
 
       {/* ── Sphere picker — compact single row ─────────────────── */}
       <div
+        ref={spherePickerRef}
         className="rounded-[1.5rem] px-4 py-3"
         style={{
-          background: "rgba(255,255,255,0.025)",
+          background: selectedSlot !== null
+            ? "rgba(167,139,250,0.04)"
+            : "rgba(255,255,255,0.025)",
           backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: selectedSlot !== null
+            ? "1px solid rgba(167,139,250,0.18)"
+            : "1px solid rgba(255,255,255,0.06)",
+          transition: "background .3s ease, border-color .3s ease",
         }}
       >
-        <p
-          className="text-[8px] uppercase tracking-[0.22em] mb-3 font-medium"
-          style={{ color: "rgba(255,255,255,0.18)" }}
-        >
-          Все сферы
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p
+            className="text-[8px] uppercase tracking-[0.22em] font-medium"
+            style={{ color: selectedSlot !== null ? "rgba(167,139,250,0.6)" : "rgba(255,255,255,0.18)" }}
+          >
+            {selectedSlot !== null ? "✦ Выберите замену" : "Все сферы"}
+          </p>
+          {selectedSlot !== null && (
+            <button
+              onClick={() => setSelectedSlot(null)}
+              className="text-[9px] tracking-wide"
+              style={{ color: "rgba(167,139,250,0.4)" }}
+            >
+              Отмена
+            </button>
+          )}
+        </div>
         <div className="flex gap-1 justify-between">
           {sphereKeys.map((key) => {
             const s = sphereColors[key];
