@@ -25,40 +25,104 @@ function TaskCard({
   onDelete: () => void;
   onReschedule: (date: string) => void;
 }) {
-  const s = sphereColors[task.sphere];
+  const isMission = task.category === "Mission";
+  const s = isMission ? null : sphereColors[task.sphere];
   const [showReschedule, setShowReschedule] = useState(false);
   const [newDate, setNewDate] = useState(task.dueDate ?? "");
 
+  const borderColor = task.done
+    ? "rgba(255,255,255,0.05)"
+    : task.priority
+    ? "rgba(239,68,68,0.45)"
+    : isMission
+    ? "rgba(251,191,36,0.35)"
+    : (s!.color + "25");
+
+  const bgColor = task.done
+    ? "rgba(255,255,255,0.015)"
+    : task.priority
+    ? "rgba(239,68,68,0.06)"
+    : isMission
+    ? "rgba(251,191,36,0.06)"
+    : `${s!.color}07`;
+
+  const glowStyle = task.priority && !task.done
+    ? { boxShadow: "0 0 0 1px rgba(239,68,68,0.20), 0 0 16px rgba(239,68,68,0.12)" }
+    : isMission && !task.done
+    ? { boxShadow: "0 0 0 1px rgba(251,191,36,0.15), 0 0 16px rgba(251,191,36,0.10)" }
+    : {};
+
   return (
     <div
-      className="group rounded-2xl border px-4 py-4 flex flex-col gap-2.5 transition-all"
-      style={{
-        borderColor: task.done ? "rgba(255,255,255,0.05)" : s.color + "25",
-        background: task.done ? "rgba(255,255,255,0.015)" : `${s.color}07`,
-        opacity: task.done ? 0.65 : 1,
-      }}
+      className="group rounded-2xl border px-4 py-4 flex flex-col gap-2.5 transition-all relative overflow-hidden"
+      style={{ borderColor, background: bgColor, opacity: task.done ? 0.65 : 1, ...glowStyle }}
     >
+      {/* Priority left bar */}
+      {task.priority && !task.done && (
+        <div
+          className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+          style={{ background: "linear-gradient(180deg,#ef4444,#f97316)", boxShadow: "0 0 8px rgba(239,68,68,0.6)" }}
+        />
+      )}
+      {/* Mission left bar */}
+      {isMission && !task.done && !task.priority && (
+        <div
+          className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+          style={{ background: "linear-gradient(180deg,#fbbf24,#f59e0b)", boxShadow: "0 0 8px rgba(251,191,36,0.6)" }}
+        />
+      )}
+
       {/* Main row */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 pl-1">
         <button
           onClick={onToggle}
           className="mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
           style={{
-            borderColor: task.done ? s.color : "rgba(255,255,255,0.18)",
-            background: task.done ? s.color + "30" : "transparent",
+            borderColor: task.done
+              ? (s?.color ?? "#fbbf24")
+              : isMission
+              ? "rgba(251,191,36,0.5)"
+              : "rgba(255,255,255,0.18)",
+            background: task.done
+              ? (s?.color ?? "#fbbf24") + "30"
+              : "transparent",
           }}
         >
-          {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
+          {task.done && (
+            <span className="text-xs" style={{ color: s?.color ?? "#fbbf24" }}>✓</span>
+          )}
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {isMission && (
+              <span
+                className="text-base flex-shrink-0"
+                style={{ filter: "drop-shadow(0 0 6px rgba(251,191,36,0.8))" }}
+              >💎</span>
+            )}
             <span className={`text-sm font-medium ${task.done ? "line-through text-white/30" : "text-white/75"}`}>
               {task.text}
             </span>
-            {task.priority && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 flex-shrink-0">
-                ★ Приоритет
+            {task.priority && !task.done && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold"
+                style={{
+                  background: "rgba(239,68,68,0.18)",
+                  color: "#f87171",
+                  border: "1px solid rgba(239,68,68,0.35)",
+                  animation: "pulse 2s ease-in-out infinite",
+                }}
+              >
+                !! №1
+              </span>
+            )}
+            {isMission && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.30)" }}
+              >
+                💎 Миссия
               </span>
             )}
           </div>
@@ -66,9 +130,11 @@ function TaskCard({
             <p className="text-xs text-white/30 mt-0.5 leading-relaxed">{task.description}</p>
           )}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: s.color, background: s.color + "18" }}>
-              {s.icon} {s.label}
-            </span>
+            {!isMission && s && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: s.color, background: s.color + "18" }}>
+                {s.icon} {s.label}
+              </span>
+            )}
             <span
               className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
               style={{ color: XP_COLORS[task.xpDifficulty], background: XP_COLORS[task.xpDifficulty] + "18" }}
@@ -94,50 +160,18 @@ function TaskCard({
         </div>
 
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button
-            onClick={() => setShowReschedule(!showReschedule)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
-            title="Перенести"
-          >📅</button>
-          <button
-            onClick={onEdit}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
-          >✎</button>
-          <button
-            onClick={onDelete}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all"
-          >✕</button>
+          <button onClick={() => setShowReschedule(!showReschedule)} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all" title="Перенести">📅</button>
+          <button onClick={onEdit} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all">✎</button>
+          <button onClick={onDelete} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all">✕</button>
         </div>
       </div>
 
-      {/* Reschedule - custom dark date picker */}
       {showReschedule && (
         <div className="pl-8">
-          <CustomDatePicker
-            value={newDate}
-            onChange={setNewDate}
-            accentColor="#6366f1"
-            placeholder="Выбрать новую дату"
-          />
+          <CustomDatePicker value={newDate} onChange={setNewDate} accentColor="#6366f1" placeholder="Выбрать новую дату" />
           <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => {
-                if (newDate) {
-                  onReschedule(newDate);
-                  setShowReschedule(false);
-                }
-              }}
-              className="flex-1 px-3 py-1.5 rounded-xl text-xs font-medium"
-              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
-            >
-              Перенести
-            </button>
-            <button
-              onClick={() => setShowReschedule(false)}
-              className="px-3 py-1.5 rounded-xl text-xs text-white/30 hover:text-white/60 border border-white/10"
-            >
-              Отмена
-            </button>
+            <button onClick={() => { if (newDate) { onReschedule(newDate); setShowReschedule(false); } }} className="flex-1 px-3 py-1.5 rounded-xl text-xs font-medium" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}>Перенести</button>
+            <button onClick={() => setShowReschedule(false)} className="px-3 py-1.5 rounded-xl text-xs text-white/30 hover:text-white/60 border border-white/10">Отмена</button>
           </div>
         </div>
       )}
@@ -227,7 +261,13 @@ export function Tasks() {
   });
 
   const routine = filtered.filter((t) => t.type === "routine");
-  const special = filtered.filter((t) => t.type === "special");
+  const special = filtered
+    .filter((t) => t.type === "special")
+    .sort((a, b) => {
+      if (a.priority && !b.priority) return -1;
+      if (!a.priority && b.priority) return 1;
+      return 0;
+    });
 
   const doneTodayCount = todayTasks.filter((t) => t.done).length;
   const totalTodayCount = todayTasks.length;

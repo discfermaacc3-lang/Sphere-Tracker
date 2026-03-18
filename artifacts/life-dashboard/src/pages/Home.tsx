@@ -156,65 +156,109 @@ function hexToRgb(hex: string): string {
 }
 
 function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEvent) => void }) {
-  const s = sphereColors[task.sphere];
+  const isMission = task.category === "Mission";
+  const s = isMission ? null : sphereColors[task.sphere];
+  const dotColor = isMission ? "#fbbf24" : s!.color;
   const [showXp, setShowXp] = useState(false);
+
+  const rowStyle: React.CSSProperties = task.done
+    ? { opacity: 0.5, background: "transparent" }
+    : task.priority
+    ? {
+        background: "rgba(239,68,68,0.06)",
+        border: "1px solid rgba(239,68,68,0.30)",
+        boxShadow: "0 0 16px rgba(239,68,68,0.12), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }
+    : isMission
+    ? {
+        background: "rgba(251,191,36,0.05)",
+        border: "1px solid rgba(251,191,36,0.22)",
+        boxShadow: "0 0 12px rgba(251,191,36,0.08)",
+      }
+    : { background: "rgba(255,255,255,0.01)", border: "1px solid transparent" };
 
   return (
     <div
-      className="flex items-center gap-3.5 px-3 py-3 rounded-2xl transition-all duration-200 cursor-pointer group"
-      style={{
-        opacity: task.done ? 0.55 : 1,
-        background: task.done ? "transparent" : "rgba(255,255,255,0.01)",
-      }}
+      className="relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200 cursor-pointer group overflow-hidden"
+      style={rowStyle}
       onClick={onToggle}
       onMouseEnter={() => setShowXp(true)}
       onMouseLeave={() => setShowXp(false)}
     >
-      {/* Soft circle toggle */}
+      {/* Priority left accent bar */}
+      {task.priority && !task.done && (
+        <div
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+          style={{ background: "linear-gradient(180deg,#ef4444,#f97316)", boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}
+        />
+      )}
+      {/* Mission left accent bar */}
+      {isMission && !task.done && !task.priority && (
+        <div
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+          style={{ background: "linear-gradient(180deg,#fbbf24,#f59e0b)", boxShadow: "0 0 8px rgba(251,191,36,0.6)" }}
+        />
+      )}
+
+      {/* Toggle circle */}
       <div
         className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300"
         style={{
-          border: task.done ? "none" : `1.5px solid rgba(${hexToRgb(s.color)},0.45)`,
+          border: task.done ? "none" : `1.5px solid rgba(${hexToRgb(dotColor)},0.45)`,
           background: task.done
-            ? `radial-gradient(circle, ${s.color}50 0%, ${s.color}20 100%)`
+            ? `radial-gradient(circle, ${dotColor}50 0%, ${dotColor}20 100%)`
             : "rgba(255,255,255,0.03)",
-          boxShadow: task.done ? `0 0 12px ${s.color}40` : "none",
+          boxShadow: task.done ? `0 0 12px ${dotColor}40` : "none",
         }}
       >
-        {task.done && (
-          <span className="text-[10px]" style={{ color: s.color }}>✓</span>
-        )}
+        {task.done && <span className="text-[10px]" style={{ color: dotColor }}>✓</span>}
         {!task.done && (
-          <span
-            className="w-1.5 h-1.5 rounded-full transition-all"
-            style={{
-              background: s.color,
-              boxShadow: `0 0 6px ${s.color}`,
-              opacity: 0.7,
-            }}
-          />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}`, opacity: 0.7 }} />
         )}
       </div>
+
+      {/* Mission icon */}
+      {isMission && !task.done && (
+        <span className="text-sm flex-shrink-0" style={{ filter: "drop-shadow(0 0 5px rgba(251,191,36,0.8))" }}>💎</span>
+      )}
 
       {/* Text */}
       <span
         className="flex-1 text-sm leading-snug transition-all duration-300"
         style={{
-          color: task.done ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.72)",
+          color: task.done
+            ? "rgba(255,255,255,0.3)"
+            : task.priority
+            ? "rgba(255,255,255,0.85)"
+            : "rgba(255,255,255,0.72)",
           textDecoration: task.done ? "line-through" : "none",
-          textShadow: task.done ? "none" : "0 0 20px rgba(255,255,255,0.08)",
+          textShadow: task.priority && !task.done ? "0 0 16px rgba(239,68,68,0.25)" : task.done ? "none" : "0 0 20px rgba(255,255,255,0.08)",
         }}
       >
         {task.text}
       </span>
 
-      {/* XP badge — appears on hover/done */}
+      {/* Priority badge */}
+      {task.priority && !task.done && (
+        <span
+          className="flex-shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{
+            background: "rgba(239,68,68,0.20)",
+            color: "#f87171",
+            border: "1px solid rgba(239,68,68,0.35)",
+          }}
+        >
+          !! №1
+        </span>
+      )}
+
+      {/* XP badge */}
       <span
         className="flex-shrink-0 text-[10px] font-bold transition-all duration-200"
         style={{
-          color: task.done ? s.color : s.color,
+          color: dotColor,
           opacity: showXp || task.done ? 1 : 0,
-          textShadow: `0 0 10px ${s.color}`,
+          textShadow: `0 0 10px ${dotColor}`,
           transform: showXp ? "translateX(0)" : "translateX(4px)",
         }}
       >
@@ -253,7 +297,13 @@ export function Home() {
 
   const todayTasks = tasks.filter((t) => t.noDeadline || t.dueDate === TODAY);
   const routine = todayTasks.filter((t) => t.type === "routine");
-  const special = todayTasks.filter((t) => t.type === "special");
+  const special = todayTasks
+    .filter((t) => t.type === "special")
+    .sort((a, b) => {
+      if (a.priority && !b.priority) return -1;
+      if (!a.priority && b.priority) return 1;
+      return 0;
+    });
 
   const monthLabel = `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
   const { level, pct } = getLevel(totalXP);

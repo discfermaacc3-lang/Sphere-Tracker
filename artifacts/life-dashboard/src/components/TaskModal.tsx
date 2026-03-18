@@ -5,11 +5,6 @@ import { CustomDatePicker } from "./CustomDatePicker";
 import { CustomTimePicker } from "./CustomTimePicker";
 import { DreamSelect } from "./DreamSelect";
 
-const CATEGORIES: TaskCategory[] = [
-  "Body", "Mindset", "Creativity", "Hobby",
-  "Work", "Finance", "Mission", "Other",
-];
-
 const CATEGORY_LABELS: Record<TaskCategory, string> = {
   Body: "Тело", Mindset: "Мышление", Creativity: "Творчество",
   Hobby: "Хобби", Work: "Работа", Finance: "Финансы",
@@ -210,54 +205,63 @@ export function TaskModal(props: Props) {
             />
           </Field>
 
-          <Field label="Категория жизни">
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  className="text-xs px-3 py-1.5 rounded-full transition-all"
-                  style={{
-                    background: category === c ? "#6366f130" : "rgba(255,255,255,0.05)",
-                    color: category === c ? "#818cf8" : "rgba(255,255,255,0.35)",
-                    border: `1px solid ${category === c ? "#6366f150" : "transparent"}`,
-                  }}
-                >
-                  {CATEGORY_LABELS[c]}
-                </button>
-              ))}
-            </div>
-          </Field>
+          {/* Mission toggle */}
+          <div>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Тип задачи</p>
+            <button
+              onClick={() => setCategory(category === "Mission" ? "Other" : "Mission")}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left"
+              style={category === "Mission" ? {
+                background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08))",
+                border: "1px solid rgba(251,191,36,0.40)",
+                boxShadow: "0 0 20px rgba(251,191,36,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+              } : {
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <span className="text-2xl flex-shrink-0" style={{ filter: category === "Mission" ? "drop-shadow(0 0 8px rgba(251,191,36,0.8))" : "grayscale(1) opacity(0.3)" }}>💎</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: category === "Mission" ? "#fbbf24" : "rgba(255,255,255,0.35)" }}>МИССИЯ</p>
+                <p className="text-[10px] mt-0.5" style={{ color: category === "Mission" ? "rgba(251,191,36,0.55)" : "rgba(255,255,255,0.20)" }}>Глобальное дело — не привязано к конкретной сфере жизни</p>
+              </div>
+              <div
+                className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
+                style={{
+                  borderColor: category === "Mission" ? "#fbbf24" : "rgba(255,255,255,0.2)",
+                  background: category === "Mission" ? "rgba(251,191,36,0.25)" : "transparent",
+                }}
+              >
+                {category === "Mission" && <span className="text-[9px]" style={{ color: "#fbbf24" }}>✓</span>}
+              </div>
+            </button>
+          </div>
 
-          <Field label="Сфера жизни">
-            <div className="grid grid-cols-4 gap-2">
-              {sphereKeys.map((k) => {
-                const s = sphereColors[k];
-                const active = sphere === k;
-                return (
-                  <button
-                    key={k}
-                    onClick={() => setSphere(k)}
-                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
-                    style={{
-                      background: active ? s.color + "20" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${active ? s.color + "50" : "rgba(255,255,255,0.06)"}`,
-                    }}
-                  >
-                    <span
-                      className="text-lg"
-                      style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}
+          {/* Sphere selector — hidden when Mission is selected */}
+          {category !== "Mission" && (
+            <Field label="Сфера жизни">
+              <div className="grid grid-cols-4 gap-2">
+                {sphereKeys.map((k) => {
+                  const s = sphereColors[k];
+                  const active = sphere === k;
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setSphere(k)}
+                      className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
+                      style={{
+                        background: active ? s.color + "20" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${active ? s.color + "50" : "rgba(255,255,255,0.06)"}`,
+                      }}
                     >
-                      {s.icon}
-                    </span>
-                    <span className="text-[9px]" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>
-                      {s.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
+                      <span className="text-lg" style={{ filter: active ? `drop-shadow(0 0 6px ${s.color})` : "grayscale(1) opacity(0.35)" }}>{s.icon}</span>
+                      <span className="text-[9px]" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          )}
 
           {props.mode === "task" && (
             <Field label="Тип задачи">
