@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { SphereKey, sphereKeys } from "./sphereColors";
 
 export type TaskCategory =
@@ -70,7 +71,7 @@ export type Task = {
   goalId?: string;
   done: boolean;
   noDeadline: boolean;
-  completedAt?: string; // ISO date string "YYYY-MM-DD" set when task is toggled done
+  completedAt?: string;
 };
 
 export type RoutineTemplate = {
@@ -92,11 +93,10 @@ export type Note = {
 
 export type SphereLevels = Record<SphereKey, number>;
 
-// Snapshot of a past month's data (read-only archive)
-export type MonthSnapshot = {
+// Per-month data bucket (priorities + satisfaction levels)
+export type MonthData = {
   prioritySpheres: [SphereKey | null, SphereKey | null];
   sphereLevels: SphereLevels;
-  totalXPAtEnd: number;
 };
 
 // Compute month key "YYYY-MM"
@@ -113,11 +113,9 @@ export function computeGoalEarnedXP(
   const directXP = allTasks
     .filter((t) => t.goalId === goal.id && t.done)
     .reduce((s, t) => s + t.xp, 0);
-
   const childXP = allGoals
     .filter((g) => g.parentId === goal.id && g.done)
     .reduce((s, g) => s + g.xp, 0);
-
   return directXP + childXP;
 }
 
@@ -125,30 +123,29 @@ type Store = {
   currentPage: string;
   setCurrentPage: (page: string) => void;
 
-  // Month navigation (what month is being viewed)
+  // Month navigation
   currentMonth: Date;
   prevMonth: () => void;
   nextMonth: () => void;
-  isArchiveMode: boolean; // true when viewing a past month
-  isFutureMonth: boolean; // true when viewing a future month
+  isArchiveMode: boolean;
+  isFutureMonth: boolean;
 
-  // Month archive snapshots (past months)
-  monthSnapshots: Record<string, MonthSnapshot>;
+  // Per-month data (lives + all historical months)
+  monthData: Record<string, MonthData>;
 
-  // Priority spheres — live data for current month
+  // Live data for currently-viewed month (loaded from monthData on navigation)
   prioritySpheres: [SphereKey | null, SphereKey | null];
   setPrioritySphere: (idx: 0 | 1, key: SphereKey | null) => void;
   spherePanelOpen: boolean;
   toggleSpherePanel: () => void;
 
-  // Sphere satisfaction levels — live data for current month
   sphereLevels: SphereLevels;
   setSphereLevel: (key: SphereKey, value: number) => void;
 
-  // XP — global, never resets
+  // XP — global
   totalXP: number;
   dayXP: number;
-  monthXP: number; // XP earned in current month (for stats)
+  monthXP: number;
   addXP: (amount: number) => void;
   subtractXP: (amount: number) => void;
 
@@ -185,10 +182,49 @@ const defaultLevels = Object.fromEntries(
   sphereKeys.map((k) => [k, 5])
 ) as SphereLevels;
 
+const defaultMonthData = (): MonthData => ({
+  prioritySpheres: [null, null],
+  sphereLevels: { ...defaultLevels },
+});
+
 const TODAY = new Date().toISOString().slice(0, 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
 const REAL_MONTH_KEY = monthKey(new Date(CURRENT_YEAR, CURRENT_MONTH, 1));
+
+function computeViewingState(date: Date): { isArchiveMode: boolean; isFutureMonth: boolean } {
+  const vk = monthKey(date);
+  return {
+    isArchiveMode: vk < REAL_MONTH_KEY,
+    isFutureMonth: vk > REAL_MONTH_KEY,
+  };
+}
+
+// Save current month's live data to monthData and load new month's data
+function switchMonth(s: Store, newDate: Date): Partial<Store> {
+  const currentKey = monthKey(s.currentMonth);
+  const newKey = monthKey(newDate);
+
+  // Save current month
+  const updatedMonthData: Record<string, MonthData> = {
+    ...s.monthData,
+    [currentKey]: {
+      prioritySpheres: [...s.prioritySpheres] as [SphereKey | null, SphereKey | null],
+      sphereLevels: { ...s.sphereLevels },
+    },
+  };
+
+  // Load new month (or defaults if first visit)
+  const loaded = updatedMonthData[newKey] ?? defaultMonthData();
+
+  return {
+    currentMonth: newDate,
+    ...computeViewingState(newDate),
+    monthData: updatedMonthData,
+    prioritySpheres: [...loaded.prioritySpheres] as [SphereKey | null, SphereKey | null],
+    sphereLevels: { ...loaded.sphereLevels },
+  };
+}
 
 const defaultGoals: Goal[] = [
   {
@@ -219,15 +255,13 @@ const defaultGoals: Goal[] = [
   },
   {
     id: "g-w1", title: "Пробежать 3 раза на этой неделе",
-    description: "",
-    sphere: "health", category: "Body", level: "week",
+    description: "", sphere: "health", category: "Body", level: "week",
     parentId: "g-m1", done: false, xp: 100, targetXP: 100,
     month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
   {
     id: "g-w2", title: "Написать техническое задание",
-    description: "",
-    sphere: "work", category: "Work", level: "week",
+    description: "", sphere: "work", category: "Work", level: "week",
     parentId: "g-m2", done: false, xp: 100, targetXP: 100,
     month: CURRENT_MONTH, year: CURRENT_YEAR,
   },
@@ -290,276 +324,252 @@ const defaultNotes: Note[] = [
   { id: "n2", title: "Идея проекта", text: "Нужно записать идею про автоматизацию утра.", createdAt: "2026-03-15" },
 ];
 
-// Auto-complete goals cascade
-function autoCompleteGoals(
-  tasks: Task[],
-  goals: Goal[],
-  bonusXP: number
-): { goals: Goal[]; bonusXP: number } {
+function autoCompleteGoals(tasks: Task[], goals: Goal[], bonusXP: number): { goals: Goal[]; bonusXP: number } {
   let changed = true;
   let currentGoals = [...goals];
   let totalBonus = bonusXP;
-
   while (changed) {
     changed = false;
     const nextGoals = currentGoals.map((g) => {
       if (g.done) return g;
       const earned = computeGoalEarnedXP(g, currentGoals, tasks);
-      if (earned >= g.targetXP) {
-        changed = true;
-        totalBonus += g.xp;
-        return { ...g, done: true };
-      }
+      if (earned >= g.targetXP) { changed = true; totalBonus += g.xp; return { ...g, done: true }; }
       return g;
     });
     currentGoals = nextGoals;
   }
-
   return { goals: currentGoals, bonusXP: totalBonus };
 }
 
-function autoUncompleteGoals(
-  tasks: Task[],
-  goals: Goal[],
-  penaltyXP: number
-): { goals: Goal[]; penaltyXP: number } {
+function autoUncompleteGoals(tasks: Task[], goals: Goal[], penaltyXP: number): { goals: Goal[]; penaltyXP: number } {
   let changed = true;
   let currentGoals = [...goals];
   let totalPenalty = penaltyXP;
-
   while (changed) {
     changed = false;
     const nextGoals = currentGoals.map((g) => {
       if (!g.done) return g;
       const earned = computeGoalEarnedXP(g, currentGoals, tasks);
-      if (earned < g.targetXP) {
-        changed = true;
-        totalPenalty += g.xp;
-        return { ...g, done: false };
-      }
+      if (earned < g.targetXP) { changed = true; totalPenalty += g.xp; return { ...g, done: false }; }
       return g;
     });
     currentGoals = nextGoals;
   }
-
   return { goals: currentGoals, penaltyXP: totalPenalty };
 }
 
-function computeViewingState(date: Date): { isArchiveMode: boolean; isFutureMonth: boolean } {
-  const vk = monthKey(date);
-  return {
-    isArchiveMode: vk < REAL_MONTH_KEY,
-    isFutureMonth: vk > REAL_MONTH_KEY,
-  };
-}
+// Custom localStorage storage that revives Date objects
+const dateAwareStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      const str = localStorage.getItem(name);
+      return str; // Return raw string — Zustand will parse it
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try { localStorage.setItem(name, value); } catch { /* quota */ }
+  },
+  removeItem: (name: string): void => {
+    try { localStorage.removeItem(name); } catch { /* ignore */ }
+  },
+};
 
-export const useStore = create<Store>((set, get) => ({
-  currentPage: "home",
-  setCurrentPage: (page) => set({ currentPage: page }),
+export const useStore = create<Store>()(
+  persist(
+    (set, get) => ({
+      currentPage: "home",
+      setCurrentPage: (page) => set({ currentPage: page }),
 
-  currentMonth: new Date(CURRENT_YEAR, CURRENT_MONTH, 1),
-  isArchiveMode: false,
-  isFutureMonth: false,
+      currentMonth: new Date(CURRENT_YEAR, CURRENT_MONTH, 1),
+      isArchiveMode: false,
+      isFutureMonth: false,
 
-  prevMonth: () =>
-    set((s) => {
-      const d = new Date(s.currentMonth);
-      d.setMonth(d.getMonth() - 1);
-      return { currentMonth: d, ...computeViewingState(d) };
+      prevMonth: () =>
+        set((s) => {
+          const d = new Date(s.currentMonth);
+          d.setMonth(d.getMonth() - 1);
+          return switchMonth(s, d);
+        }),
+
+      nextMonth: () =>
+        set((s) => {
+          const d = new Date(s.currentMonth);
+          d.setMonth(d.getMonth() + 1);
+          return switchMonth(s, d);
+        }),
+
+      monthData: {},
+
+      prioritySpheres: [null, null],
+      setPrioritySphere: (idx, key) =>
+        set((s) => {
+          const arr: [SphereKey | null, SphereKey | null] = [...s.prioritySpheres];
+          arr[idx] = key;
+          const mk = monthKey(s.currentMonth);
+          return {
+            prioritySpheres: arr,
+            monthData: {
+              ...s.monthData,
+              [mk]: { prioritySpheres: arr, sphereLevels: s.sphereLevels },
+            },
+          };
+        }),
+      spherePanelOpen: true,
+      toggleSpherePanel: () => set((s) => ({ spherePanelOpen: !s.spherePanelOpen })),
+
+      sphereLevels: defaultLevels,
+      setSphereLevel: (key, value) =>
+        set((s) => {
+          const newLevels = { ...s.sphereLevels, [key]: Math.min(10, Math.max(0, value)) };
+          const mk = monthKey(s.currentMonth);
+          return {
+            sphereLevels: newLevels,
+            monthData: {
+              ...s.monthData,
+              [mk]: { prioritySpheres: s.prioritySpheres, sphereLevels: newLevels },
+            },
+          };
+        }),
+
+      totalXP: 10,
+      dayXP: 10,
+      monthXP: 10,
+      addXP: (amount) =>
+        set((s) => ({ totalXP: s.totalXP + amount, dayXP: s.dayXP + amount, monthXP: s.monthXP + amount })),
+      subtractXP: (amount) =>
+        set((s) => ({
+          totalXP: Math.max(0, s.totalXP - amount),
+          dayXP: Math.max(0, s.dayXP - amount),
+          monthXP: Math.max(0, s.monthXP - amount),
+        })),
+
+      goals: defaultGoals,
+      addGoal: (g) => set((s) => ({ goals: [...s.goals, { ...g, id: "g-" + Date.now() }] })),
+      editGoal: (id, updates) =>
+        set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)) })),
+      deleteGoal: (id) =>
+        set((s) => ({ goals: s.goals.filter((g) => g.id !== id && g.parentId !== id) })),
+      toggleGoal: (id) =>
+        set((s) => {
+          const goal = s.goals.find((g) => g.id === id);
+          if (!goal) return {};
+          const newDone = !goal.done;
+          const xpDelta = newDone ? goal.xp : -goal.xp;
+          return {
+            goals: s.goals.map((g) => (g.id === id ? { ...g, done: newDone } : g)),
+            totalXP: Math.max(0, s.totalXP + xpDelta),
+            dayXP: Math.max(0, s.dayXP + xpDelta),
+            monthXP: Math.max(0, s.monthXP + xpDelta),
+          };
+        }),
+
+      ideas: defaultIdeas,
+      addIdea: (idea) => set((s) => ({ ideas: [{ ...idea, id: "i-" + Date.now() }, ...s.ideas] })),
+      editIdea: (id, updates) =>
+        set((s) => ({ ideas: s.ideas.map((i) => (i.id === id ? { ...i, ...updates } : i)) })),
+      deleteIdea: (id) => set((s) => ({ ideas: s.ideas.filter((i) => i.id !== id) })),
+
+      tasks: defaultTasks,
+      toggleTask: (id) =>
+        set((s) => {
+          const task = s.tasks.find((t) => t.id === id);
+          if (!task) return {};
+          const wasDone = task.done;
+          const today = new Date().toISOString().slice(0, 10);
+          const newTasks = s.tasks.map((t) =>
+            t.id === id ? { ...t, done: !t.done, completedAt: !t.done ? today : undefined } : t
+          );
+          let taskXPDelta = wasDone ? -task.xp : task.xp;
+          let goalsDelta = 0;
+          let newGoals = s.goals;
+          if (!wasDone) {
+            const result = autoCompleteGoals(newTasks, s.goals, 0);
+            newGoals = result.goals; goalsDelta = result.bonusXP;
+          } else {
+            const result = autoUncompleteGoals(newTasks, s.goals, 0);
+            newGoals = result.goals; goalsDelta = -result.penaltyXP;
+          }
+          const totalDelta = taskXPDelta + goalsDelta;
+          return {
+            tasks: newTasks, goals: newGoals,
+            totalXP: Math.max(0, s.totalXP + totalDelta),
+            dayXP: Math.max(0, s.dayXP + taskXPDelta),
+            monthXP: Math.max(0, s.monthXP + taskXPDelta),
+          };
+        }),
+      addTask: (task) =>
+        set((s) => ({ tasks: [...s.tasks, { ...task, id: Date.now().toString() }] })),
+      editTask: (id, updates) =>
+        set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
+      deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      rescheduleTask: (id, newDate) =>
+        set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, dueDate: newDate } : t)) })),
+
+      routineTemplates: defaultTemplates,
+      addRoutineTemplate: (t) =>
+        set((s) => ({ routineTemplates: [...s.routineTemplates, { ...t, id: Date.now().toString() }] })),
+      editRoutineTemplate: (id, updates) =>
+        set((s) => ({ routineTemplates: s.routineTemplates.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
+      deleteRoutineTemplate: (id) =>
+        set((s) => ({ routineTemplates: s.routineTemplates.filter((t) => t.id !== id) })),
+      refreshDay: () =>
+        set((s) => {
+          const today = new Date().toISOString().slice(0, 10);
+          const existingTexts = s.tasks.filter((t) => t.type === "routine" && t.dueDate === today).map((t) => t.text);
+          const newTasks: Task[] = s.routineTemplates
+            .filter((tmpl) => !existingTexts.includes(tmpl.text))
+            .map((tmpl) => ({
+              id: Date.now().toString() + Math.random(),
+              text: tmpl.text, description: tmpl.description,
+              category: tmpl.category, sphere: tmpl.sphere,
+              type: "routine" as const, priority: false,
+              xp: tmpl.xp, xpDifficulty: tmpl.xpDifficulty,
+              noDeadline: false, dueDate: today, done: false,
+            }));
+          return { tasks: [...s.tasks, ...newTasks] };
+        }),
+
+      notes: defaultNotes,
+      addNote: (note) =>
+        set((s) => ({ notes: [{ ...note, id: "note-" + Date.now() }, ...s.notes] })),
+      deleteNote: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
     }),
-
-  nextMonth: () =>
-    set((s) => {
-      const currentKey = monthKey(s.currentMonth);
-      const d = new Date(s.currentMonth);
-      d.setMonth(d.getMonth() + 1);
-      const nextKey = monthKey(d);
-      const { isArchiveMode, isFutureMonth } = computeViewingState(d);
-
-      // If we're advancing PAST the real current month → save snapshot & reset
-      if (currentKey === REAL_MONTH_KEY && nextKey > REAL_MONTH_KEY) {
-        const snapshot: MonthSnapshot = {
-          prioritySpheres: [...s.prioritySpheres],
-          sphereLevels: { ...s.sphereLevels },
-          totalXPAtEnd: s.totalXP,
-        };
-        return {
-          currentMonth: d,
-          isArchiveMode,
-          isFutureMonth,
-          monthSnapshots: { ...s.monthSnapshots, [currentKey]: snapshot },
-          prioritySpheres: [null, null],
-          sphereLevels: { ...defaultLevels },
-          monthXP: 0,
-        };
-      }
-
-      return { currentMonth: d, isArchiveMode, isFutureMonth };
-    }),
-
-  monthSnapshots: {},
-
-  prioritySpheres: [null, null],
-  setPrioritySphere: (idx, key) =>
-    set((s) => {
-      const arr: [SphereKey | null, SphereKey | null] = [...s.prioritySpheres];
-      arr[idx] = key;
-      return { prioritySpheres: arr };
-    }),
-  spherePanelOpen: true,
-  toggleSpherePanel: () => set((s) => ({ spherePanelOpen: !s.spherePanelOpen })),
-
-  sphereLevels: defaultLevels,
-  setSphereLevel: (key, value) =>
-    set((s) => ({
-      sphereLevels: { ...s.sphereLevels, [key]: Math.min(10, Math.max(0, value)) },
-    })),
-
-  totalXP: 10,
-  dayXP: 10,
-  monthXP: 10,
-  addXP: (amount) =>
-    set((s) => ({
-      totalXP: s.totalXP + amount,
-      dayXP: s.dayXP + amount,
-      monthXP: s.monthXP + amount,
-    })),
-  subtractXP: (amount) =>
-    set((s) => ({
-      totalXP: Math.max(0, s.totalXP - amount),
-      dayXP: Math.max(0, s.dayXP - amount),
-      monthXP: Math.max(0, s.monthXP - amount),
-    })),
-
-  goals: defaultGoals,
-  addGoal: (g) =>
-    set((s) => ({ goals: [...s.goals, { ...g, id: "g-" + Date.now() }] })),
-  editGoal: (id, updates) =>
-    set((s) => ({
-      goals: s.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
-    })),
-  deleteGoal: (id) =>
-    set((s) => ({
-      goals: s.goals.filter((g) => g.id !== id && g.parentId !== id),
-    })),
-  toggleGoal: (id) =>
-    set((s) => {
-      const goal = s.goals.find((g) => g.id === id);
-      if (!goal) return {};
-      const newDone = !goal.done;
-      const xpDelta = newDone ? goal.xp : -goal.xp;
-      return {
-        goals: s.goals.map((g) => (g.id === id ? { ...g, done: newDone } : g)),
-        totalXP: Math.max(0, s.totalXP + xpDelta),
-        dayXP: Math.max(0, s.dayXP + xpDelta),
-        monthXP: Math.max(0, s.monthXP + xpDelta),
-      };
-    }),
-
-  ideas: defaultIdeas,
-  addIdea: (idea) =>
-    set((s) => ({ ideas: [{ ...idea, id: "i-" + Date.now() }, ...s.ideas] })),
-  editIdea: (id, updates) =>
-    set((s) => ({ ideas: s.ideas.map((i) => (i.id === id ? { ...i, ...updates } : i)) })),
-  deleteIdea: (id) =>
-    set((s) => ({ ideas: s.ideas.filter((i) => i.id !== id) })),
-
-  tasks: defaultTasks,
-  toggleTask: (id) =>
-    set((s) => {
-      const task = s.tasks.find((t) => t.id === id);
-      if (!task) return {};
-      const wasDone = task.done;
-      const today = new Date().toISOString().slice(0, 10);
-      const newTasks = s.tasks.map((t) =>
-        t.id === id
-          ? { ...t, done: !t.done, completedAt: !t.done ? today : undefined }
-          : t
-      );
-
-      let taskXPDelta = wasDone ? -task.xp : task.xp;
-      let goalsDelta = 0;
-      let newGoals = s.goals;
-
-      if (!wasDone) {
-        const result = autoCompleteGoals(newTasks, s.goals, 0);
-        newGoals = result.goals;
-        goalsDelta = result.bonusXP;
-      } else {
-        const result = autoUncompleteGoals(newTasks, s.goals, 0);
-        newGoals = result.goals;
-        goalsDelta = -result.penaltyXP;
-      }
-
-      const totalDelta = taskXPDelta + goalsDelta;
-      return {
-        tasks: newTasks,
-        goals: newGoals,
-        totalXP: Math.max(0, s.totalXP + totalDelta),
-        dayXP: Math.max(0, s.dayXP + taskXPDelta),
-        monthXP: Math.max(0, s.monthXP + taskXPDelta),
-      };
-    }),
-  addTask: (task) =>
-    set((s) => ({
-      tasks: [...s.tasks, { ...task, id: Date.now().toString() }],
-    })),
-  editTask: (id, updates) =>
-    set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-    })),
-  deleteTask: (id) =>
-    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
-  rescheduleTask: (id, newDate) =>
-    set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, dueDate: newDate } : t)),
-    })),
-
-  routineTemplates: defaultTemplates,
-  addRoutineTemplate: (t) =>
-    set((s) => ({
-      routineTemplates: [...s.routineTemplates, { ...t, id: Date.now().toString() }],
-    })),
-  editRoutineTemplate: (id, updates) =>
-    set((s) => ({
-      routineTemplates: s.routineTemplates.map((t) =>
-        t.id === id ? { ...t, ...updates } : t
-      ),
-    })),
-  deleteRoutineTemplate: (id) =>
-    set((s) => ({
-      routineTemplates: s.routineTemplates.filter((t) => t.id !== id),
-    })),
-  refreshDay: () =>
-    set((s) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const existingRoutineTexts = s.tasks
-        .filter((t) => t.type === "routine" && t.dueDate === today)
-        .map((t) => t.text);
-      const newTasks: Task[] = s.routineTemplates
-        .filter((tmpl) => !existingRoutineTexts.includes(tmpl.text))
-        .map((tmpl) => ({
-          id: Date.now().toString() + Math.random(),
-          text: tmpl.text,
-          description: tmpl.description,
-          category: tmpl.category,
-          sphere: tmpl.sphere,
-          type: "routine" as const,
-          priority: false,
-          xp: tmpl.xp,
-          xpDifficulty: tmpl.xpDifficulty,
-          noDeadline: false,
-          dueDate: today,
-          done: false,
-        }));
-      return { tasks: [...s.tasks, ...newTasks] };
-    }),
-
-  notes: defaultNotes,
-  addNote: (note) =>
-    set((s) => ({
-      notes: [{ ...note, id: "note-" + Date.now() }, ...s.notes],
-    })),
-  deleteNote: (id) =>
-    set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
-}));
+    {
+      name: "life-dashboard-v2",
+      storage: dateAwareStorage,
+      // Only persist data fields, skip computed/function fields
+      partialize: (s) => ({
+        currentPage: s.currentPage,
+        currentMonth: s.currentMonth.toISOString(),
+        monthData: s.monthData,
+        prioritySpheres: s.prioritySpheres,
+        sphereLevels: s.sphereLevels,
+        totalXP: s.totalXP,
+        dayXP: s.dayXP,
+        monthXP: s.monthXP,
+        goals: s.goals,
+        ideas: s.ideas,
+        tasks: s.tasks,
+        routineTemplates: s.routineTemplates,
+        notes: s.notes,
+      }),
+      // Revive Date objects and recompute derived state after loading
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Revive currentMonth from ISO string
+        if (typeof (state.currentMonth as unknown) === "string") {
+          state.currentMonth = new Date(state.currentMonth as unknown as string);
+        }
+        // Recompute isArchiveMode / isFutureMonth
+        const { isArchiveMode, isFutureMonth } = (() => {
+          const vk = monthKey(state.currentMonth);
+          return { isArchiveMode: vk < REAL_MONTH_KEY, isFutureMonth: vk > REAL_MONTH_KEY };
+        })();
+        state.isArchiveMode = isArchiveMode;
+        state.isFutureMonth = isFutureMonth;
+      },
+    }
+  )
+);

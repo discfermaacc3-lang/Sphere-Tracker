@@ -227,7 +227,7 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEven
 export function Home() {
   const {
     currentMonth, prevMonth, nextMonth,
-    isArchiveMode, isFutureMonth, monthSnapshots,
+    isArchiveMode, isFutureMonth,
     prioritySpheres, setPrioritySphere,
     sphereLevels,
     tasks, toggleTask,
@@ -236,14 +236,15 @@ export function Home() {
   } = useStore();
 
   const [selectedSlot, setSelectedSlot] = useState<0 | 1 | null>(null);
+  // Start collapsed when both priorities are already chosen, open otherwise
+  const [sphereOpen, setSphereOpen] = useState(
+    prioritySpheres[0] === null || prioritySpheres[1] === null
+  );
   const spherePickerRef = useRef<HTMLDivElement>(null);
 
-  // Use archived priorities when viewing a past month
-  const archiveKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
-  const archiveSnap = isArchiveMode ? monthSnapshots[archiveKey] : null;
-  const viewPriorities: [SphereKey | null, SphereKey | null] = archiveSnap
-    ? archiveSnap.prioritySpheres
-    : prioritySpheres;
+  // prioritySpheres and sphereLevels are always the correct month's data
+  // (store loads the right month's data on navigation)
+  const viewPriorities = prioritySpheres;
 
   const [newNote, setNewNote] = useState("");
   const [xpFloats, setXpFloats] = useState<XpFloat[]>([]);
@@ -258,7 +259,7 @@ export function Home() {
   const { level, pct } = getLevel(totalXP);
   const dayPct = Math.min(100, Math.round((dayXP / DAY_XP_GOAL) * 100));
 
-  // Priority spheres from active priorities to build gradient colors for progress
+  // Priority spheres colors for progress bar gradient
   const p0 = viewPriorities[0] ? sphereColors[viewPriorities[0]].color : "#a78bfa";
   const p1 = viewPriorities[1] ? sphereColors[viewPriorities[1]].color : "#22d3ee";
 
@@ -287,10 +288,14 @@ export function Home() {
 
   function handleSlotClick(slot: 0 | 1) {
     if (isArchiveMode) return;
-    setSelectedSlot((prev) => (prev === slot ? null : slot));
-    setTimeout(() => {
-      spherePickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
+    const toggling = selectedSlot === slot;
+    setSelectedSlot(toggling ? null : slot);
+    if (!toggling) {
+      setSphereOpen(true);
+      setTimeout(() => {
+        spherePickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 60);
+    }
   }
 
   const todayNotes = notes.filter((n) => n.createdAt === TODAY);
@@ -411,10 +416,10 @@ export function Home() {
         </div>
       </section>
 
-      {/* ── Sphere picker — compact single row ─────────────────── */}
+      {/* ── Sphere picker — collapsible accordion ─────────────── */}
       <div
         ref={spherePickerRef}
-        className="rounded-[1.5rem] px-4 py-3"
+        className="rounded-[1.5rem] overflow-hidden"
         style={{
           background: selectedSlot !== null
             ? "rgba(167,139,250,0.04)"
@@ -426,23 +431,50 @@ export function Home() {
           transition: "background .3s ease, border-color .3s ease",
         }}
       >
-        <div className="flex items-center justify-between mb-3">
+        {/* Accordion header */}
+        <button
+          onClick={() => { setSphereOpen((o) => !o); if (selectedSlot !== null && sphereOpen) setSelectedSlot(null); }}
+          className="w-full flex items-center justify-between px-4 py-3 transition-all"
+          style={{ color: "inherit" }}
+        >
           <p
             className="text-[8px] uppercase tracking-[0.22em] font-medium"
-            style={{ color: selectedSlot !== null ? "rgba(167,139,250,0.6)" : "rgba(255,255,255,0.18)" }}
+            style={{ color: selectedSlot !== null ? "rgba(167,139,250,0.65)" : "rgba(255,255,255,0.22)" }}
           >
             {selectedSlot !== null ? "✦ Выберите замену" : "Все сферы"}
           </p>
-          {selectedSlot !== null && (
-            <button
-              onClick={() => setSelectedSlot(null)}
-              className="text-[9px] tracking-wide"
-              style={{ color: "rgba(167,139,250,0.4)" }}
+          <div className="flex items-center gap-2">
+            {selectedSlot !== null && (
+              <span
+                className="text-[9px] tracking-wide"
+                style={{ color: "rgba(167,139,250,0.45)" }}
+                onClick={(e) => { e.stopPropagation(); setSelectedSlot(null); }}
+              >
+                Отмена
+              </span>
+            )}
+            <span
+              className="text-[10px] transition-transform duration-300"
+              style={{
+                color: "rgba(255,255,255,0.22)",
+                display: "inline-block",
+                transform: sphereOpen ? "rotate(0deg)" : "rotate(180deg)",
+              }}
             >
-              Отмена
-            </button>
-          )}
-        </div>
+              ∧
+            </span>
+          </div>
+        </button>
+
+        {/* Accordion body */}
+        <div
+          style={{
+            maxHeight: sphereOpen ? "80px" : "0px",
+            overflow: "hidden",
+            transition: "max-height 0.35s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        >
+          <div className="px-4 pb-3">
         <div className="flex gap-1 justify-between">
           {sphereKeys.map((key) => {
             const s = sphereColors[key];
@@ -483,6 +515,8 @@ export function Home() {
               </button>
             );
           })}
+        </div>
+          </div>
         </div>
       </div>
 

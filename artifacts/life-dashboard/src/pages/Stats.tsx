@@ -221,18 +221,14 @@ function GlowDonut({ levels, hovered, setHovered }: {
 export function Stats() {
   const {
     sphereLevels, setSphereLevel, tasks,
-    isArchiveMode, monthSnapshots, currentMonth, totalXP,
+    isArchiveMode, currentMonth, totalXP,
   } = useStore();
 
   const [hovered, setHovered] = useState<SphereKey | null>(null);
   const [period, setPeriod] = useState<Period>("month");
 
-  // Use archived sphere levels when viewing past month
-  const archiveKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
-  const archiveSnap = isArchiveMode ? monthSnapshots[archiveKey] : null;
-  const displayLevels: Record<SphereKey, number> = archiveSnap
-    ? archiveSnap.sphereLevels
-    : sphereLevels;
+  // sphereLevels is always the correct month's data (loaded by store on navigation)
+  const displayLevels = sphereLevels;
 
   // ── Period date bounds ────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
