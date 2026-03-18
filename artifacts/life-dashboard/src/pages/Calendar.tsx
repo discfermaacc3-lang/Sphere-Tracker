@@ -215,29 +215,36 @@ export function Calendar() {
       ...dayTkList.map((t) => `${t.category === "Mission" ? "💎" : "·"} ${t.text}`),
     ];
 
+    const CELL = tall ? 38 : 30; // px
+
     return (
       <div
         key={ds}
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
-        className={`relative group/cell rounded-lg flex flex-col items-center cursor-pointer transition-all hover:bg-white/5 ${
-          tall ? "justify-start pt-2 pb-2.5 min-h-[60px]" : "justify-between py-1 aspect-square"
-        }`}
+        className="relative group/cell rounded-md flex flex-col items-center justify-between cursor-pointer transition-all hover:bg-white/5"
         style={{
+          width: CELL,
+          height: tall ? 46 : CELL,
+          padding: "2px",
+          flexShrink: 0,
           ...(hasGlow
             ? glowStyle
             : isSelectedDay
-            ? { background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.50)" }
+            ? { background: "rgba(99,102,241,0.20)", border: "1px solid rgba(99,102,241,0.55)" }
             : isToday
             ? { background: "linear-gradient(135deg,#6366f125,#8b5cf625)", border: "1px solid #6366f150" }
             : { border: "1px solid transparent" }),
-          transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "all 0.2s ease",
         }}
       >
         {/* Day number */}
         <span
-          className={`${tall ? "text-[13px]" : "text-[11px]"} font-medium leading-none ${tall ? "" : "mt-0.5"}`}
           style={{
-            color: isToday ? "#818cf8" : isSelectedDay ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.55)",
+            fontSize: tall ? 11 : 9,
+            fontWeight: 500,
+            lineHeight: 1,
+            marginTop: 1,
+            color: isToday ? "#818cf8" : isSelectedDay ? "rgba(255,255,255,0.92)" : isPast ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.52)",
           }}
         >
           {label}
@@ -245,54 +252,49 @@ export function Calendar() {
 
         {/* Weekday label in week view */}
         {tall && (
-          <span className="text-[8px] text-white/20 mt-0.5">
+          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", lineHeight: 1 }}>
             {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
           </span>
         )}
 
         {/* Dot indicators */}
         {totalItems > 0 && (
-          <div className={`flex gap-[2px] flex-wrap justify-center ${tall ? "mt-2" : "mb-[3px] px-0.5"}`}>
-            {dayEvList.slice(0, 4).map((e) => (
+          <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center", marginBottom: 1 }}>
+            {dayEvList.slice(0, 3).map((e) => (
               <div
                 key={e.id}
-                className="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                style={{ background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}90` }}
+                style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
               />
             ))}
-            {dayTkList.slice(0, Math.max(0, 5 - dayEvList.length)).map((t) => (
+            {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
               <div
                 key={t.id}
-                className="w-[4px] h-[4px] rounded-full flex-shrink-0 opacity-60"
-                style={{ background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
+                style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
               />
             ))}
-            {totalItems > 5 && (
-              <div className="text-[6px] text-white/25 leading-[5px]">+{totalItems - 5}</div>
-            )}
           </div>
         )}
 
         {/* Hover tooltip */}
         {tooltipLines.length > 0 && (
           <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover/cell:flex flex-col gap-0.5 pointer-events-none"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 hidden group-hover/cell:flex flex-col gap-0.5 pointer-events-none"
             style={{
               minWidth: 130,
-              maxWidth: 200,
-              padding: "7px 10px",
-              borderRadius: 12,
-              background: "rgba(10,10,22,0.97)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              boxShadow: "0 10px 36px rgba(0,0,0,0.55)",
+              maxWidth: 210,
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: "rgba(8,8,20,0.98)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              boxShadow: "0 8px 28px rgba(0,0,0,0.6)",
               backdropFilter: "blur(16px)",
             }}
           >
-            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-0.5 font-medium">
+            <p style={{ fontSize: 8, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 2 }}>
               {label} {MONTH_NAMES_GEN[month]}
             </p>
             {tooltipLines.map((line, i) => (
-              <p key={i} className="text-[10px] text-white/75 whitespace-nowrap truncate leading-relaxed">{line}</p>
+              <p key={i} style={{ fontSize: 10, color: "rgba(255,255,255,0.78)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.5 }}>{line}</p>
             ))}
           </div>
         )}
@@ -357,40 +359,74 @@ export function Calendar() {
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="rounded-2xl border border-white/5 px-4 pt-4 pb-3" style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}>
-        <div className="grid grid-cols-7 gap-1 mb-1.5">
+      {/* Calendar grid — compact widget */}
+      <div
+        className="rounded-2xl border border-white/5 py-3 px-4"
+        style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}
+      >
+        {/* Weekday headers */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: viewMode === "month" ? "repeat(7, 30px)" : "repeat(7, 38px)",
+            gap: 3,
+            marginBottom: 4,
+            marginLeft: "auto",
+            marginRight: "auto",
+            width: "fit-content",
+          }}
+        >
           {WEEKDAYS.map((d) => (
-            <div key={d} className="text-center text-[9px] text-white/20 font-medium py-0.5 uppercase tracking-widest">{d}</div>
+            <div
+              key={d}
+              style={{ width: viewMode === "month" ? 30 : 38, textAlign: "center", fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            >
+              {d}
+            </div>
           ))}
         </div>
 
-        <div style={{ overflow: "visible" }}>
+        {/* Day cells */}
+        <div style={{ overflow: "visible", width: "fit-content", margin: "0 auto" }}>
           {viewMode === "month" ? (
-            <div className="grid grid-cols-7 gap-[3px]" style={{ overflow: "visible" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 30px)",
+                gap: 3,
+                overflow: "visible",
+              }}
+            >
               {monthCells.map((day, idx) => {
-                if (day === null) return <div key={idx} />;
+                if (day === null) return <div key={idx} style={{ width: 30, height: 30 }} />;
                 return renderDayCell(toDateStr(year, month, day), day, false);
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-7 gap-1.5" style={{ overflow: "visible" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 38px)",
+                gap: 3,
+                overflow: "visible",
+              }}
+            >
               {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
             </div>
           )}
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-white/5">
+        <div className="flex flex-wrap gap-2.5 mt-3 pt-2.5 border-t border-white/5">
           {EVENT_CATEGORIES.map((cat) => (
             <div key={cat} className="flex items-center gap-1">
-              <div className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: EVENT_META[cat].color, boxShadow: `0 0 3px ${EVENT_META[cat].color}80` }} />
-              <span className="text-[8px] text-white/25">{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: EVENT_META[cat].color, boxShadow: `0 0 3px ${EVENT_META[cat].color}` }} />
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)" }}>{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
             </div>
           ))}
           <div className="flex items-center gap-1">
-            <div className="w-[4px] h-[4px] rounded-full opacity-50" style={{ background: "rgba(255,255,255,0.5)" }} />
-            <span className="text-[8px] text-white/25">· Задача</span>
+            <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.4)" }} />
+            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)" }}>· Задача</span>
           </div>
         </div>
       </div>
