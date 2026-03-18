@@ -3,6 +3,7 @@ import { Task, TaskCategory, XpDifficulty, RoutineTemplate, useStore, computeGoa
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 import { CustomDatePicker } from "./CustomDatePicker";
 import { CustomTimePicker } from "./CustomTimePicker";
+import { DreamSelect } from "./DreamSelect";
 
 const CATEGORIES: TaskCategory[] = [
   "Body", "Mindset", "Creativity", "Hobby",
@@ -374,19 +375,20 @@ export function TaskModal(props: Props) {
           {props.mode === "task" && (
             <Field label="Привязать к цели недели">
               <div className="flex flex-col gap-2">
-                <select
-                  className={inputCls("cursor-pointer")}
+                <DreamSelect
                   value={goalId}
-                  onChange={(e) => setGoalId(e.target.value)}
-                  style={{ colorScheme: "dark" }}
-                >
-                  <option value="">— Без привязки к цели —</option>
-                  {weekGoals.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {sphereColors[g.sphere].icon} {g.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setGoalId}
+                  options={[
+                    { value: "", label: "— Без привязки к цели —" },
+                    ...weekGoals.map((g) => ({
+                      value: g.id,
+                      label: g.title,
+                      icon: sphereColors[g.sphere].icon,
+                      color: sphereColors[g.sphere].color,
+                    })),
+                  ]}
+                  placeholder="— Без привязки к цели —"
+                />
 
                 {/* Goal mini-card */}
                 {selectedGoal && (() => {

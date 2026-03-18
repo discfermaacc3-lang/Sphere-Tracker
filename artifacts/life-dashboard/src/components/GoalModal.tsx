@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Goal, GoalLevel, GOAL_XP, GOAL_TARGET_XP_DEFAULT, TaskCategory } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
+import { DreamSelect } from "./DreamSelect";
 
 export const CATEGORIES: TaskCategory[] = [
   "Body", "Mindset", "Creativity", "Hobby",
@@ -148,42 +149,33 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
           {level === "month" && (
             <Field label="Месяц планирования">
               <div className="flex gap-2">
-                <select
-                  className={inputCls("cursor-pointer flex-1")}
-                  value={month}
-                  onChange={(e) => setMonth(Number(e.target.value))}
-                  style={{ colorScheme: "dark" }}
-                >
-                  {MONTH_NAMES.map((name, i) => (
-                    <option key={i} value={i}>{name}</option>
-                  ))}
-                </select>
-                <select
-                  className={inputCls("cursor-pointer w-28")}
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  style={{ colorScheme: "dark" }}
-                >
-                  {[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
+                <DreamSelect
+                  className="flex-1"
+                  value={String(month)}
+                  onChange={(v) => setMonth(Number(v))}
+                  options={MONTH_NAMES.map((name, i) => ({ value: String(i), label: name }))}
+                />
+                <DreamSelect
+                  className="w-28"
+                  value={String(year)}
+                  onChange={(v) => setYear(Number(v))}
+                  options={[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => ({
+                    value: String(y), label: String(y),
+                  }))}
+                />
               </div>
             </Field>
           )}
 
           {level === "week" && (
             <Field label="Год">
-              <select
-                className={inputCls("cursor-pointer")}
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                style={{ colorScheme: "dark" }}
-              >
-                {[CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <DreamSelect
+                value={String(year)}
+                onChange={(v) => setYear(Number(v))}
+                options={[CURRENT_YEAR, CURRENT_YEAR + 1].map((y) => ({
+                  value: String(y), label: String(y),
+                }))}
+              />
             </Field>
           )}
 
@@ -277,19 +269,20 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
           {/* Parent goal */}
           {parentGoals.length > 0 && (
             <Field label={level === "week" ? "Родительская цель (месячная)" : "Родительская цель (годовая)"}>
-              <select
-                className={inputCls("cursor-pointer")}
+              <DreamSelect
                 value={parentId ?? ""}
-                onChange={(e) => setParentId(e.target.value || undefined)}
-                style={{ colorScheme: "dark" }}
-              >
-                <option value="">— Без привязки —</option>
-                {parentGoals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {sphereColors[g.sphere].icon} {g.title}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setParentId(v || undefined)}
+                options={[
+                  { value: "", label: "— Без привязки —" },
+                  ...parentGoals.map((g) => ({
+                    value: g.id,
+                    label: g.title,
+                    icon: sphereColors[g.sphere].icon,
+                    color: sphereColors[g.sphere].color,
+                  })),
+                ]}
+                placeholder="— Без привязки —"
+              />
             </Field>
           )}
 
