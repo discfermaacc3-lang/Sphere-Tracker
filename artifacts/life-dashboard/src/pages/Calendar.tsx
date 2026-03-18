@@ -204,18 +204,24 @@ export function Calendar() {
     const isPast = ds < todayStr;
     const isSelectedDay = selectedDateStr === ds;
     const dayEvList = getEventsForDate(calendarEvents, ds);
-    // exclude routine from grid indicators
     const dayTkList = tasks.filter((t) => t.dueDate === ds && t.type !== "routine");
-    const totalDots = dayEvList.length + dayTkList.length;
+    const totalItems = dayEvList.length + dayTkList.length;
     const glowStyle = getCellGlow(ds);
     const hasGlow = ds === activeHighlight;
     const dayNum = parseInt(String(label));
+
+    const tooltipLines = [
+      ...dayEvList.map((e) => `${EVENT_META[e.category].emoji} ${e.title}`),
+      ...dayTkList.map((t) => `${t.category === "Mission" ? "💎" : "·"} ${t.text}`),
+    ];
 
     return (
       <div
         key={ds}
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
-        className={`rounded-xl flex flex-col items-center cursor-pointer transition-all hover:bg-white/5 ${tall ? "justify-start py-3 min-h-[80px]" : "justify-between py-1.5 aspect-square"}`}
+        className={`relative group/cell rounded-lg flex flex-col items-center cursor-pointer transition-all hover:bg-white/5 ${
+          tall ? "justify-start pt-2 pb-2.5 min-h-[60px]" : "justify-between py-1 aspect-square"
+        }`}
         style={{
           ...(hasGlow
             ? glowStyle
@@ -227,30 +233,67 @@ export function Calendar() {
           transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        <span className={`${tall ? "text-base" : "text-xs"} font-medium leading-none ${tall ? "" : "mt-1"}`} style={{ color: isToday ? "#818cf8" : isSelectedDay ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.58)" }}>
+        {/* Day number */}
+        <span
+          className={`${tall ? "text-[13px]" : "text-[11px]"} font-medium leading-none ${tall ? "" : "mt-0.5"}`}
+          style={{
+            color: isToday ? "#818cf8" : isSelectedDay ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.55)",
+          }}
+        >
           {label}
         </span>
+
+        {/* Weekday label in week view */}
         {tall && (
-          <span className="text-[9px] text-white/25 mt-0.5">
+          <span className="text-[8px] text-white/20 mt-0.5">
             {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
           </span>
         )}
-        {totalDots > 0 && (
-          <div className={`flex gap-[3px] flex-wrap justify-center ${tall ? "mt-2 px-2" : "px-1 mb-0.5"}`}>
-            {dayEvList.slice(0, 3).map((e) => (
-              <div key={e.id} className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}80` }} />
+
+        {/* Dot indicators */}
+        {totalItems > 0 && (
+          <div className={`flex gap-[2px] flex-wrap justify-center ${tall ? "mt-2" : "mb-[3px] px-0.5"}`}>
+            {dayEvList.slice(0, 4).map((e) => (
+              <div
+                key={e.id}
+                className="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                style={{ background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}90` }}
+              />
             ))}
-            {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
-              <div key={t.id} className="w-1 h-1 rounded-full flex-shrink-0 opacity-60" style={{ background: sphereColors[t.sphere].color }} />
+            {dayTkList.slice(0, Math.max(0, 5 - dayEvList.length)).map((t) => (
+              <div
+                key={t.id}
+                className="w-[4px] h-[4px] rounded-full flex-shrink-0 opacity-60"
+                style={{ background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
+              />
             ))}
+            {totalItems > 5 && (
+              <div className="text-[6px] text-white/25 leading-[5px]">+{totalItems - 5}</div>
+            )}
           </div>
         )}
-        {tall && dayTkList.length > 0 && (
-          <div className="w-full px-2 mt-2 flex flex-col gap-1">
-            {dayTkList.slice(0, 2).map((t) => (
-              <div key={t.id} className="text-[9px] truncate text-white/35 text-center">{t.text}</div>
+
+        {/* Hover tooltip */}
+        {tooltipLines.length > 0 && (
+          <div
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover/cell:flex flex-col gap-0.5 pointer-events-none"
+            style={{
+              minWidth: 130,
+              maxWidth: 200,
+              padding: "7px 10px",
+              borderRadius: 12,
+              background: "rgba(10,10,22,0.97)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              boxShadow: "0 10px 36px rgba(0,0,0,0.55)",
+              backdropFilter: "blur(16px)",
+            }}
+          >
+            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-0.5 font-medium">
+              {label} {MONTH_NAMES_GEN[month]}
+            </p>
+            {tooltipLines.map((line, i) => (
+              <p key={i} className="text-[10px] text-white/75 whitespace-nowrap truncate leading-relaxed">{line}</p>
             ))}
-            {dayTkList.length > 2 && <div className="text-[8px] text-white/20 text-center">+{dayTkList.length - 2}</div>}
           </div>
         )}
       </div>
@@ -266,7 +309,7 @@ export function Calendar() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl mx-auto pb-10">
+    <div className="flex flex-col gap-5 max-w-2xl mx-auto pb-10" style={{ overflow: "visible" }}>
       {/* Header */}
       <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
         <h1 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}>
@@ -315,34 +358,40 @@ export function Calendar() {
       </div>
 
       {/* Calendar grid */}
-      <div className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
-        <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="rounded-2xl border border-white/5 px-4 pt-4 pb-3" style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}>
+        <div className="grid grid-cols-7 gap-1 mb-1.5">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="text-center text-[10px] text-white/25 font-medium py-1 uppercase tracking-wide">{d}</div>
+            <div key={d} className="text-center text-[9px] text-white/20 font-medium py-0.5 uppercase tracking-widest">{d}</div>
           ))}
         </div>
 
-        {viewMode === "month" ? (
-          <div className="grid grid-cols-7 gap-1">
-            {monthCells.map((day, idx) => {
-              if (day === null) return <div key={idx} />;
-              return renderDayCell(toDateStr(year, month, day), day, false);
-            })}
-          </div>
-        ) : (
-          <div className="grid grid-cols-7 gap-2">
-            {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
-          </div>
-        )}
+        <div style={{ overflow: "visible" }}>
+          {viewMode === "month" ? (
+            <div className="grid grid-cols-7 gap-[3px]" style={{ overflow: "visible" }}>
+              {monthCells.map((day, idx) => {
+                if (day === null) return <div key={idx} />;
+                return renderDayCell(toDateStr(year, month, day), day, false);
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-1.5" style={{ overflow: "visible" }}>
+              {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
+            </div>
+          )}
+        </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-white/5">
+        <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-white/5">
           {EVENT_CATEGORIES.map((cat) => (
-            <div key={cat} className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: EVENT_META[cat].color, boxShadow: `0 0 4px ${EVENT_META[cat].color}80` }} />
-              <span className="text-[9px] text-white/30">{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
+            <div key={cat} className="flex items-center gap-1">
+              <div className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: EVENT_META[cat].color, boxShadow: `0 0 3px ${EVENT_META[cat].color}80` }} />
+              <span className="text-[8px] text-white/25">{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
             </div>
           ))}
+          <div className="flex items-center gap-1">
+            <div className="w-[4px] h-[4px] rounded-full opacity-50" style={{ background: "rgba(255,255,255,0.5)" }} />
+            <span className="text-[8px] text-white/25">· Задача</span>
+          </div>
         </div>
       </div>
 
