@@ -4,9 +4,9 @@ import { sphereColors } from "@/lib/sphereColors";
 import { GoalModal } from "@/components/GoalModal";
 
 const LEVEL_META: Record<GoalLevel, { label: string; emoji: string; color: string; desc: string }> = {
-  year:  { label: "Год",    emoji: "🌟", color: "#f59e0b", desc: "Большие жизненные ориентиры" },
-  month: { label: "Месяц",  emoji: "🌙", color: "#6366f1", desc: "Конкретные результаты месяца" },
-  week:  { label: "Неделя", emoji: "⚡", color: "#22c55e", desc: "Фокус и шаги прямо сейчас" },
+  year:  { label: "Год",    emoji: "✨", color: "#fde047", desc: "Большие жизненные ориентиры" },
+  month: { label: "Месяц",  emoji: "🌙", color: "#a78bfa", desc: "Конкретные результаты месяца" },
+  week:  { label: "Неделя", emoji: "⭐", color: "#86efac", desc: "Фокус и шаги прямо сейчас" },
 };
 
 const MONTH_NAMES = [
@@ -80,8 +80,15 @@ function GoalCard({
 
   return (
     <div
-      className="rounded-2xl border transition-all duration-200"
-      style={{ borderColor, background: bgColor, opacity: goal.done ? 0.75 : 1 }}
+      className="rounded-[1.5rem] border transition-all duration-300"
+      style={{
+        borderColor,
+        background: bgColor,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        boxShadow: goal.done ? "none" : `0 0 30px rgba(${s.color.slice(1).match(/../g)!.map(h=>parseInt(h,16)).join(",")},0.04)`,
+        opacity: goal.done ? 0.7 : 1,
+      }}
     >
       <div className="px-5 py-4">
         <div className="flex items-start gap-3">

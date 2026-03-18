@@ -1,17 +1,14 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useStore, Task } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 
 const MONTH_NAMES = [
   "Январь","Февраль","Март","Апрель","Май","Июнь",
-  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
+  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь",
 ];
 
-const XP_COLORS: Record<string, string> = {
-  easy: "#22c55e", medium: "#eab308", hard: "#ef4444", custom: "#a855f7",
-};
-
 const XP_LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 4000, 8000];
+const DAY_XP_GOAL = 100;
 
 function getLevel(xp: number) {
   let level = 1;
@@ -24,6 +21,8 @@ function getLevel(xp: number) {
   return { level, pct, curr, next };
 }
 
+type XpFloat = { id: number; xp: number; color: string; x: number; y: number };
+
 function PrioritySphereSlot({
   sphereKey,
   onClear,
@@ -31,45 +30,157 @@ function PrioritySphereSlot({
   sphereKey: SphereKey | null;
   onClear: () => void;
 }) {
-  const sphere = sphereKey ? sphereColors[sphereKey] : null;
+  const s = sphereKey ? sphereColors[sphereKey] : null;
+  return (
+    <div className="flex-1 relative min-h-[150px] flex items-center justify-center">
+      {/* Outer aura glow */}
+      {s && (
+        <div
+          className="aura-pulse absolute inset-0 rounded-[2rem]"
+          style={{
+            background: `radial-gradient(ellipse at 50% 60%, ${s.color}30 0%, ${s.color}10 50%, transparent 75%)`,
+            filter: "blur(12px)",
+          }}
+        />
+      )}
+      {/* Glass card */}
+      <div
+        className="relative w-full h-full rounded-[2rem] flex flex-col items-center justify-center gap-3 overflow-hidden min-h-[150px]"
+        style={{
+          background: s
+            ? `rgba(${hexToRgb(s.color)}, 0.06)`
+            : "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: s
+            ? `1px solid rgba(${hexToRgb(s.color)}, 0.20)`
+            : "1px solid rgba(255,255,255,0.06)",
+          boxShadow: s ? `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(${hexToRgb(s.color)},0.08)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        {s ? (
+          <>
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(ellipse at 50% 0%, rgba(${hexToRgb(s.color)},0.10) 0%, transparent 60%)`,
+              }}
+            />
+            <span
+              className="icon-float text-5xl relative z-10"
+              style={{ filter: `drop-shadow(0 0 20px ${s.color}) drop-shadow(0 0 40px ${s.color}50)` }}
+            >
+              {s.icon}
+            </span>
+            <span
+              className="relative z-10 font-light text-base tracking-[0.12em] uppercase"
+              style={{
+                color: s.color,
+                textShadow: `0 0 16px ${s.color}80`,
+                letterSpacing: "0.15em",
+              }}
+            >
+              {s.label}
+            </span>
+            <button
+              onClick={onClear}
+              className="absolute top-3 right-3 z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] transition-all"
+              style={{
+                background: "rgba(255,255,255,0.07)",
+                color: "rgba(255,255,255,0.3)",
+              }}
+            >
+              ✕
+            </button>
+          </>
+        ) : (
+          <div className="text-center relative z-10">
+            <div
+              className="w-10 h-10 rounded-full border flex items-center justify-center mx-auto mb-2"
+              style={{ borderColor: "rgba(255,255,255,0.08)", borderStyle: "dashed" }}
+            >
+              <span className="text-white/15 text-lg">+</span>
+            </div>
+            <p className="text-white/15 text-xs tracking-widest uppercase">Выбери сферу</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function hexToRgb(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b}`;
+}
+
+function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEvent) => void }) {
+  const s = sphereColors[task.sphere];
+  const [showXp, setShowXp] = useState(false);
+
   return (
     <div
-      className="flex-1 rounded-2xl border flex flex-col items-center justify-center gap-3 relative overflow-hidden min-h-[140px] transition-all duration-300"
+      className="flex items-center gap-3.5 px-3 py-3 rounded-2xl transition-all duration-200 cursor-pointer group"
       style={{
-        borderColor: sphere ? sphere.color + "50" : "rgba(255,255,255,0.07)",
-        background: sphere
-          ? `linear-gradient(135deg, ${sphere.color}15, ${sphere.color}05)`
-          : "rgba(255,255,255,0.02)",
+        opacity: task.done ? 0.55 : 1,
+        background: task.done ? "transparent" : "rgba(255,255,255,0.01)",
       }}
+      onClick={onToggle}
+      onMouseEnter={() => setShowXp(true)}
+      onMouseLeave={() => setShowXp(false)}
     >
-      {sphere ? (
-        <>
-          <div
-            className="absolute inset-0 opacity-10 blur-2xl"
-            style={{ background: `radial-gradient(circle at 50% 50%, ${sphere.color}, transparent 70%)` }}
-          />
+      {/* Soft circle toggle */}
+      <div
+        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300"
+        style={{
+          border: task.done ? "none" : `1.5px solid rgba(${hexToRgb(s.color)},0.45)`,
+          background: task.done
+            ? `radial-gradient(circle, ${s.color}50 0%, ${s.color}20 100%)`
+            : "rgba(255,255,255,0.03)",
+          boxShadow: task.done ? `0 0 12px ${s.color}40` : "none",
+        }}
+      >
+        {task.done && (
+          <span className="text-[10px]" style={{ color: s.color }}>✓</span>
+        )}
+        {!task.done && (
           <span
-            className="text-5xl animate-bounce"
-            style={{ filter: `drop-shadow(0 0 16px ${sphere.color})`, animationDuration: "2.5s" }}
-          >
-            {sphere.icon}
-          </span>
-          <span className="font-semibold text-base tracking-wide" style={{ color: sphere.color }}>
-            {sphere.label}
-          </span>
-          <button
-            onClick={onClear}
-            className="absolute top-2 right-3 text-white/20 hover:text-white/60 text-xs transition-colors"
-          >
-            ✕
-          </button>
-        </>
-      ) : (
-        <div className="text-center">
-          <div className="text-3xl text-white/10 mb-1">+</div>
-          <p className="text-white/20 text-xs">Выбери сферу ниже</p>
-        </div>
-      )}
+            className="w-1.5 h-1.5 rounded-full transition-all"
+            style={{
+              background: s.color,
+              boxShadow: `0 0 6px ${s.color}`,
+              opacity: 0.7,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Text */}
+      <span
+        className="flex-1 text-sm leading-snug transition-all duration-300"
+        style={{
+          color: task.done ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.72)",
+          textDecoration: task.done ? "line-through" : "none",
+          textShadow: task.done ? "none" : "0 0 20px rgba(255,255,255,0.08)",
+        }}
+      >
+        {task.text}
+      </span>
+
+      {/* XP badge — appears on hover/done */}
+      <span
+        className="flex-shrink-0 text-[10px] font-bold transition-all duration-200"
+        style={{
+          color: task.done ? s.color : s.color,
+          opacity: showXp || task.done ? 1 : 0,
+          textShadow: `0 0 10px ${s.color}`,
+          transform: showXp ? "translateX(0)" : "translateX(4px)",
+        }}
+      >
+        {task.done ? "✓" : "+"}{task.xp} XP
+      </span>
     </div>
   );
 }
@@ -85,19 +196,31 @@ export function Home() {
   } = useStore();
 
   const [newNote, setNewNote] = useState("");
+  const [xpFloats, setXpFloats] = useState<XpFloat[]>([]);
 
   const TODAY = new Date().toISOString().slice(0, 10);
 
-  const todayTasks = tasks.filter((t) => !t.noDeadline && t.dueDate === TODAY || t.noDeadline);
+  const todayTasks = tasks.filter((t) => t.noDeadline || t.dueDate === TODAY);
   const routine = todayTasks.filter((t) => t.type === "routine");
   const special = todayTasks.filter((t) => t.type === "special");
 
   const monthLabel = `${MONTH_NAMES[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
-
   const { level, pct } = getLevel(totalXP);
-
-  const DAY_XP_GOAL = 100;
   const dayPct = Math.min(100, Math.round((dayXP / DAY_XP_GOAL) * 100));
+
+  // Priority spheres from active priorities to build gradient colors for progress
+  const p0 = prioritySpheres[0] ? sphereColors[prioritySpheres[0]].color : "#a78bfa";
+  const p1 = prioritySpheres[1] ? sphereColors[prioritySpheres[1]].color : "#22d3ee";
+
+  function handleTaskToggle(task: Task, e: React.MouseEvent) {
+    if (!task.done) {
+      const id = Date.now() + Math.random();
+      const color = sphereColors[task.sphere].color;
+      setXpFloats((prev) => [...prev, { id, xp: task.xp, color, x: e.clientX, y: e.clientY }]);
+      setTimeout(() => setXpFloats((prev) => prev.filter((f) => f.id !== id)), 900);
+    }
+    toggleTask(task.id);
+  }
 
   function handleSphereClick(key: SphereKey) {
     if (prioritySpheres[0] === key) { setPrioritySphere(0, null); return; }
@@ -107,35 +230,100 @@ export function Home() {
     setPrioritySphere(0, key);
   }
 
+  const todayNotes = notes.filter((n) => n.createdAt === TODAY);
+
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-10">
-      {/* Header */}
+
+      {/* XP Floats */}
+      {xpFloats.map((f) => (
+        <div
+          key={f.id}
+          className="xp-float"
+          style={{ left: f.x - 20, top: f.y - 20, color: f.color }}
+        >
+          +{f.xp} XP
+        </div>
+      ))}
+
+      {/* ── Header ───────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-1 pt-2">
-        <h1 className="text-xl font-semibold text-white/80 tracking-wide">Дашборд</h1>
+        <div>
+          <h1
+            className="text-xl font-light tracking-[0.15em] uppercase"
+            style={{ color: "rgba(255,255,255,0.7)", textShadow: "0 0 30px rgba(167,139,250,0.4)" }}
+          >
+            Дашборд
+          </h1>
+          <p className="text-[10px] text-white/25 mt-0.5 tracking-widest uppercase">
+            {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric" })}
+          </p>
+        </div>
+
+        {/* Month nav */}
         <div className="flex items-center gap-3">
-          <button onClick={prevMonth} className="text-white/30 hover:text-white/70 transition-colors text-lg px-1">‹</button>
-          <span className="text-sm text-white/60 font-medium min-w-[130px] text-center">{monthLabel}</span>
-          <button onClick={nextMonth} className="text-white/30 hover:text-white/70 transition-colors text-lg px-1">›</button>
+          <button
+            onClick={prevMonth}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.3)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}
+          >‹</button>
+          <span
+            className="text-sm font-light tracking-[0.12em] min-w-[140px] text-center"
+            style={{ color: "rgba(255,255,255,0.55)", textShadow: "0 0 16px rgba(167,139,250,0.3)" }}
+          >
+            {monthLabel}
+          </span>
+          <button
+            onClick={nextMonth}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.3)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}
+          >›</button>
         </div>
       </div>
 
-      {/* Priority spheres */}
+      {/* ── Priority Spheres ──────────────────────────────────── */}
       <section>
-        <p className="text-xs text-white/30 uppercase tracking-widest mb-3 font-medium">Приоритеты</p>
+        <p
+          className="text-[9px] uppercase tracking-[0.25em] mb-4 font-medium"
+          style={{ color: "rgba(255,255,255,0.2)", textShadow: "none" }}
+        >
+          Приоритеты
+        </p>
         <div className="flex gap-4">
           <PrioritySphereSlot sphereKey={prioritySpheres[0]} onClear={() => setPrioritySphere(0, null)} />
           <PrioritySphereSlot sphereKey={prioritySpheres[1]} onClear={() => setPrioritySphere(1, null)} />
         </div>
       </section>
 
-      {/* Sphere picker */}
-      <section className="rounded-2xl border border-white/5" style={{ background: "rgba(255,255,255,0.02)" }}>
+      {/* ── Sphere picker ─────────────────────────────────────── */}
+      <div
+        className="rounded-[1.5rem] overflow-hidden"
+        style={{
+          background: "rgba(255,255,255,0.025)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
         <button
           onClick={toggleSpherePanel}
-          className="w-full flex items-center justify-between px-5 py-3 text-sm text-white/50 hover:text-white/70 transition-colors"
+          className="w-full flex items-center justify-between px-5 py-3.5 transition-all"
+          style={{ color: "rgba(255,255,255,0.35)" }}
         >
-          <span className="font-medium">Все сферы</span>
-          <span className="text-xs">{spherePanelOpen ? "▲" : "▼"}</span>
+          <span className="text-xs font-light tracking-[0.15em] uppercase">Все сферы</span>
+          <span
+            className="text-[10px] transition-transform duration-300"
+            style={{ transform: spherePanelOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+          >
+            ▼
+          </span>
         </button>
         {spherePanelOpen && (
           <div className="grid grid-cols-4 gap-3 px-5 pb-5">
@@ -146,20 +334,31 @@ export function Home() {
                 <button
                   key={key}
                   onClick={() => handleSphereClick(key)}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 cursor-pointer"
+                  className="flex flex-col items-center gap-2 py-3 px-2 rounded-2xl transition-all duration-300"
                   style={{
-                    background: active ? s.color + "20" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${active ? s.color + "60" : "rgba(255,255,255,0.05)"}`,
-                    transform: active ? "scale(1.03)" : "scale(1)",
+                    background: active ? `rgba(${hexToRgb(s.color)},0.12)` : "rgba(255,255,255,0.03)",
+                    border: `1px solid rgba(${hexToRgb(s.color)},${active ? "0.30" : "0.00"})`,
+                    boxShadow: active ? `0 0 20px rgba(${hexToRgb(s.color)},0.15)` : "none",
+                    transform: active ? "scale(1.04)" : "scale(1)",
                   }}
                 >
                   <span
-                    className="text-2xl transition-all duration-200"
-                    style={{ filter: active ? `drop-shadow(0 0 10px ${s.color})` : "grayscale(1) opacity(0.4)" }}
+                    className="text-2xl transition-all duration-300"
+                    style={{
+                      filter: active
+                        ? `drop-shadow(0 0 10px ${s.color}) drop-shadow(0 0 20px ${s.color}50)`
+                        : "grayscale(0.6) opacity(0.45)",
+                    }}
                   >
                     {s.icon}
                   </span>
-                  <span className="text-[10px] font-medium" style={{ color: active ? s.color : "rgba(255,255,255,0.3)" }}>
+                  <span
+                    className="text-[9px] font-medium tracking-wide"
+                    style={{
+                      color: active ? s.color : "rgba(255,255,255,0.25)",
+                      textShadow: active ? `0 0 10px ${s.color}60` : "none",
+                    }}
+                  >
                     {s.label}
                   </span>
                 </button>
@@ -167,181 +366,227 @@ export function Home() {
             })}
           </div>
         )}
-      </section>
+      </div>
 
-      {/* XP & Progress */}
-      <section className="rounded-2xl border border-white/5 p-5 flex flex-col gap-4" style={{ background: "rgba(255,255,255,0.02)" }}>
-        {/* Overall level */}
+      {/* ── XP & Level ───────────────────────────────────────── */}
+      <div
+        className="rounded-[1.5rem] p-5 flex flex-col gap-5"
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+        }}
+      >
+        {/* Level */}
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-white/30 uppercase tracking-widest font-medium">Общий уровень</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#6366f120", color: "#818cf8" }}>
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="text-[9px] uppercase tracking-[0.25em] font-medium"
+                style={{ color: "rgba(255,255,255,0.22)" }}
+              >
+                Общий уровень
+              </span>
+              <span
+                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(167,139,250,0.14)",
+                  color: "#c4b5fd",
+                  border: "1px solid rgba(167,139,250,0.25)",
+                  textShadow: "0 0 10px rgba(167,139,250,0.5)",
+                }}
+              >
                 Ур. {level}
               </span>
             </div>
-            <span className="text-xs font-semibold" style={{ color: "#818cf8" }}>✦ {totalXP} XP</span>
+            <span
+              className="text-xs font-bold"
+              style={{ color: "#a78bfa", textShadow: "0 0 12px rgba(167,139,250,0.6)" }}
+            >
+              ✦ {totalXP} XP
+            </span>
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+          {/* Shimmer progress bar */}
+          <div
+            className="h-2 rounded-full overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+          >
             <div
-              className="h-full rounded-full transition-all duration-700"
+              className="h-full rounded-full"
               style={{
                 width: `${pct}%`,
-                background: "linear-gradient(90deg,#6366f1,#a855f7)",
-                boxShadow: "0 0 12px #6366f170",
+                backgroundImage: `linear-gradient(90deg, ${p0}80, ${p1}80, ${p0}80)`,
+                backgroundSize: "200% auto",
+                animation: "shimmer 3s linear infinite",
+                boxShadow: `0 0 14px ${p0}50, 0 0 28px ${p0}20`,
+                transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
               }}
             />
           </div>
-          <p className="text-[10px] text-white/20 mt-1">До следующего уровня: {XP_LEVEL_THRESHOLDS[Math.min(level, XP_LEVEL_THRESHOLDS.length - 1)] - totalXP} XP</p>
+          <p
+            className="text-[9px] mt-1.5"
+            style={{ color: "rgba(255,255,255,0.17)" }}
+          >
+            До {XP_LEVEL_THRESHOLDS[Math.min(level, XP_LEVEL_THRESHOLDS.length - 1)]} XP —{" "}
+            {XP_LEVEL_THRESHOLDS[Math.min(level, XP_LEVEL_THRESHOLDS.length - 1)] - totalXP} XP до след. уровня
+          </p>
         </div>
 
         {/* Day progress */}
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-white/30 uppercase tracking-widest font-medium">Прогресс дня</span>
-            <span className="text-xs font-semibold" style={{ color: "#c084fc" }}>⚡ {dayXP} / {DAY_XP_GOAL} XP</span>
+          <div className="flex justify-between items-center mb-3">
+            <span
+              className="text-[9px] uppercase tracking-[0.25em] font-medium"
+              style={{ color: "rgba(255,255,255,0.22)" }}
+            >
+              Прогресс дня
+            </span>
+            <span
+              className="text-xs font-bold"
+              style={{ color: "#f472b6", textShadow: "0 0 12px rgba(244,114,182,0.5)" }}
+            >
+              ⚡ {dayXP} / {DAY_XP_GOAL}
+            </span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          >
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{
                 width: `${dayPct}%`,
-                background: "linear-gradient(90deg,#a855f7,#ec4899)",
-                boxShadow: "0 0 8px #a855f770",
+                background: "linear-gradient(90deg,#a78bfa,#f472b6)",
+                boxShadow: "0 0 10px rgba(244,114,182,0.4)",
               }}
             />
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Tasks section */}
-      <section className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
-        <p className="text-sm font-semibold text-white/70 mb-4 tracking-wide">Задачи на сегодня</p>
+      {/* ── Tasks ─────────────────────────────────────────────── */}
+      <div
+        className="rounded-[1.5rem] p-5"
+        style={{
+          background: "rgba(255,255,255,0.025)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.055)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        <p
+          className="text-xs font-light tracking-[0.2em] uppercase mb-5"
+          style={{ color: "rgba(255,255,255,0.4)", textShadow: "0 0 16px rgba(255,255,255,0.1)" }}
+        >
+          Задачи на сегодня
+        </p>
 
         {/* Routine */}
         <div className="mb-5">
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">Рутина</p>
-          <div className="flex flex-col gap-2">
+          <p className="text-[9px] uppercase tracking-[0.22em] mb-3 font-medium" style={{ color: "rgba(255,255,255,0.18)" }}>
+            Рутина
+          </p>
+          <div className="flex flex-col gap-1">
             {routine.length === 0 && (
-              <p className="text-white/20 text-xs py-2 text-center">Нет задач рутины на сегодня</p>
+              <p className="text-[11px] text-center py-3" style={{ color: "rgba(255,255,255,0.14)" }}>
+                Нет рутины на сегодня
+              </p>
             )}
-            {routine.map((task) => {
-              const s = sphereColors[task.sphere];
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover:bg-white/3"
-                  onClick={() => toggleTask(task.id)}
-                  style={{ opacity: task.done ? 0.6 : 1 }}
-                >
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
-                  <span className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-40" : "text-white/70"}`}>
-                    {task.text}
-                  </span>
-                  {!task.done && (
-                    <span className="text-[10px] font-semibold" style={{ color: XP_COLORS[task.xpDifficulty] }}>
-                      +{task.xp} XP
-                    </span>
-                  )}
-                  {task.done && (
-                    <span className="text-[10px] text-green-400/60 font-semibold">✓ {task.xp} XP</span>
-                  )}
-                  <div
-                    className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{
-                      borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
-                      background: task.done ? s.color + "30" : "transparent",
-                    }}
-                  >
-                    {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
-                  </div>
-                </div>
-              );
-            })}
+            {routine.map((task) => (
+              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} />
+            ))}
           </div>
         </div>
+
+        {/* Separator */}
+        <div className="my-4 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
 
         {/* Special */}
         <div>
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-3 font-medium">План на день</p>
-          <div className="flex flex-col gap-2">
+          <p className="text-[9px] uppercase tracking-[0.22em] mb-3 font-medium" style={{ color: "rgba(255,255,255,0.18)" }}>
+            План на день
+          </p>
+          <div className="flex flex-col gap-1">
             {special.length === 0 && (
-              <p className="text-white/20 text-xs py-2 text-center">Нет специальных задач на сегодня</p>
+              <p className="text-[11px] text-center py-3" style={{ color: "rgba(255,255,255,0.14)" }}>
+                Чистый лист ✨
+              </p>
             )}
-            {special.map((task) => {
-              const s = sphereColors[task.sphere];
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover:bg-white/3"
-                  onClick={() => toggleTask(task.id)}
-                  style={{ opacity: task.done ? 0.6 : 1 }}
-                >
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
-                  <span className={`flex-1 text-sm transition-all ${task.done ? "line-through opacity-40" : "text-white/70"}`}>
-                    {task.text}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full mr-1 flex-shrink-0" style={{ color: s.color, background: s.color + "18" }}>
-                    {s.label}
-                  </span>
-                  {task.priority && (
-                    <span className="text-[9px] text-indigo-400 mr-1 flex-shrink-0">★</span>
-                  )}
-                  {!task.done && (
-                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: XP_COLORS[task.xpDifficulty] }}>
-                      +{task.xp} XP
-                    </span>
-                  )}
-                  {task.done && (
-                    <span className="text-[10px] text-green-400/60 font-semibold flex-shrink-0">✓ {task.xp} XP</span>
-                  )}
-                  <div
-                    className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{
-                      borderColor: task.done ? s.color : "rgba(255,255,255,0.15)",
-                      background: task.done ? s.color + "30" : "transparent",
-                    }}
-                  >
-                    {task.done && <span className="text-xs" style={{ color: s.color }}>✓</span>}
-                  </div>
-                </div>
-              );
-            })}
+            {special.map((task) => (
+              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} />
+            ))}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Notes */}
-      <section className="rounded-2xl border border-white/5 p-5" style={{ background: "rgba(255,255,255,0.02)" }}>
-        <p className="text-sm font-semibold text-white/70 mb-4 tracking-wide">Заметки дня</p>
-        {/* Show today's notes */}
+      {/* ── Notes ─────────────────────────────────────────────── */}
+      <div
+        className="rounded-[1.5rem] p-5"
+        style={{
+          background: "rgba(255,255,255,0.025)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.055)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        <p
+          className="text-xs font-light tracking-[0.2em] uppercase mb-4"
+          style={{ color: "rgba(255,255,255,0.4)" }}
+        >
+          Заметки дня
+        </p>
+
         <div className="flex flex-col gap-2 mb-4">
-          {notes
-            .filter((n) => n.createdAt === TODAY)
-            .slice(0, 3)
-            .map((note) => (
-              <div key={note.id} className="group flex items-start gap-3 p-3 rounded-xl border border-indigo-500/15 hover:border-indigo-500/25 transition-colors"
-                style={{ background: "rgba(99,102,241,0.04)" }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white/60 mb-0.5">{note.title}</p>
-                  {note.text && <p className="text-xs text-white/35 leading-relaxed truncate">{note.text}</p>}
-                </div>
-                <button
-                  onClick={() => deleteNote(note.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-white/20 hover:text-red-400 text-xs flex-shrink-0"
-                >✕</button>
-              </div>
-            ))}
-          {notes.filter((n) => n.createdAt === TODAY).length === 0 && (
-            <p className="text-xs text-white/20 text-center py-2">Нет заметок за сегодня</p>
+          {todayNotes.length === 0 && (
+            <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.14)" }}>
+              Нет заметок за сегодня
+            </p>
           )}
+          {todayNotes.slice(0, 3).map((note) => (
+            <div
+              key={note.id}
+              className="group flex items-start gap-3 px-4 py-3 rounded-2xl transition-all duration-200"
+              style={{
+                background: "rgba(167,139,250,0.06)",
+                border: "1px solid rgba(167,139,250,0.12)",
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-xs font-medium mb-0.5"
+                  style={{ color: "rgba(255,255,255,0.6)", textShadow: "0 0 10px rgba(255,255,255,0.1)" }}
+                >
+                  {note.title}
+                </p>
+                {note.text && (
+                  <p className="text-[11px] leading-relaxed truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    {note.text}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => deleteNote(note.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] flex-shrink-0"
+                style={{ color: "rgba(255,255,255,0.2)" }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
+
         {/* Quick add */}
         <div className="flex gap-2">
           <input
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white/70 placeholder-white/20 outline-none focus:border-indigo-500/50 transition-colors"
+            className="flex-1 rounded-2xl px-4 py-2.5 text-sm outline-none transition-all"
             placeholder="Быстрая заметка..."
             value={newNote}
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.65)",
+            }}
             onChange={(e) => setNewNote(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && newNote.trim()) {
@@ -357,13 +602,17 @@ export function Home() {
                 setNewNote("");
               }
             }}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-light text-xl transition-all"
+            style={{
+              background: "linear-gradient(135deg,rgba(167,139,250,0.5),rgba(139,92,246,0.35))",
+              border: "1px solid rgba(167,139,250,0.25)",
+              boxShadow: "0 0 20px rgba(167,139,250,0.2)",
+            }}
           >
             +
           </button>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

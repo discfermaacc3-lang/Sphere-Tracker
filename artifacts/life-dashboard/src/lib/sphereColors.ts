@@ -1,12 +1,12 @@
 export const sphereColors = {
-  health:       { color: "#22c55e", label: "Здоровье",    icon: "🫀" },
-  hobby:        { color: "#a855f7", label: "Хобби",       icon: "🎨" },
-  finance:      { color: "#eab308", label: "Финансы",     icon: "💰" },
-  work:         { color: "#3b82f6", label: "Работа",      icon: "💼" },
-  rest:         { color: "#06b6d4", label: "Отдых",       icon: "🌊" },
-  relations:    { color: "#ec4899", label: "Отношения",   icon: "❤️" },
-  friends:      { color: "#f97316", label: "Друзья",      icon: "👥" },
-  spirituality: { color: "#8b5cf6", label: "Духовность",  icon: "✨" },
+  health:       { color: "#86efac", label: "Здоровье",    icon: "🌿" },
+  hobby:        { color: "#fde047", label: "Хобби",       icon: "🎨" },
+  finance:      { color: "#38bdf8", label: "Финансы",     icon: "💫" },
+  work:         { color: "#fca5a5", label: "Работа",      icon: "🌸" },
+  rest:         { color: "#f472b6", label: "Отдых",       icon: "🌙" },
+  relations:    { color: "#fdba74", label: "Отношения",   icon: "🦊" },
+  friends:      { color: "#22d3ee", label: "Друзья",      icon: "⭐" },
+  spirituality: { color: "#a78bfa", label: "Духовность",  icon: "✨" },
 } as const;
 
 export type SphereKey = keyof typeof sphereColors;

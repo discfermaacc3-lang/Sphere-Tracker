@@ -30,72 +30,129 @@
 }
 
 :root {
-  --background: 240 20% 4%;
-  --foreground: 220 20% 90%;
-  --border: 240 10% 14%;
-  --input: 240 10% 14%;
-  --ring: 245 80% 65%;
-  --card: 240 15% 7%;
-  --card-foreground: 220 20% 85%;
-  --primary: 245 80% 65%;
+  --background: 248 38% 10%;
+  --foreground: 240 20% 92%;
+  --border: 250 20% 20%;
+  --input: 248 25% 16%;
+  --ring: 262 70% 70%;
+  --card: 248 30% 13%;
+  --card-foreground: 240 20% 88%;
+  --primary: 262 70% 70%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 10% 12%;
-  --secondary-foreground: 220 20% 80%;
-  --muted: 240 10% 10%;
-  --muted-foreground: 220 10% 50%;
-  --accent: 275 70% 60%;
+  --secondary: 248 25% 18%;
+  --secondary-foreground: 240 20% 80%;
+  --muted: 248 25% 15%;
+  --muted-foreground: 240 15% 55%;
+  --accent: 280 60% 65%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 80% 60%;
+  --destructive: 0 70% 65%;
   --destructive-foreground: 0 0% 100%;
   --app-font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
   --app-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --radius: 0.75rem;
+  --radius: 1rem;
 }
 
 @layer base {
   * { @apply border-border; }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased text-foreground;
+    background: linear-gradient(160deg, #1f1b40 0%, #161230 45%, #101026 100%);
+    min-height: 100vh;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Subtle scanline effect for futuristic feel */
-body::after {
-  content: "";
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
+/* ── Stars ─────────────────────────────────────────────────── */
+@keyframes star-pulse {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50%       { opacity: 0.6;  transform: scale(1.5); }
+}
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.08; }
+  33%       { opacity: 0.45; }
+  66%       { opacity: 0.12; }
+}
+.star { animation: star-pulse 3s ease-in-out infinite; }
+.star-slow { animation: star-twinkle 5s ease-in-out infinite; }
+
+/* ── Glassmorphism cloud cards ──────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 24px;
+}
+.glass-bright {
+  background: rgba(255, 255, 255, 0.065);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 28px;
 }
 
-/* Custom scrollbar */
+/* ── Glowing text ───────────────────────────────────────────── */
+.text-glow {
+  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+}
+.text-glow-soft {
+  text-shadow: 0 0 12px rgba(255,255,255,0.3);
+}
+
+/* ── Neon progress bar ──────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.progress-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* ── Pulse aura (priority cards) ───────────────────────────── */
+@keyframes aura-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(1.04); }
+}
+.aura-pulse {
+  animation: aura-pulse 3s ease-in-out infinite;
+}
+
+/* ── Icon orbit (priority sphere) ──────────────────────────── */
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-6px) scale(1.08); }
+}
+.icon-float {
+  animation: icon-float 2.8s ease-in-out infinite;
+}
+
+/* ── Custom scrollbar ───────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+::-webkit-scrollbar-thumb { background: rgba(167, 139, 250, 0.25); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(167, 139, 250, 0.45); }
 
-/* XP float animation */
+/* ── XP float animation ─────────────────────────────────────── */
 @keyframes xp-float {
   0%   { opacity: 1;   transform: translateY(0px) scale(1);    }
-  40%  { opacity: 1;   transform: translateY(-20px) scale(1.15); }
-  100% { opacity: 0;   transform: translateY(-52px) scale(0.85); }
+  40%  { opacity: 1;   transform: translateY(-22px) scale(1.2); }
+  100% { opacity: 0;   transform: translateY(-55px) scale(0.8); }
 }
 .xp-float {
-  animation: xp-float 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation: xp-float 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
   pointer-events: none;
   position: fixed;
   z-index: 99999;
   font-weight: 800;
   font-size: 13px;
-  letter-spacing: 0.02em;
-  text-shadow: 0 0 12px currentColor;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 16px currentColor;
   user-select: none;
+}
+
+/* ── Modal backdrop ─────────────────────────────────────────── */
+.modal-backdrop {
+  background: rgba(12, 8, 30, 0.80);
+  backdrop-filter: blur(12px);
 }

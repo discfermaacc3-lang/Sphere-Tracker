@@ -1,26 +1,41 @@
 import { useStore } from "@/lib/store";
 
 const navItems = [
-  { key: "home",       label: "Главная",    icon: "⊹" },
-  { key: "tasks",      label: "Задачи",     icon: "✓" },
-  { key: "goals",      label: "Цели",       icon: "◎" },
-  { key: "stats",      label: "Статистика", icon: "▦" },
-  { key: "focus",      label: "Фокус",      icon: "◉" },
-  { key: "ideas",      label: "Идеи",       icon: "⚡" },
-  { key: "notes",      label: "Заметки",    icon: "✎" },
-  { key: "calendar",   label: "Календарь",  icon: "▦" },
+  { key: "home",     label: "Главная",    icon: "✦"  },
+  { key: "tasks",    label: "Задачи",     icon: "◈"  },
+  { key: "goals",    label: "Цели",       icon: "◎"  },
+  { key: "stats",    label: "Статистика", icon: "◉"  },
+  { key: "focus",    label: "Фокус",      icon: "⊛"  },
+  { key: "ideas",    label: "Идеи",       icon: "⋆"  },
+  { key: "notes",    label: "Заметки",    icon: "✎"  },
+  { key: "calendar", label: "Календарь",  icon: "◫"  },
 ];
 
 export function Sidebar() {
   const { currentPage, setCurrentPage } = useStore();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-20 flex flex-col items-center py-8 gap-2 z-40 border-r border-white/5"
-      style={{ background: "rgba(10,10,18,0.97)", backdropFilter: "blur(20px)" }}>
+    <aside
+      className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40"
+      style={{
+        background: "rgba(16,12,38,0.75)",
+        backdropFilter: "blur(28px)",
+        WebkitBackdropFilter: "blur(28px)",
+        borderRight: "1px solid rgba(167,139,250,0.08)",
+      }}
+    >
       {/* Logo */}
-      <div className="mb-6 w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold"
-        style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
-        <span className="text-white text-sm">L</span>
+      <div
+        className="mb-7 w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+        style={{
+          background: "linear-gradient(135deg,rgba(167,139,250,0.5),rgba(139,92,246,0.3))",
+          boxShadow: "0 0 20px rgba(167,139,250,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+          border: "1px solid rgba(167,139,250,0.25)",
+          color: "rgba(255,255,255,0.9)",
+          letterSpacing: "0.05em",
+        }}
+      >
+        L
       </div>
 
       {navItems.map((item) => {
@@ -30,20 +45,54 @@ export function Sidebar() {
             key={item.key}
             onClick={() => setCurrentPage(item.key)}
             title={item.label}
-            className={`group relative flex flex-col items-center gap-1 w-16 py-3 rounded-xl transition-all duration-200 cursor-pointer
-              ${active
-                ? "bg-white/10 text-white"
-                : "text-white/30 hover:text-white/70 hover:bg-white/5"}`}
+            className="relative flex flex-col items-center gap-1 w-[54px] py-3 rounded-2xl transition-all duration-300 cursor-pointer group"
+            style={{
+              background: active ? "rgba(167,139,250,0.12)" : "transparent",
+            }}
           >
-            <span className={`text-xl transition-all duration-200 ${active ? "scale-110" : "group-hover:scale-105"}`}>
+            {/* Active glow behind icon */}
+            {active && (
+              <div
+                className="absolute inset-0 rounded-2xl"
+                style={{
+                  background: "rgba(167,139,250,0.08)",
+                  boxShadow: "0 0 20px rgba(167,139,250,0.2)",
+                }}
+              />
+            )}
+
+            <span
+              className="relative text-lg transition-all duration-300"
+              style={{
+                color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.22)",
+                filter: active
+                  ? "drop-shadow(0 0 8px rgba(167,139,250,0.9)) drop-shadow(0 0 16px rgba(167,139,250,0.5))"
+                  : "none",
+                transform: active ? "scale(1.1)" : "scale(1)",
+              }}
+            >
               {item.icon}
             </span>
-            <span className="text-[9px] font-medium tracking-wide leading-tight">
+
+            <span
+              className="relative text-[8px] font-medium tracking-wide leading-tight transition-all duration-300"
+              style={{
+                color: active ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.18)",
+                textShadow: active ? "0 0 8px rgba(167,139,250,0.6)" : "none",
+              }}
+            >
               {item.label}
             </span>
+
+            {/* Active dot indicator */}
             {active && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-r-full"
-                style={{ background: "linear-gradient(to bottom, #6366f1, #8b5cf6)" }} />
+              <div
+                className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-[3px] h-7 rounded-r-full"
+                style={{
+                  background: "linear-gradient(to bottom, rgba(167,139,250,0.8), rgba(139,92,246,0.4))",
+                  boxShadow: "0 0 8px rgba(167,139,250,0.6)",
+                }}
+              />
             )}
           </button>
         );
