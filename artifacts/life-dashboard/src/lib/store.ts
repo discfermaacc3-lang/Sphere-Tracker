@@ -119,6 +119,14 @@ export type CalendarEvent = {
   repeatYearly: boolean;
 };
 
+export type FocusSession = {
+  id: string;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  xp: number;
+};
+
 export type RecurringTaskTemplate = {
   id: string;
   text: string;
@@ -230,6 +238,9 @@ type Store = {
   recurringTaskTemplates: RecurringTaskTemplate[];
   addRecurringTaskTemplate: (t: Omit<RecurringTaskTemplate, "id">) => void;
   deleteRecurringTaskTemplate: (id: string) => void;
+
+  focusHistory: FocusSession[];
+  addFocusSession: (s: Omit<FocusSession, "id">) => void;
 };
 
 const defaultLevels = Object.fromEntries(
@@ -601,7 +612,11 @@ export const useStore = create<Store>()(
               noDeadline: false, dueDate: today, done: false,
               recurringTemplateId: rt.id,
             }));
-          return { tasks: [...s.tasks, ...routineTasks, ...recurringTasks] };
+          const today2 = new Date().toISOString().slice(0, 10);
+          return {
+            tasks: [...s.tasks, ...routineTasks, ...recurringTasks],
+            focusHistory: s.focusHistory.filter((fs) => fs.date === today2),
+          };
         }),
 
       notes: defaultNotes,
@@ -626,6 +641,15 @@ export const useStore = create<Store>()(
         set((s) => ({ recurringTaskTemplates: [...s.recurringTaskTemplates, { ...t, id: "rt-" + Date.now() }] })),
       deleteRecurringTaskTemplate: (id) =>
         set((s) => ({ recurringTaskTemplates: s.recurringTaskTemplates.filter((t) => t.id !== id) })),
+
+      focusHistory: [],
+      addFocusSession: (session) =>
+        set((s) => ({
+          focusHistory: [
+            ...s.focusHistory,
+            { ...session, id: "fs-" + Date.now() + "-" + Math.random().toString(36).slice(2) },
+          ],
+        })),
     }),
     {
       name: "life-dashboard-v2",
@@ -649,6 +673,7 @@ export const useStore = create<Store>()(
         calendarEvents: s.calendarEvents,
         calendarDrafts: s.calendarDrafts,
         recurringTaskTemplates: s.recurringTaskTemplates,
+        focusHistory: s.focusHistory,
       }),
       // Revive Date objects and recompute derived state after loading
       onRehydrateStorage: () => (state) => {
