@@ -351,7 +351,7 @@ export function Home() {
   const todayNotes = notes.filter((n) => n.createdAt === TODAY);
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl mx-auto pb-10">
+    <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
 
       {/* XP Floats */}
       {xpFloats.map((f) => (

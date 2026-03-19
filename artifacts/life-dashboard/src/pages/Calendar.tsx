@@ -313,7 +313,7 @@ export function Calendar() {
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto pb-10" style={{ overflow: "visible" }}>
+    <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full" style={{ overflow: "visible" }}>
       {/* Header */}
       <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
         <h1 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}>

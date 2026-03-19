@@ -59,15 +59,20 @@ export function Focus() {
   const done = totalSecs === 0;
 
   return (
-    <div className="flex flex-col items-center gap-8 max-w-lg mx-auto pb-10 pt-4">
+    <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
 
       {/* Header */}
-      <h1
-        className="text-xl font-light tracking-[0.15em] uppercase self-start"
-        style={{ color: "rgba(255,255,255,0.6)", textShadow: "0 0 30px rgba(167,139,250,0.3)" }}
-      >
-        Фокус
-      </h1>
+      <div className="flex items-center justify-between pt-2">
+        <h1
+          className="text-xl font-light tracking-[0.15em] uppercase"
+          style={{ color: "rgba(255,255,255,0.6)", textShadow: "0 0 30px rgba(167,139,250,0.3)" }}
+        >
+          Фокус
+        </h1>
+      </div>
+
+      {/* Centered content wrapper */}
+      <div className="flex flex-col items-center gap-8">
 
       {/* Presets */}
       <div className="flex gap-2">
@@ -232,6 +237,7 @@ export function Focus() {
           Задать
         </button>
       </div>
+      </div>{/* end centered content wrapper */}
     </div>
   );
 }
