@@ -215,36 +215,37 @@ export function Calendar() {
       ...dayTkList.map((t) => `${t.category === "Mission" ? "💎" : "·"} ${t.text}`),
     ];
 
-    const CELL = tall ? 38 : 30; // px
-
     return (
       <div
         key={ds}
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
-        className="relative group/cell rounded-md flex flex-col items-center justify-between cursor-pointer transition-all hover:bg-white/5"
+        className="relative group/cell rounded-xl flex flex-col cursor-pointer transition-all hover:bg-white/[0.04]"
         style={{
-          width: CELL,
-          height: tall ? 46 : CELL,
-          padding: "2px",
-          flexShrink: 0,
+          padding: tall ? "10px 8px 8px" : "8px 6px 6px",
           ...(hasGlow
             ? glowStyle
             : isSelectedDay
-            ? { background: "rgba(99,102,241,0.20)", border: "1px solid rgba(99,102,241,0.55)" }
+            ? { background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.50)" }
             : isToday
-            ? { background: "linear-gradient(135deg,#6366f125,#8b5cf625)", border: "1px solid #6366f150" }
+            ? { background: "linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.10))", border: "1px solid rgba(99,102,241,0.40)" }
             : { border: "1px solid transparent" }),
           transition: "all 0.2s ease",
+          minHeight: 0,
         }}
       >
         {/* Day number */}
         <span
+          className="font-medium leading-none"
           style={{
-            fontSize: tall ? 11 : 9,
-            fontWeight: 500,
-            lineHeight: 1,
-            marginTop: 1,
-            color: isToday ? "#818cf8" : isSelectedDay ? "rgba(255,255,255,0.92)" : isPast ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.52)",
+            fontSize: tall ? 18 : 15,
+            color: isToday
+              ? "#818cf8"
+              : isSelectedDay
+              ? "rgba(255,255,255,0.95)"
+              : isPast
+              ? "rgba(255,255,255,0.22)"
+              : "rgba(255,255,255,0.60)",
+            textShadow: isToday ? "0 0 16px rgba(129,140,248,0.5)" : "none",
           }}
         >
           {label}
@@ -252,49 +253,50 @@ export function Calendar() {
 
         {/* Weekday label in week view */}
         {tall && (
-          <span style={{ fontSize: 7, color: "rgba(255,255,255,0.18)", lineHeight: 1 }}>
+          <span className="text-[10px] font-medium mt-0.5" style={{ color: "rgba(255,255,255,0.22)", letterSpacing: "0.05em" }}>
             {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
           </span>
         )}
 
-        {/* Dot indicators */}
-        {totalItems > 0 && (
-          <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center", marginBottom: 1 }}>
-            {dayEvList.slice(0, 3).map((e) => (
-              <div
-                key={e.id}
-                style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
-              />
-            ))}
-            {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
-              <div
-                key={t.id}
-                style={{ width: 3, height: 3, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
-              />
-            ))}
-          </div>
-        )}
+        {/* Dot indicators — pushed to bottom */}
+        <div className="mt-auto flex gap-[3px] flex-wrap pt-1">
+          {dayEvList.slice(0, 3).map((e) => (
+            <div
+              key={e.id}
+              style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
+            />
+          ))}
+          {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
+            <div
+              key={t.id}
+              style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
+            />
+          ))}
+          {totalItems > 4 && (
+            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)", lineHeight: "5px" }}>+{totalItems - 4}</span>
+          )}
+        </div>
 
         {/* Hover tooltip */}
         {tooltipLines.length > 0 && (
           <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 hidden group-hover/cell:flex flex-col gap-0.5 pointer-events-none"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover/cell:flex flex-col gap-0.5 pointer-events-none"
             style={{
-              minWidth: 130,
-              maxWidth: 210,
-              padding: "6px 10px",
-              borderRadius: 10,
+              minWidth: 140,
+              maxWidth: 220,
+              padding: "8px 12px",
+              borderRadius: 12,
               background: "rgba(8,8,20,0.98)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              boxShadow: "0 8px 28px rgba(0,0,0,0.6)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              boxShadow: "0 10px 36px rgba(0,0,0,0.65)",
               backdropFilter: "blur(16px)",
             }}
           >
-            <p style={{ fontSize: 8, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 2 }}>
+            <p className="text-[9px] uppercase tracking-[0.14em] font-medium mb-1" style={{ color: "rgba(255,255,255,0.28)" }}>
               {label} {MONTH_NAMES_GEN[month]}
             </p>
             {tooltipLines.map((line, i) => (
-              <p key={i} style={{ fontSize: 10, color: "rgba(255,255,255,0.78)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.5 }}>{line}</p>
+              <p key={i} className="text-[11px] leading-relaxed truncate" style={{ color: "rgba(255,255,255,0.80)" }}>{line}</p>
             ))}
           </div>
         )}
@@ -359,77 +361,93 @@ export function Calendar() {
         ))}
       </div>
 
-      {/* Calendar grid — compact widget */}
-      <div
-        className="rounded-2xl border border-white/5 py-3 px-4"
-        style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}
-      >
-        {/* Weekday headers */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: viewMode === "month" ? "repeat(7, 30px)" : "repeat(7, 38px)",
-            gap: 3,
-            marginBottom: 4,
-            marginLeft: "auto",
-            marginRight: "auto",
-            width: "fit-content",
-          }}
-        >
-          {WEEKDAYS.map((d) => (
-            <div
-              key={d}
-              style={{ width: viewMode === "month" ? 30 : 38, textAlign: "center", fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {/* Day cells */}
-        <div style={{ overflow: "visible", width: "fit-content", margin: "0 auto" }}>
-          {viewMode === "month" ? (
+      {/* Calendar grid */}
+      {(() => {
+        const numRows = Math.ceil(monthCells.length / 7); // 4, 5, or 6
+        // Grid body height = 50vh minus ~80px for headers + legend + padding
+        const gridBodyHeight = "calc(50vh - 80px)";
+        return (
+          <div
+            className="rounded-2xl border border-white/5 p-4"
+            style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}
+          >
+            {/* Weekday headers — full width */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(7, 30px)",
-                gap: 3,
-                overflow: "visible",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: 4,
+                marginBottom: 6,
               }}
             >
-              {monthCells.map((day, idx) => {
-                if (day === null) return <div key={idx} style={{ width: 30, height: 30 }} />;
-                return renderDayCell(toDateStr(year, month, day), day, false);
-              })}
+              {WEEKDAYS.map((d) => (
+                <div
+                  key={d}
+                  style={{
+                    textAlign: "center",
+                    fontSize: 11,
+                    color: "rgba(255,255,255,0.28)",
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    paddingBottom: 2,
+                  }}
+                >
+                  {d}
+                </div>
+              ))}
             </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(7, 38px)",
-                gap: 3,
-                overflow: "visible",
-              }}
-            >
-              {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
-            </div>
-          )}
-        </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-2.5 mt-3 pt-2.5 border-t border-white/5">
-          {EVENT_CATEGORIES.map((cat) => (
-            <div key={cat} className="flex items-center gap-1">
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: EVENT_META[cat].color, boxShadow: `0 0 3px ${EVENT_META[cat].color}` }} />
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)" }}>{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
+            {/* Day cells — fill 50vh */}
+            <div style={{ overflow: "visible", height: gridBodyHeight }}>
+              {viewMode === "month" ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    gridTemplateRows: `repeat(${numRows}, 1fr)`,
+                    gap: 4,
+                    height: "100%",
+                    overflow: "visible",
+                  }}
+                >
+                  {monthCells.map((day, idx) => {
+                    if (day === null) return <div key={idx} />;
+                    return renderDayCell(toDateStr(year, month, day), day, false);
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    gridTemplateRows: "1fr",
+                    gap: 4,
+                    height: "100%",
+                    overflow: "visible",
+                  }}
+                >
+                  {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
+                </div>
+              )}
             </div>
-          ))}
-          <div className="flex items-center gap-1">
-            <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(255,255,255,0.4)" }} />
-            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)" }}>· Задача</span>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-white/5">
+              {EVENT_CATEGORIES.map((cat) => (
+                <div key={cat} className="flex items-center gap-1.5">
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: EVENT_META[cat].color, boxShadow: `0 0 4px ${EVENT_META[cat].color}` }} />
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.35)" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>· Задача</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Day detail panel */}
       {selectedDay && (
