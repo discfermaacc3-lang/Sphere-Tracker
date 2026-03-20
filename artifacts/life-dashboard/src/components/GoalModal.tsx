@@ -10,12 +10,12 @@ const MONTH_RU = ["Январь","Февраль","Март","Апрель","М�
   "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const WDAY_RU = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 
-const DURATION_PRESETS = [
-  { label: "2 нед",  days: 14  },
-  { label: "1 мес",  days: 30  },
-  { label: "3 мес",  days: 90  },
-  { label: "6 мес",  days: 180 },
-  { label: "1 год",  days: 365 },
+const DURATION_PRESETS: { label: string; days: number; level: "week" | "month" | "year" }[] = [
+  { label: "2 нед",  days: 14,  level: "week"  },
+  { label: "1 мес",  days: 30,  level: "month" },
+  { label: "3 мес",  days: 90,  level: "month" },
+  { label: "6 мес",  days: 180, level: "month" },
+  { label: "1 год",  days: 365, level: "year"  },
 ];
 const XP_BONUS_PRESETS = [50, 100, 250, 500, 1000];
 
@@ -235,11 +235,15 @@ export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
   const [selectedPresetDays, setSelectedPresetDays] = useState<number | "custom">(() => {
+    if (detectIsDraft(initial)) return 30;
     if (initial?.startDate && initial?.endDate) {
       const d = diffDays(initial.startDate, initial.endDate);
       const found = DURATION_PRESETS.find(p => p.days === d);
       return found ? found.days : "custom";
     }
+    // Legacy: restore from saved level
+    if (initial?.level === "year") return 365;
+    if (initial?.level === "week") return 14;
     return 30;
   });
   const [showCalendar, setShowCalendar] = useState(false);
@@ -249,11 +253,23 @@ export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
 
   const days = isDraft ? 0 : diffDays(startDate, endDate);
 
-  function selectPreset(d: number) {
-    setSelectedPresetDays(d);
+  function selectPreset(preset: typeof DURATION_PRESETS[number]) {
+    setSelectedPresetDays(preset.days);
     setStartDate(TODAY_ISO);
-    setEndDate(addDays(TODAY_ISO, d));
+    setEndDate(addDays(TODAY_ISO, preset.days));
     setShowCalendar(false);
+  }
+
+  function computeLevel(): "week" | "month" | "year" {
+    if (selectedPresetDays !== "custom") {
+      const found = DURATION_PRESETS.find(p => p.days === selectedPresetDays);
+      if (found) return found.level;
+    }
+    // Custom date range: auto-detect from duration
+    const d = diffDays(startDate, endDate);
+    if (d <= 21)  return "week";
+    if (d <= 180) return "month";
+    return "year";
   }
 
   function handleSave() {
@@ -267,7 +283,7 @@ export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
       successCriteria: successCriteria.trim() || undefined,
       sphere: isMission ? undefined : sphere,
       category: undefined,
-      level: undefined,
+      level: isDraft ? undefined : computeLevel(),
       isMission,
       startDate: isDraft ? undefined : startDate,
       endDate: isDraft ? undefined : endDate,
@@ -434,7 +450,7 @@ export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
                       return (
                         <button
                           key={p.days}
-                          onClick={() => selectPreset(p.days)}
+                          onClick={() => selectPreset(p)}
                           className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                           style={{
                             background: active ? `rgba(${LAV_RGB},0.20)` : "rgba(255,255,255,0.04)",

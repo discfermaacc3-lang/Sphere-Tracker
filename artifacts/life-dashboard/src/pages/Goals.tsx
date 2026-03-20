@@ -44,6 +44,11 @@ function getEffectiveDays(g: Goal): number {
 }
 
 function getEffectiveCategory(g: Goal): "short" | "mid" | "long" {
+  // Primary: use the explicitly saved level tag (set in GoalModal when saving)
+  if (g.level === "week")  return "short";
+  if (g.level === "month") return "mid";
+  if (g.level === "year")  return "long";
+  // Fallback for legacy goals without explicit level: compute from days
   const d = getEffectiveDays(g);
   if (d <= 21)  return "short";
   if (d <= 180) return "mid";
