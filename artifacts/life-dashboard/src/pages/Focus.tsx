@@ -64,6 +64,10 @@ export function Focus() {
   const [breathSecsLeft, setBreathSecsLeft]   = useState(5 * 60);
   const breathCountdownRef                    = useRef<ReturnType<typeof setInterval>|null>(null);
 
+  /* task name */
+  const [taskName, setTaskName]   = useState("");
+  const sessionNameRef            = useRef("");
+
   /* focus guard */
   const [guardPending, setGuardPending] = useState<
     { type: "mode"; idx: number } | { type: "reset" } | null
@@ -114,6 +118,7 @@ export function Focus() {
       /* record start */
       breathStartRef.current     = getTimeStr();
       breathStartTimeRef.current = Date.now();
+      sessionNameRef.current     = taskName.trim();
 
       function advance(phase: "inhale"|"exhale") {
         setBreathPhase(phase);
@@ -135,9 +140,11 @@ export function Focus() {
           durationMinutes: elapsedMin,
           xp:              0,
           type:            "breath",
+          label:           sessionNameRef.current || undefined,
         });
       }
       breathStartRef.current = null;
+      sessionNameRef.current = "";
     }
     return () => { if (breathTimerRef.current) clearTimeout(breathTimerRef.current); };
   }, [isBreath, breathRunning]);
@@ -145,8 +152,9 @@ export function Focus() {
   /* ── session start ── */
   useEffect(() => {
     if (running && !prevRunningRef.current) {
-      sessionStartRef.current = getTimeStr();
-      completedRef.current    = false;
+      sessionStartRef.current  = getTimeStr();
+      sessionNameRef.current   = taskName.trim();
+      completedRef.current     = false;
     }
     prevRunningRef.current = running;
   }, [running]);
@@ -167,6 +175,7 @@ export function Focus() {
         durationMinutes: sessionDurRef.current,
         xp:              timerMode.givesXP ? FOCUS_XP : 0,
         type:            timerMode.type,
+        label:           sessionNameRef.current || undefined,
       });
     }
   }, [totalSecs, running]);
@@ -361,6 +370,41 @@ export function Focus() {
             );
           })()}
         </div>
+
+        {/* ── task name input — shown for Pomodoro and Breath ── */}
+        {(modeIdx === 0 || modeIdx === 3) && (
+          <div className="relative w-full max-w-xs">
+            <input
+              type="text"
+              maxLength={60}
+              placeholder="Над чем вы работаете?"
+              value={taskName}
+              disabled={running || breathRunning}
+              onChange={e => setTaskName(e.target.value)}
+              className="w-full text-sm font-light text-center outline-none rounded-2xl py-2.5 px-4 transition-all duration-300 disabled:opacity-35"
+              style={{
+                background:      "rgba(255,255,255,.035)",
+                backdropFilter:  "blur(18px)",
+                border:          `1px solid rgba(${LAV_RGB},${taskName.trim() ? ".32" : ".14"})`,
+                color:           "rgba(255,255,255,.78)",
+                letterSpacing:   "0.04em",
+                boxShadow:       taskName.trim()
+                  ? `0 0 0 1px rgba(${LAV_RGB},.10), 0 0 22px rgba(${LAV_RGB},.12)`
+                  : "none",
+                caretColor: "#a78bfa",
+              }}
+            />
+            {/* clear button */}
+            {taskName && !running && !breathRunning && (
+              <button
+                onClick={() => setTaskName("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs opacity-30 hover:opacity-60 transition-opacity"
+                style={{ color:"rgba(255,255,255,1)", lineHeight:1 }}
+                title="Очистить"
+              >✕</button>
+            )}
+          </div>
+        )}
 
         {/* ── circle ── */}
         <div className="relative flex items-center justify-center" style={{ width:240, height:240 }}>
@@ -752,6 +796,12 @@ export function Focus() {
                 s.type === "long"     ? "#86efac" :
                 s.type === "breath"   ? "#c4b5fd" : "#a78bfa";
 
+              const displayLabel = s.label || (
+                s.type === "pomodoro" ? "Фокус" :
+                s.type === "breath"   ? "Дыхание" :
+                s.type === "short"    ? "Перерыв" : "Сессия"
+              );
+
               return (
                 <div key={s.id}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
@@ -761,27 +811,50 @@ export function Focus() {
                     opacity: Math.max(0.44, 1 - idx * 0.08),
                   }}
                 >
-                  <span style={{ fontSize:s.type === "breath" ? 14 : 13, lineHeight:1, color: s.type === "breath" ? c : undefined }}>
+                  {/* icon */}
+                  <span style={{ fontSize:s.type === "breath" ? 14 : 13, lineHeight:1, color: s.type === "breath" ? c : undefined, flexShrink:0 }}>
                     {icon}
                   </span>
 
-                  <span className="text-xs font-light flex-shrink-0"
-                    style={{ color: c, textShadow:`0 0 10px ${c}55`, minWidth:100 }}>
-                    {typeLabel}
-                  </span>
-
-                  <span className="text-xs font-light flex-1"
-                    style={{ color:"rgba(255,255,255,.38)" }}>
-                    {s.durationMinutes} мин
-                  </span>
-
-                  <span className="text-[10px] flex-shrink-0"
-                    style={{ color:"rgba(255,255,255,.22)" }}>
+                  {/* time */}
+                  <span className="text-[10px] tabular-nums flex-shrink-0"
+                    style={{ color:"rgba(255,255,255,.22)", minWidth:36 }}>
                     {s.endTime ? s.endTime : s.startTime}
                   </span>
 
+                  {/* separator */}
+                  <span style={{ color:"rgba(255,255,255,.12)", flexShrink:0 }}>·</span>
+
+                  {/* label — main name */}
+                  <span className="text-xs font-light flex-1 truncate"
+                    style={{
+                      color: s.label ? "rgba(255,255,255,.72)" : c,
+                      textShadow: s.label ? "none" : `0 0 10px ${c}55`,
+                    }}>
+                    {displayLabel}
+                  </span>
+
+                  {/* duration */}
+                  <span className="text-[10px] flex-shrink-0"
+                    style={{ color:"rgba(255,255,255,.28)" }}>
+                    {s.durationMinutes}&nbsp;мин
+                  </span>
+
+                  {/* type badge — subtle */}
+                  {s.label && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-lg flex-shrink-0"
+                      style={{
+                        background: `rgba(${s.type === "pomodoro" ? LAV_RGB : s.type === "breath" ? LAV_RGB : s.type === "short" ? "34,211,238" : "134,239,172"},.10)`,
+                        color: c,
+                        border: `1px solid rgba(${s.type === "pomodoro" ? LAV_RGB : s.type === "breath" ? LAV_RGB : s.type === "short" ? "34,211,238" : "134,239,172"},.18)`,
+                      }}>
+                      {typeLabel}
+                    </span>
+                  )}
+
+                  {/* xp */}
                   {s.xp > 0 && (
-                    <span className="text-[10px] font-semibold flex-shrink-0 ml-1"
+                    <span className="text-[10px] font-semibold flex-shrink-0"
                       style={{ color:"#a78bfa", textShadow:`0 0 8px rgba(${LAV_RGB},.55)` }}>
                       +{s.xp}&nbsp;XP
                     </span>
