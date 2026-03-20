@@ -491,9 +491,9 @@ export function TaskModal(props: Props) {
                   );
                 })()}
 
-                {weekGoals.length === 0 && (
+                {activeGoals.length === 0 && (
                   <p className="text-[10px] text-white/20">
-                    Сначала создай цели недели на странице «Цели»
+                    Сначала создай цели на странице «Цели»
                   </p>
                 )}
               </div>

@@ -8,6 +8,26 @@ import { formatDuration } from "@/lib/formatDuration";
 const LAV     = "167,139,250";
 const LAV_HEX = "#a78bfa";
 
+const DAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+function calcSessions(days: number[], endDate: string): number {
+  if (!days.length || !endDate) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  if (end < today) return 0;
+  let count = 0;
+  const cur = new Date(today);
+  while (cur <= end) {
+    const dow = cur.getDay();
+    const ourDow = dow === 0 ? 6 : dow - 1;
+    if (days.includes(ourDow)) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
 const NOW       = new Date();
 const TODAY_ISO = NOW.toISOString().slice(0, 10);
 
@@ -99,7 +119,7 @@ type GoalCardProps = {
 };
 
 function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }: GoalCardProps) {
-  const { addGoalChecklistItem, toggleGoalChecklistItem, deleteGoalChecklistItem } = useStore();
+  const { addGoalChecklistItem, editGoalChecklistItem, toggleGoalChecklistItem, deleteGoalChecklistItem } = useStore();
 
   const isDraft    = isDraftGoal(goal);
   const sphereData = goal.sphere ? sphereColors[goal.sphere] : null;
@@ -116,15 +136,50 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Recurring step form state
+  const [recurringMode, setRecurringMode] = useState(false);
+  const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [recurEndDate, setRecurEndDate] = useState("");
+
+  // Extend recurring item state
+  const [extendingItemId, setExtendingItemId] = useState<string | null>(null);
+  const [extendCount, setExtendCount] = useState("5");
+
   const borderColor = goal.done ? "rgba(34,197,94,0.22)" : overdue ? "rgba(239,68,68,0.28)" : `rgba(${rgb},0.20)`;
   const bgColor     = goal.done ? "rgba(34,197,94,0.04)" : overdue ? "rgba(239,68,68,0.04)" : isDraft ? "rgba(255,255,255,0.018)" : `rgba(${rgb},0.04)`;
+
+  const projectedSessions = recurringMode ? calcSessions(recurDays, recurEndDate) : 0;
 
   function handleAddItem() {
     const t = newItemText.trim();
     if (!t) return;
+    if (recurringMode && recurDays.length > 0 && recurEndDate) {
+      const totalSessions = calcSessions(recurDays, recurEndDate);
+      if (totalSessions > 0) {
+        addGoalChecklistItem(goal.id, t, { days: recurDays, endDate: recurEndDate, totalSessions });
+        setNewItemText("");
+        setRecurringMode(false);
+        setRecurDays([]);
+        setRecurEndDate("");
+        inputRef.current?.focus();
+        return;
+      }
+    }
     addGoalChecklistItem(goal.id, t);
     setNewItemText("");
     inputRef.current?.focus();
+  }
+
+  function handleExtend(item: typeof items[0]) {
+    const n = parseInt(extendCount) || 0;
+    if (n <= 0 || !item.recurring) return;
+    const newTotal = item.recurring.totalSessions + n;
+    editGoalChecklistItem(goal.id, item.id, {
+      recurring: { ...item.recurring, totalSessions: newTotal },
+      done: item.recurring.completedSessions >= newTotal,
+    });
+    setExtendingItemId(null);
+    setExtendCount("5");
   }
 
   const linkedTasks = tasks.filter(t => t.goalId === goal.id);
@@ -326,88 +381,278 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
           )}
 
           {/* Checklist */}
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="flex items-center gap-3 px-3.5 py-3 rounded-2xl group transition-all"
-              style={{
-                background: item.done ? `rgba(${rgb},0.07)` : "rgba(255,255,255,0.025)",
-                border: `1px solid rgba(${rgb},${item.done ? "0.14" : "0.08"})`,
-              }}
-              onMouseEnter={() => setHoveredItem(item.id)}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <button
-                onClick={() => toggleGoalChecklistItem(goal.id, item.id)}
-                className="w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                style={{
-                  borderColor: item.done ? (sphereData?.color ?? LAV_HEX) : "rgba(255,255,255,0.20)",
-                  background: item.done ? `rgba(${rgb},0.22)` : "transparent",
-                }}
-              >
-                {item.done && <span style={{ color: sphereData?.color ?? LAV_HEX, fontSize: 9 }}>✓</span>}
-              </button>
+          {items.map(item => {
+            const isRec = !!item.recurring;
+            const recPct = isRec
+              ? Math.min(100, Math.round((item.recurring!.completedSessions / item.recurring!.totalSessions) * 100))
+              : 0;
+            const accentColor = sphereData?.color ?? LAV_HEX;
+            const isExtending = extendingItemId === item.id;
 
-              <span
-                className="flex-1 text-xs leading-relaxed"
+            return (
+              <div
+                key={item.id}
+                className="flex flex-col rounded-2xl group transition-all"
                 style={{
-                  color: item.done ? "rgba(255,255,255,0.26)" : "rgba(255,255,255,0.65)",
-                  textDecoration: item.done ? "line-through" : "none",
+                  background: item.done ? `rgba(${rgb},0.07)` : "rgba(255,255,255,0.025)",
+                  border: `1px solid rgba(${rgb},${item.done ? "0.14" : "0.08"})`,
                 }}
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
               >
-                {item.text}
-              </span>
+                {/* Main row */}
+                <div className="flex items-center gap-3 px-3.5 pt-3 pb-2">
+                  {/* Checkbox / Session counter */}
+                  {isRec ? (
+                    <button
+                      onClick={() => item.done && toggleGoalChecklistItem(goal.id, item.id)}
+                      className="w-[26px] h-[26px] rounded-lg flex items-center justify-center flex-shrink-0 transition-all select-none"
+                      style={{
+                        background: item.done ? `rgba(${rgb},0.22)` : `rgba(${rgb},0.10)`,
+                        border: `1.5px solid rgba(${rgb},${item.done ? "0.45" : "0.25"})`,
+                        cursor: item.done ? "pointer" : "default",
+                        minWidth: 26,
+                      }}
+                      title={item.done ? "Снять отметку" : `${item.recurring!.completedSessions} из ${item.recurring!.totalSessions}`}
+                    >
+                      {item.done ? (
+                        <span style={{ color: accentColor, fontSize: 9 }}>✓</span>
+                      ) : (
+                        <span className="font-bold tabular-nums" style={{ color: accentColor, fontSize: 9, lineHeight: 1 }}>
+                          {item.recurring!.completedSessions}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => toggleGoalChecklistItem(goal.id, item.id)}
+                      className="w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{
+                        borderColor: item.done ? accentColor : "rgba(255,255,255,0.20)",
+                        background: item.done ? `rgba(${rgb},0.22)` : "transparent",
+                      }}
+                    >
+                      {item.done && <span style={{ color: accentColor, fontSize: 9 }}>✓</span>}
+                    </button>
+                  )}
 
-              {hoveredItem === item.id && !item.done && (
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => onAddToDay(item.text, item.id)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold transition-all"
-                    style={{
-                      background: `rgba(${LAV},0.18)`,
-                      color: LAV_HEX,
-                      border: `1px solid rgba(${LAV},0.32)`,
-                      boxShadow: `0 0 10px rgba(${LAV},0.15)`,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    + в план дня
-                  </button>
-                  <button
-                    onClick={() => deleteGoalChecklistItem(goal.id, item.id)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[9px] text-white/15 hover:text-red-400 transition-all"
-                  >✕</button>
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className="text-xs leading-relaxed"
+                      style={{
+                        color: item.done ? "rgba(255,255,255,0.26)" : "rgba(255,255,255,0.65)",
+                        textDecoration: item.done ? "line-through" : "none",
+                      }}
+                    >
+                      {item.text}
+                    </span>
+                    {isRec && (
+                      <span className="text-[9px] ml-2" style={{ color: `rgba(${rgb},0.45)` }}>
+                        ⟳ {item.recurring!.completedSessions}/{item.recurring!.totalSessions} сессий
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Hover actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {hoveredItem === item.id && !item.done && !isRec && (
+                      <button
+                        onClick={() => onAddToDay(item.text, item.id)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold transition-all"
+                        style={{
+                          background: `rgba(${LAV},0.18)`,
+                          color: LAV_HEX,
+                          border: `1px solid rgba(${LAV},0.32)`,
+                          boxShadow: `0 0 10px rgba(${LAV},0.15)`,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        + в план дня
+                      </button>
+                    )}
+                    {hoveredItem === item.id && item.done && isRec && !isExtending && (
+                      <button
+                        onClick={() => { setExtendingItemId(item.id); setExtendCount("5"); }}
+                        className="px-2.5 py-1 rounded-lg text-[9px] font-semibold transition-all"
+                        style={{
+                          background: `rgba(${rgb},0.14)`,
+                          color: accentColor,
+                          border: `1px solid rgba(${rgb},0.26)`,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        + сессий
+                      </button>
+                    )}
+                    {hoveredItem === item.id && (
+                      <button
+                        onClick={() => deleteGoalChecklistItem(goal.id, item.id)}
+                        className="w-5 h-5 rounded flex items-center justify-center text-[9px] text-white/15 hover:text-red-400 transition-all"
+                      >✕</button>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Mini progress bar for recurring */}
+                {isRec && (
+                  <div className="px-3.5 pb-3">
+                    <div
+                      className="h-[3px] rounded-full overflow-hidden"
+                      style={{ background: "rgba(255,255,255,0.06)" }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${recPct}%`,
+                          background: item.done
+                            ? "linear-gradient(90deg,#16a34a,#22c55e)"
+                            : `linear-gradient(90deg,rgba(${rgb},0.55),${accentColor})`,
+                          boxShadow: `0 0 6px rgba(${rgb},0.40)`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Extend inline form */}
+                {isExtending && (
+                  <div
+                    className="flex items-center gap-2 px-3.5 pb-3"
+                    style={{ borderTop: `1px solid rgba(${rgb},0.08)`, paddingTop: 8 }}
+                  >
+                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.30)" }}>
+                      Добавить ещё сессий:
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="200"
+                      value={extendCount}
+                      onChange={e => setExtendCount(e.target.value)}
+                      className="w-14 bg-transparent outline-none text-xs text-center rounded-lg px-2 py-1"
+                      style={{ border: `1px solid rgba(${rgb},0.22)`, color: "rgba(255,255,255,0.7)" }}
+                    />
+                    <button
+                      onClick={() => handleExtend(item)}
+                      className="px-3 py-1 rounded-lg text-[9px] font-semibold transition-all"
+                      style={{ background: `rgba(${rgb},0.20)`, color: accentColor, border: `1px solid rgba(${rgb},0.30)` }}
+                    >Продолжить</button>
+                    <button
+                      onClick={() => setExtendingItemId(null)}
+                      className="text-[9px] text-white/20 hover:text-white/50 transition-all"
+                    >Отмена</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Add step input */}
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Добавить шаг..."
-              value={newItemText}
-              onChange={e => setNewItemText(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleAddItem()}
-              className="flex-1 bg-transparent outline-none text-xs py-2 px-3 rounded-xl transition-all"
-              style={{
-                color: "rgba(255,255,255,0.55)",
-                border: `1px solid rgba(${rgb},0.14)`,
-                background: "rgba(255,255,255,0.025)",
-              }}
-            />
-            <button
-              onClick={handleAddItem}
-              disabled={!newItemText.trim()}
-              className="px-3 py-2 rounded-xl text-[10px] font-semibold transition-all disabled:opacity-30"
-              style={{
-                background: `rgba(${rgb},0.16)`,
-                color: sphereData?.color ?? LAV_HEX,
-                border: `1px solid rgba(${rgb},0.24)`,
-              }}
-            >+ Шаг</button>
+          <div className="flex flex-col gap-2 mt-1">
+            {/* Main input row */}
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={recurringMode ? "Название повторяющегося шага..." : "Добавить шаг..."}
+                value={newItemText}
+                onChange={e => setNewItemText(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !recurringMode && handleAddItem()}
+                className="flex-1 bg-transparent outline-none text-xs py-2 px-3 rounded-xl transition-all"
+                style={{
+                  color: "rgba(255,255,255,0.55)",
+                  border: `1px solid rgba(${recurringMode ? LAV : rgb},${recurringMode ? "0.32" : "0.14"})`,
+                  background: recurringMode ? `rgba(${LAV},0.05)` : "rgba(255,255,255,0.025)",
+                }}
+              />
+              {/* Recurring toggle */}
+              <button
+                onClick={() => { setRecurringMode(m => !m); setRecurDays([]); setRecurEndDate(""); }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] transition-all flex-shrink-0"
+                title="Повторяющийся шаг"
+                style={{
+                  background: recurringMode ? `rgba(${LAV},0.22)` : "rgba(255,255,255,0.04)",
+                  color: recurringMode ? LAV_HEX : "rgba(255,255,255,0.22)",
+                  border: `1px solid rgba(${LAV},${recurringMode ? "0.38" : "0.10"})`,
+                }}
+              >⟳</button>
+              {!recurringMode && (
+                <button
+                  onClick={handleAddItem}
+                  disabled={!newItemText.trim()}
+                  className="px-3 py-2 rounded-xl text-[10px] font-semibold transition-all disabled:opacity-30 flex-shrink-0"
+                  style={{
+                    background: `rgba(${rgb},0.16)`,
+                    color: sphereData?.color ?? LAV_HEX,
+                    border: `1px solid rgba(${rgb},0.24)`,
+                  }}
+                >+ Шаг</button>
+              )}
+            </div>
+
+            {/* Recurring config panel */}
+            {recurringMode && (
+              <div
+                className="flex flex-col gap-2.5 px-3 py-3 rounded-2xl"
+                style={{ background: `rgba(${LAV},0.06)`, border: `1px solid rgba(${LAV},0.15)` }}
+              >
+                {/* Days of week */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] mb-1.5" style={{ color: `rgba(${LAV},0.40)` }}>Дни недели</p>
+                  <div className="flex gap-1">
+                    {DAY_LABELS.map((label, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setRecurDays(d => d.includes(idx) ? d.filter(x => x !== idx) : [...d, idx])}
+                        className="flex-1 py-1.5 rounded-lg text-[9px] font-semibold transition-all"
+                        style={{
+                          background: recurDays.includes(idx) ? `rgba(${LAV},0.28)` : "rgba(255,255,255,0.04)",
+                          color: recurDays.includes(idx) ? LAV_HEX : "rgba(255,255,255,0.28)",
+                          border: `1px solid rgba(${LAV},${recurDays.includes(idx) ? "0.40" : "0.10"})`,
+                        }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* End date */}
+                <div>
+                  <p className="text-[8px] uppercase tracking-[0.22em] mb-1.5" style={{ color: `rgba(${LAV},0.40)` }}>Дата окончания</p>
+                  <input
+                    type="date"
+                    value={recurEndDate}
+                    min={TODAY_ISO}
+                    onChange={e => setRecurEndDate(e.target.value)}
+                    className="bg-transparent outline-none text-xs rounded-xl px-3 py-2 w-full"
+                    style={{
+                      color: "rgba(255,255,255,0.55)",
+                      border: `1px solid rgba(${LAV},0.20)`,
+                      background: "rgba(255,255,255,0.03)",
+                    }}
+                  />
+                </div>
+
+                {/* Session preview + submit */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px]" style={{ color: projectedSessions > 0 ? LAV_HEX : "rgba(255,255,255,0.22)" }}>
+                    {projectedSessions > 0
+                      ? `⚡ ${projectedSessions} сессий до ${recurEndDate}`
+                      : "Выбери дни и дату окончания"}
+                  </span>
+                  <button
+                    onClick={handleAddItem}
+                    disabled={!newItemText.trim() || recurDays.length === 0 || !recurEndDate || projectedSessions === 0}
+                    className="px-4 py-1.5 rounded-xl text-[9px] font-semibold transition-all disabled:opacity-30"
+                    style={{
+                      background: `rgba(${LAV},0.24)`,
+                      color: LAV_HEX,
+                      border: `1px solid rgba(${LAV},0.36)`,
+                    }}
+                  >Создать шаг + задачи</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Linked tasks */}

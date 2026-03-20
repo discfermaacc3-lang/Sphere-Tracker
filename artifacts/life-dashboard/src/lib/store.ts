@@ -40,10 +40,18 @@ export const IDEA_CATEGORIES: { key: IdeaCategory; label: string; emoji: string;
   { key: "other",      label: "Другое",      emoji: "💡", color: "#64748b" },
 ];
 
+export type GoalChecklistItemRecurring = {
+  days: number[];             // 0=Mon..6=Sun
+  endDate: string;            // YYYY-MM-DD
+  totalSessions: number;      // pre-calculated
+  completedSessions: number;
+};
+
 export type GoalChecklistItem = {
   id: string;
   text: string;
   done: boolean;
+  recurring?: GoalChecklistItemRecurring;
 };
 
 export type Goal = {
@@ -232,7 +240,8 @@ type Store = {
   editGoal: (id: string, updates: Partial<Omit<Goal, "id">>) => void;
   deleteGoal: (id: string) => void;
   toggleGoal: (id: string) => void;
-  addGoalChecklistItem: (goalId: string, text: string) => void;
+  addGoalChecklistItem: (goalId: string, text: string, recurring?: { days: number[]; endDate: string; totalSessions: number }) => void;
+  editGoalChecklistItem: (goalId: string, itemId: string, updates: Partial<GoalChecklistItem>) => void;
   toggleGoalChecklistItem: (goalId: string, itemId: string) => void;
   deleteGoalChecklistItem: (goalId: string, itemId: string) => void;
 
@@ -561,11 +570,60 @@ export const useStore = create<Store>()(
         set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)) })),
       deleteGoal: (id) =>
         set((s) => ({ goals: s.goals.filter((g) => g.id !== id && g.parentId !== id) })),
-      addGoalChecklistItem: (goalId, text) =>
+      addGoalChecklistItem: (goalId, text, recurring) =>
+        set((s) => {
+          const itemId = "ci-" + Date.now() + "-" + Math.floor(Math.random() * 9999);
+          const newItem: GoalChecklistItem = {
+            id: itemId,
+            text,
+            done: false,
+            recurring: recurring ? { ...recurring, completedSessions: 0 } : undefined,
+          };
+          const newGoals = s.goals.map((g) =>
+            g.id === goalId
+              ? { ...g, checklistItems: [...(g.checklistItems ?? []), newItem] }
+              : g
+          );
+          if (!recurring) return { goals: newGoals };
+          // Auto-schedule recurring tasks
+          const goal = s.goals.find((g) => g.id === goalId);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const end = new Date(recurring.endDate);
+          end.setHours(0, 0, 0, 0);
+          const newTasks: Task[] = [];
+          const cur = new Date(today);
+          let idx = 0;
+          while (cur <= end) {
+            const dow = cur.getDay(); // 0=Sun..6=Sat
+            const ourDow = dow === 0 ? 6 : dow - 1; // 0=Mon..6=Sun
+            if (recurring.days.includes(ourDow)) {
+              const dueDateStr = cur.toISOString().slice(0, 10);
+              newTasks.push({
+                id: `rci-${itemId}-${idx++}`,
+                text,
+                category: "Other",
+                sphere: goal?.sphere ?? "work",
+                type: "special",
+                priority: false,
+                xp: 10,
+                xpDifficulty: "easy",
+                noDeadline: false,
+                dueDate: dueDateStr,
+                done: false,
+                goalId,
+                checklistItemId: itemId,
+              });
+            }
+            cur.setDate(cur.getDate() + 1);
+          }
+          return { goals: newGoals, tasks: [...s.tasks, ...newTasks] };
+        }),
+      editGoalChecklistItem: (goalId, itemId, updates) =>
         set((s) => ({
           goals: s.goals.map((g) =>
             g.id === goalId
-              ? { ...g, checklistItems: [...(g.checklistItems ?? []), { id: "ci-" + Date.now(), text, done: false }] }
+              ? { ...g, checklistItems: (g.checklistItems ?? []).map((ci) => ci.id === itemId ? { ...ci, ...updates } : ci) }
               : g
           ),
         })),
@@ -573,7 +631,20 @@ export const useStore = create<Store>()(
         set((s) => ({
           goals: s.goals.map((g) =>
             g.id === goalId
-              ? { ...g, checklistItems: (g.checklistItems ?? []).map((ci) => ci.id === itemId ? { ...ci, done: !ci.done } : ci) }
+              ? {
+                  ...g,
+                  checklistItems: (g.checklistItems ?? []).map((ci) => {
+                    if (ci.id !== itemId) return ci;
+                    if (ci.recurring) {
+                      // For recurring: undo completion → set completedSessions to totalSessions - 1
+                      if (ci.done) {
+                        return { ...ci, done: false, recurring: { ...ci.recurring, completedSessions: Math.max(0, ci.recurring.totalSessions - 1) } };
+                      }
+                      return ci; // Not done — manual toggle not allowed, only task sync drives it
+                    }
+                    return { ...ci, done: !ci.done };
+                  }),
+                }
               : g
           ),
         })),
@@ -584,6 +655,7 @@ export const useStore = create<Store>()(
               ? { ...g, checklistItems: (g.checklistItems ?? []).filter((ci) => ci.id !== itemId) }
               : g
           ),
+          tasks: s.tasks.filter((t) => t.checklistItemId !== itemId),
         })),
       toggleGoal: (id) =>
         set((s) => {
@@ -629,9 +701,20 @@ export const useStore = create<Store>()(
             if (!task.checklistItemId) return g;
             return {
               ...g,
-              checklistItems: (g.checklistItems ?? []).map((ci) =>
-                ci.id === task.checklistItemId ? { ...ci, done: !wasDone } : ci
-              ),
+              checklistItems: (g.checklistItems ?? []).map((ci) => {
+                if (ci.id !== task.checklistItemId) return ci;
+                if (ci.recurring) {
+                  const newCompleted = wasDone
+                    ? Math.max(0, ci.recurring.completedSessions - 1)
+                    : ci.recurring.completedSessions + 1;
+                  return {
+                    ...ci,
+                    recurring: { ...ci.recurring, completedSessions: newCompleted },
+                    done: newCompleted >= ci.recurring.totalSessions,
+                  };
+                }
+                return { ...ci, done: !wasDone };
+              }),
             };
           });
           if (!wasDone) {
