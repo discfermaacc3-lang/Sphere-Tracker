@@ -3,6 +3,7 @@ import { useStore, Goal, Task, computeGoalEarnedXP } from "@/lib/store";
 import { sphereColors, SphereKey } from "@/lib/sphereColors";
 import { GoalModal } from "@/components/GoalModal";
 import { TaskModal } from "@/components/TaskModal";
+import { formatDuration } from "@/lib/formatDuration";
 
 const LAV     = "167,139,250";
 const LAV_HEX = "#a78bfa";
@@ -56,17 +57,11 @@ function getEffectiveCategory(g: Goal): "short" | "mid" | "long" {
 }
 
 function formatPeriodBadge(g: Goal): string {
-  const d = getEffectiveDays(g);
-  if (g.level === "year") return "1 год";
   if (g.durationMonths) return `${g.durationMonths} мес.`;
   if (g.durationWeeks)  return `${g.durationWeeks} нед.`;
-  if (g.startDate && g.endDate) {
-    if (d <= 14)  return `${d} дн.`;
-    if (d <= 60)  return `~${Math.round(d/7)} нед.`;
-    if (d <= 400) return `~${Math.round(d/30)} мес.`;
-    return `~${Math.round(d/365)} г.`;
-  }
-  return g.level === "week" ? "1 нед." : g.level === "month" ? "1 мес." : "";
+  const d = getEffectiveDays(g);
+  if (d > 0) return formatDuration(d);
+  return g.level === "week" ? "1 нед." : g.level === "month" ? "1 мес." : g.level === "year" ? "1 год" : "";
 }
 
 function isOverdueGoal(g: Goal): boolean {

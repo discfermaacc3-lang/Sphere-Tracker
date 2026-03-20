@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Goal } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
+import { formatDuration } from "@/lib/formatDuration";
 
 const LAV = "#a78bfa";
 const LAV_RGB = "167,139,250";
@@ -339,7 +340,7 @@ export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
               {initial?.title ? "Редактировать цель" : "Новая цель"}
             </h2>
             <p className="text-[10px] mt-0.5" style={{ color: `rgba(${LAV_RGB},0.55)` }}>
-              {isDraft ? "Черновик без срока" : `${formatDateRu(startDate)} → ${formatDateRu(endDate)} · ${totalDays > 0 ? totalDays + " дн." : ""}`}
+              {isDraft ? "Черновик без срока" : `${formatDateRu(startDate)} → ${formatDateRu(endDate)}${totalDays > 0 ? " · " + formatDuration(totalDays) : ""}`}
             </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/60 hover:bg-white/5 transition-all text-lg leading-none">✕</button>

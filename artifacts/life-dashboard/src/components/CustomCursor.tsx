@@ -2,12 +2,9 @@ import { useEffect, useRef } from "react";
 
 const LAVENDER = "#a78bfa";
 
-// Arrow cursor — rendered at 13×20px
 const ARROW_PATH = "M 0 0 L 0 16.5 L 4 12.5 L 6.5 18.5 L 9 17.5 L 6.5 11.5 L 11.5 11.5 Z";
 const ARROW_VIEWBOX = "0 0 14 21";
 
-// Classic pointer hand: extended index finger + fist with knuckle bumps
-// viewBox "0 0 12 21" rendered at 13×20 — same visual weight as arrow
 const HAND_PATH =
   "M4.5,0 C4.5,0 7.5,0 7.5,2 L7.5,10 L9.5,10 C9.5,8.5 11.5,8.5 11.5,10 L11.5,12 L11.5,15 C11.5,18 9.5,21 6.5,21 L3,21 C1,21 0,19.5 0,17 L0,8 C0,6.5 1.5,6 3,6 L3,2 C3,0 4.5,0 4.5,0 Z";
 const HAND_VIEWBOX = "0 0 12 21";
@@ -79,10 +76,14 @@ export function CustomCursor() {
       if (on === isPointer.current) return;
       isPointer.current = on;
       if (on) {
+        arrowSvg.style.opacity = "0";
+        handSvg.style.opacity  = "1";
         glow.style.width   = "48px";
         glow.style.height  = "48px";
         glow.style.opacity = ".85";
       } else {
+        arrowSvg.style.opacity = "1";
+        handSvg.style.opacity  = "0";
         glow.style.width   = "30px";
         glow.style.height  = "30px";
         glow.style.opacity = ".55";
@@ -116,6 +117,8 @@ export function CustomCursor() {
     filter: `drop-shadow(0 0 2.5px ${LAVENDER}) drop-shadow(0 0 6px ${LAVENDER}60)`,
   };
 
+  const svgTransition = { transition: "opacity .15s ease" };
+
   return (
     <>
       <div ref={particlesRef} style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:99990 }} />
@@ -140,20 +143,29 @@ export function CustomCursor() {
           }}
         />
 
-        {/* Lavender pointing hand — always visible */}
+        {/* Lavender arrow — default cursor */}
+        <svg
+          ref={arrowSvgRef}
+          viewBox={ARROW_VIEWBOX}
+          width="14" height="22"
+          style={{ position:"absolute", left:"0px", top:0, overflow:"visible", opacity:1, ...svgTransition }}
+        >
+          <path d={ARROW_PATH} fill="rgba(10,5,25,.75)" transform="translate(1,1)" />
+          <path d={ARROW_PATH} fill={LAVENDER} style={shadowStyle} />
+        </svg>
+
+        {/* Lavender pointing hand — shown on interactive elements */}
         <svg
           ref={handSvgRef}
           viewBox={HAND_VIEWBOX}
           width="14" height="22"
-          style={{ position:"absolute", left:"-1px", top:0, overflow:"visible", opacity:1 }}
+          style={{ position:"absolute", left:"-1px", top:0, overflow:"visible", opacity:0, ...svgTransition }}
         >
           <path d={HAND_PATH} fill="rgba(10,5,25,.80)" transform="translate(1,1)" />
           <path d={HAND_PATH} fill={LAVENDER} style={shadowStyle} />
           <line x1="3" y1="10.3" x2="7.5" y2="10.3" stroke="rgba(10,5,25,0.45)" strokeWidth="0.7" />
           <line x1="9.4" y1="10.5" x2="9.4" y2="12.5" stroke="rgba(10,5,25,0.40)" strokeWidth="0.6" />
         </svg>
-        {/* Hidden — kept for ref compatibility */}
-        <svg ref={arrowSvgRef} viewBox="0 0 1 1" width="0" height="0" style={{ position:"absolute", opacity:0 }} />
       </div>
     </>
   );
