@@ -79,17 +79,13 @@ export function CustomCursor() {
       if (on === isPointer.current) return;
       isPointer.current = on;
       if (on) {
-        arrowSvg.style.opacity = "0";
-        handSvg.style.opacity  = "1";
-        glow.style.width       = "44px";
-        glow.style.height      = "44px";
-        glow.style.opacity     = ".75";
+        glow.style.width   = "48px";
+        glow.style.height  = "48px";
+        glow.style.opacity = ".85";
       } else {
-        arrowSvg.style.opacity = "1";
-        handSvg.style.opacity  = "0";
-        glow.style.width       = "28px";
-        glow.style.height      = "28px";
-        glow.style.opacity     = ".45";
+        glow.style.width   = "30px";
+        glow.style.height  = "30px";
+        glow.style.opacity = ".55";
       }
     }
 
@@ -144,33 +140,20 @@ export function CustomCursor() {
           }}
         />
 
-        {/* Arrow (default state) */}
-        <svg
-          ref={arrowSvgRef}
-          viewBox={ARROW_VIEWBOX}
-          width="13" height="20"
-          style={{ position:"absolute", left:0, top:0, overflow:"visible", opacity:1, transition:"opacity .15s ease" }}
-        >
-          <path d={ARROW_PATH} fill="rgba(10,5,25,.80)" transform="translate(1,1)" />
-          <path d={ARROW_PATH} fill={LAVENDER} style={shadowStyle} />
-        </svg>
-
-        {/* Hand pointer (hover state) — fist + extended index finger */}
+        {/* Lavender pointing hand — always visible */}
         <svg
           ref={handSvgRef}
           viewBox={HAND_VIEWBOX}
-          width="13" height="20"
-          style={{ position:"absolute", left:"-1px", top:0, overflow:"visible", opacity:0, transition:"opacity .15s ease" }}
+          width="14" height="22"
+          style={{ position:"absolute", left:"-1px", top:0, overflow:"visible", opacity:1 }}
         >
-          {/* Drop shadow */}
           <path d={HAND_PATH} fill="rgba(10,5,25,.80)" transform="translate(1,1)" />
-          {/* Main fill */}
           <path d={HAND_PATH} fill={LAVENDER} style={shadowStyle} />
-          {/* Knuckle crease — separates index from fist */}
           <line x1="3" y1="10.3" x2="7.5" y2="10.3" stroke="rgba(10,5,25,0.45)" strokeWidth="0.7" />
-          {/* Middle finger separation crease */}
           <line x1="9.4" y1="10.5" x2="9.4" y2="12.5" stroke="rgba(10,5,25,0.40)" strokeWidth="0.6" />
         </svg>
+        {/* Hidden — kept for ref compatibility */}
+        <svg ref={arrowSvgRef} viewBox="0 0 1 1" width="0" height="0" style={{ position:"absolute", opacity:0 }} />
       </div>
     </>
   );

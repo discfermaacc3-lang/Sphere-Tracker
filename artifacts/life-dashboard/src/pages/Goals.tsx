@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useStore, Goal, Task } from "@/lib/store";
+import { useStore, Goal, Task, computeGoalEarnedXP } from "@/lib/store";
 import { sphereColors, SphereKey } from "@/lib/sphereColors";
 import { GoalModal } from "@/components/GoalModal";
 import { TaskModal } from "@/components/TaskModal";
@@ -461,6 +461,7 @@ export function Goals() {
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
 
   const [taskModalItem, setTaskModalItem] = useState<{
     text: string; sphere?: SphereKey; goalId: string;
@@ -494,6 +495,18 @@ export function Goals() {
           Цели
         </h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowOverviewModal(true)}
+            className="px-4 py-2.5 rounded-2xl text-xs font-semibold tracking-[0.10em] uppercase transition-all"
+            style={{
+              background: `rgba(${LAV},0.10)`,
+              color: LAV_HEX,
+              border: `1px solid rgba(${LAV},0.25)`,
+              textShadow: `0 0 8px rgba(${LAV},0.45)`,
+            }}
+          >
+            ✦ Обзор всех
+          </button>
           <button
             onClick={openAdd}
             className="px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all"
@@ -767,6 +780,337 @@ export function Goals() {
           onClose={() => setTaskModalItem(null)}
         />
       )}
+
+      {/* ══ Overview modal ══ */}
+      {showOverviewModal && (
+        <OverviewModal
+          goals={goals}
+          tasks={tasks}
+          onClose={() => setShowOverviewModal(false)}
+          onEdit={g => { setShowOverviewModal(false); openEdit(g); }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Overview Modal — Все цели · Черновики · Дорожная карта
+───────────────────────────────────────────────────────────────── */
+const OVERVIEW_TABS = ["Активные", "Черновики", "Дорожная карта"] as const;
+type OverviewTab = typeof OVERVIEW_TABS[number];
+
+function OverviewModal({
+  goals,
+  tasks,
+  onClose,
+  onEdit,
+}: {
+  goals: Goal[];
+  tasks: Task[];
+  onClose: () => void;
+  onEdit: (g: Goal) => void;
+}) {
+  const [tab, setTab] = useState<OverviewTab>("Активные");
+
+  const activeGoals = goals.filter(g => !isDraftGoal(g) && !g.done);
+  const doneGoals   = goals.filter(g => !isDraftGoal(g) && g.done);
+  const drafts      = goals.filter(isDraftGoal);
+
+  const byLevel = {
+    week:  activeGoals.filter(g => getEffectiveCategory(g) === "short"),
+    month: activeGoals.filter(g => getEffectiveCategory(g) === "mid"),
+    year:  activeGoals.filter(g => getEffectiveCategory(g) === "long"),
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(18px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-4xl flex flex-col rounded-3xl overflow-hidden"
+        style={{
+          background: "rgba(10,9,22,0.98)",
+          border: `1px solid rgba(${LAV},0.20)`,
+          boxShadow: `0 0 80px rgba(${LAV},0.12), 0 0 200px rgba(${LAV},0.04)`,
+          maxHeight: "90vh",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-7 py-5"
+          style={{ borderBottom: `1px solid rgba(${LAV},0.10)`, background: `rgba(${LAV},0.03)` }}
+        >
+          <div>
+            <h2
+              className="text-xl font-light tracking-[0.15em] uppercase"
+              style={{ color: "rgba(255,255,255,0.80)", textShadow: `0 0 30px rgba(${LAV},0.50)` }}
+            >
+              ✦ Обзор всех целей
+            </h2>
+            <p className="text-[10px] mt-1 tracking-widest uppercase" style={{ color: `rgba(${LAV},0.35)` }}>
+              {activeGoals.length} активных · {drafts.length} черновиков · {doneGoals.length} завершено
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/25 hover:text-white/70 hover:bg-white/5 transition-all text-xl"
+          >✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-7 py-3" style={{ borderBottom: `1px solid rgba(${LAV},0.07)` }}>
+          {OVERVIEW_TABS.map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="px-4 py-1.5 rounded-xl text-xs font-medium tracking-wide transition-all"
+              style={{
+                background: tab === t ? `rgba(${LAV},0.18)` : "transparent",
+                color: tab === t ? LAV_HEX : "rgba(255,255,255,0.35)",
+                border: tab === t ? `1px solid rgba(${LAV},0.30)` : "1px solid transparent",
+                textShadow: tab === t ? `0 0 8px rgba(${LAV},0.50)` : "none",
+              }}
+            >{t}</button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto px-7 py-5 flex-1">
+
+          {/* ── Активные ── */}
+          {tab === "Активные" && (
+            <div className="flex flex-col gap-6">
+              {(["week","month","year"] as const).map(lvl => {
+                const gs = byLevel[lvl];
+                const label = lvl === "week" ? "НЕДЕЛЯ" : lvl === "month" ? "МЕСЯЦ" : "ГОД+";
+                const color = lvl === "week" ? "100,200,255" : lvl === "month" ? LAV : "255,170,90";
+                return (
+                  <div key={lvl}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-px flex-1" style={{ background: `rgba(${color},0.18)` }} />
+                      <span className="text-[9px] font-bold tracking-[0.28em]" style={{ color: `rgba(${color},0.55)` }}>
+                        {label}
+                      </span>
+                      <div className="h-px flex-1" style={{ background: `rgba(${color},0.18)` }} />
+                      <span className="text-[9px]" style={{ color: `rgba(${color},0.35)` }}>{gs.length}</span>
+                    </div>
+                    {gs.length === 0 ? (
+                      <p className="text-xs text-center py-4" style={{ color: "rgba(255,255,255,0.12)" }}>
+                        Нет активных целей
+                      </p>
+                    ) : (
+                      <div className="grid gap-2">
+                        {gs.map(g => <OverviewGoalRow key={g.id} goal={g} allGoals={goals} tasks={tasks} onEdit={onEdit} color={color} />)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {doneGoals.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    <span className="text-[9px] font-bold tracking-[0.28em]" style={{ color: "rgba(255,255,255,0.22)" }}>
+                      ЗАВЕРШЕНО
+                    </span>
+                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  </div>
+                  <div className="grid gap-2">
+                    {doneGoals.map(g => <OverviewGoalRow key={g.id} goal={g} allGoals={goals} tasks={tasks} onEdit={onEdit} color="100,200,130" done />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Черновики ── */}
+          {tab === "Черновики" && (
+            <div className="flex flex-col gap-3">
+              {drafts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-4xl mb-3">💡</p>
+                  <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.22)" }}>Нет черновиков</p>
+                  <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.12)" }}>
+                    Черновики — это цели без срока, идеи на будущее
+                  </p>
+                </div>
+              ) : drafts.map(g => (
+                <OverviewGoalRow key={g.id} goal={g} allGoals={goals} tasks={tasks} onEdit={onEdit} color={LAV} />
+              ))}
+            </div>
+          )}
+
+          {/* ── Дорожная карта ── */}
+          {tab === "Дорожная карта" && (
+            <div className="flex flex-col gap-6">
+              <p className="text-[10px] uppercase tracking-[0.20em] text-center" style={{ color: `rgba(${LAV},0.30)` }}>
+                Твой жизненный план — цели по горизонту
+              </p>
+
+              {/* Three columns */}
+              <div className="grid grid-cols-3 gap-4">
+                {([
+                  { lvl: "short" as const, label: "НЕДЕЛЯ",  color: "100,200,255", emoji: "⚡" },
+                  { lvl: "mid"   as const, label: "МЕСЯЦ",   color: LAV,           emoji: "🌙" },
+                  { lvl: "long"  as const, label: "ГОД+",    color: "255,170,90",  emoji: "⭐" },
+                ] as const).map(({ lvl, label, color, emoji }) => {
+                  const gs = activeGoals.filter(g => getEffectiveCategory(g) === lvl);
+                  return (
+                    <div
+                      key={lvl}
+                      className="rounded-2xl flex flex-col gap-2 p-4"
+                      style={{
+                        background: `rgba(${color},0.04)`,
+                        border: `1px solid rgba(${color},0.14)`,
+                      }}
+                    >
+                      <div className="text-center mb-2">
+                        <p className="text-xl mb-1">{emoji}</p>
+                        <p className="text-[9px] font-bold tracking-[0.28em]" style={{ color: `rgba(${color},0.70)` }}>
+                          {label}
+                        </p>
+                        <p className="text-[8px] mt-0.5" style={{ color: `rgba(${color},0.35)` }}>
+                          {gs.length} {gs.length === 1 ? "цель" : gs.length < 5 ? "цели" : "целей"}
+                        </p>
+                      </div>
+
+                      {gs.length === 0 ? (
+                        <div
+                          className="rounded-xl p-3 text-center"
+                          style={{ background: `rgba(${color},0.04)`, border: `1px dashed rgba(${color},0.14)` }}
+                        >
+                          <p className="text-[9px]" style={{ color: `rgba(${color},0.25)` }}>Нет целей</p>
+                        </div>
+                      ) : gs.map(g => {
+                        const sphere = g.sphere ? sphereColors[g.sphere] : null;
+                        const rgb = sphere ? hexToRgb(sphere.color) : LAV;
+                        const earned = computeGoalEarnedXP(g, activeGoals, tasks);
+                        const pct = g.targetXP > 0 ? Math.min(100, Math.round(earned / g.targetXP * 100)) : 0;
+                        return (
+                          <button
+                            key={g.id}
+                            onClick={() => onEdit(g)}
+                            className="rounded-xl p-3 text-left transition-all"
+                            style={{
+                              background: `rgba(${rgb},0.07)`,
+                              border: `1px solid rgba(${rgb},0.16)`,
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="text-sm">{sphere?.emoji ?? "🎯"}</span>
+                              <p className="text-[11px] font-medium text-white/75 leading-tight line-clamp-2">{g.title}</p>
+                            </div>
+                            {g.targetXP > 0 && (
+                              <div className="h-1 rounded-full overflow-hidden" style={{ background: `rgba(${rgb},0.15)` }}>
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${pct}%`, background: `rgba(${rgb},0.70)` }}
+                                />
+                              </div>
+                            )}
+                            {g.endDate && (
+                              <p className="text-[9px] mt-1.5" style={{ color: `rgba(${rgb},0.45)` }}>
+                                до {g.endDate.slice(5).replace("-", ".")}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Drafts preview */}
+              {drafts.length > 0 && (
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.24em] text-center mb-3" style={{ color: "rgba(255,255,255,0.18)" }}>
+                    Идеи без срока · {drafts.length}
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {drafts.map(g => (
+                      <button
+                        key={g.id}
+                        onClick={() => onEdit(g)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "rgba(255,255,255,0.40)",
+                        }}
+                      >
+                        <span>{g.sphere ? (sphereColors[g.sphere]?.emoji ?? "💡") : "💡"}</span>
+                        <span>{g.title.length > 25 ? g.title.slice(0, 25) + "…" : g.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OverviewGoalRow({
+  goal,
+  allGoals,
+  tasks,
+  onEdit,
+  color,
+  done = false,
+}: {
+  goal: Goal;
+  allGoals: Goal[];
+  tasks: Task[];
+  onEdit: (g: Goal) => void;
+  color: string;
+  done?: boolean;
+}) {
+  const sphere = goal.sphere ? sphereColors[goal.sphere] : null;
+  const rgb = sphere ? hexToRgb(sphere.color) : LAV;
+  const earned = computeGoalEarnedXP(goal, allGoals, tasks);
+  const pct = goal.targetXP > 0 ? Math.min(100, Math.round(earned / goal.targetXP * 100)) : 0;
+  const endDate = goal.endDate;
+
+  return (
+    <button
+      onClick={() => onEdit(goal)}
+      className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-left transition-all"
+      style={{
+        background: done ? "rgba(100,200,130,0.04)" : `rgba(${color},0.04)`,
+        border: done ? "1px solid rgba(100,200,130,0.12)" : `1px solid rgba(${color},0.10)`,
+        opacity: done ? 0.65 : 1,
+      }}
+    >
+      <span className="text-xl flex-shrink-0">{sphere?.emoji ?? "🎯"}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-white/75 truncate" style={{ textDecoration: done ? "line-through" : "none" }}>
+            {goal.title}
+          </p>
+          {done && <span className="text-[9px] text-green-400">✓</span>}
+        </div>
+        {goal.targetXP > 0 && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: `rgba(${rgb},0.15)` }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: `rgba(${rgb},0.65)` }} />
+            </div>
+            <span className="text-[9px] flex-shrink-0" style={{ color: `rgba(${rgb},0.55)` }}>{pct}%</span>
+          </div>
+        )}
+      </div>
+      {endDate && (
+        <span className="text-[9px] flex-shrink-0 px-2 py-0.5 rounded-lg" style={{ background: `rgba(${color},0.10)`, color: `rgba(${color},0.60)` }}>
+          {endDate.slice(5).replace("-", ".")}
+        </span>
+      )}
+    </button>
   );
 }

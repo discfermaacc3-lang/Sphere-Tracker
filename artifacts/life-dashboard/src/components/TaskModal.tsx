@@ -4,6 +4,7 @@ import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
 import { CustomDatePicker } from "./CustomDatePicker";
 import { CustomTimePicker } from "./CustomTimePicker";
 import { DreamSelect } from "./DreamSelect";
+import { MiniDatePicker } from "./MiniDatePicker";
 
 const CATEGORY_LABELS: Record<TaskCategory, string> = {
   Body: "Тело", Mindset: "Мышление", Creativity: "Творчество",
@@ -554,12 +555,9 @@ export function TaskModal(props: Props) {
                       ))}
                     </div>
                     {recurringEndType === "until" && (
-                      <input
-                        type="date"
+                      <MiniDatePicker
                         value={recurringEndDate}
-                        onChange={e => setRecurringEndDate(e.target.value)}
-                        className="px-3 py-2 rounded-xl text-sm bg-white/4 border border-white/10 text-white/70 outline-none focus:border-purple-400/40 transition-colors w-full"
-                        style={{ colorScheme: "dark" }}
+                        onChange={setRecurringEndDate}
                       />
                     )}
                   </div>

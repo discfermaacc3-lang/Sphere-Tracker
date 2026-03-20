@@ -110,11 +110,18 @@ export type RoutineTemplate = {
   xpDifficulty: XpDifficulty;
 };
 
+export type NoteCategory = {
+  id: string;
+  name: string;
+  emoji: string;
+};
+
 export type Note = {
   id: string;
   title: string;
   text: string;
   createdAt: string;
+  categoryId?: string;
 };
 
 export type EventCategory = "birthday" | "holiday" | "deadline" | "meeting";
@@ -249,8 +256,13 @@ type Store = {
   deleteRoutineTemplate: (id: string) => void;
   refreshDay: () => void;
 
+  noteCategories: NoteCategory[];
+  addNoteCategory: (cat: Omit<NoteCategory, "id">) => void;
+  deleteNoteCategory: (id: string) => void;
+
   notes: Note[];
   addNote: (note: Omit<Note, "id">) => void;
+  editNote: (id: string, updates: Partial<Omit<Note, "id">>) => void;
   deleteNote: (id: string) => void;
 
   calendarEvents: CalendarEvent[];
@@ -675,9 +687,20 @@ export const useStore = create<Store>()(
           };
         }),
 
+      noteCategories: [],
+      addNoteCategory: (cat) =>
+        set((s) => ({ noteCategories: [...s.noteCategories, { ...cat, id: "ncat-" + Date.now() }] })),
+      deleteNoteCategory: (id) =>
+        set((s) => ({
+          noteCategories: s.noteCategories.filter((c) => c.id !== id),
+          notes: s.notes.map((n) => n.categoryId === id ? { ...n, categoryId: undefined } : n),
+        })),
+
       notes: defaultNotes,
       addNote: (note) =>
         set((s) => ({ notes: [{ ...note, id: "note-" + Date.now() }, ...s.notes] })),
+      editNote: (id, updates) =>
+        set((s) => ({ notes: s.notes.map((n) => n.id === id ? { ...n, ...updates } : n) })),
       deleteNote: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
 
       calendarEvents: [],
