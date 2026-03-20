@@ -38,6 +38,7 @@ type TaskFields = BaseFields & {
   timeFrom?: string;
   timeTo?: string;
   goalId?: string;
+  checklistItemId?: string;
   recurringDays?: number[];
   recurringEndDate?: string;
 };
@@ -75,7 +76,7 @@ export function TaskModal(props: Props) {
   const { onClose } = props;
   const { goals, tasks } = useStore();
 
-  const weekGoals = goals.filter((g) => g.level === "week");
+  const activeGoals = goals.filter((g) => !g.done && !g.isIdea);
 
   const [text, setText] = useState(props.initial?.text ?? "");
   const [description, setDescription] = useState(props.initial?.description ?? "");
@@ -110,6 +111,9 @@ export function TaskModal(props: Props) {
   const [goalId, setGoalId] = useState(
     props.mode === "task" ? (props.initial?.goalId ?? "") : ""
   );
+  const [checklistItemId] = useState(
+    props.mode === "task" ? (props.initial?.checklistItemId ?? "") : ""
+  );
   const [recurringDays, setRecurringDays] = useState<number[]>(
     props.mode === "task" ? (props.initial?.recurringDays ?? []) : []
   );
@@ -132,7 +136,7 @@ export function TaskModal(props: Props) {
       : XP_PRESETS.find((p) => p.diff === xpPreset)!.value;
 
   // Selected goal info for mini-card
-  const selectedGoal = weekGoals.find((g) => g.id === goalId) ?? null;
+  const selectedGoal = goals.find((g) => g.id === goalId) ?? null;
   const goalEarnedXP = selectedGoal ? computeGoalEarnedXP(selectedGoal, goals, tasks) : 0;
   const goalPct = selectedGoal
     ? Math.min(100, Math.round((goalEarnedXP / selectedGoal.targetXP) * 100))
@@ -155,6 +159,7 @@ export function TaskModal(props: Props) {
         timeFrom: timeFrom || undefined,
         timeTo: timeTo || undefined,
         goalId: goalId || undefined,
+        checklistItemId: checklistItemId || undefined,
         recurringDays: recurringDays.length > 0 ? recurringDays : undefined,
         recurringEndDate: recurringDays.length > 0 && recurringEndType === "until" && recurringEndDate ? recurringEndDate : undefined,
       });
@@ -399,18 +404,18 @@ export function TaskModal(props: Props) {
 
           {/* Goal link with mini-card */}
           {props.mode === "task" && (
-            <Field label="Привязать к цели недели">
+            <Field label="Привязать к цели">
               <div className="flex flex-col gap-2">
                 <DreamSelect
                   value={goalId}
                   onChange={setGoalId}
                   options={[
                     { value: "", label: "— Без привязки к цели —" },
-                    ...weekGoals.map((g) => ({
+                    ...activeGoals.map((g) => ({
                       value: g.id,
                       label: g.title,
-                      icon: sphereColors[g.sphere].icon,
-                      color: sphereColors[g.sphere].color,
+                      icon: g.sphere ? sphereColors[g.sphere].icon : "🎯",
+                      color: g.sphere ? sphereColors[g.sphere].color : "#a78bfa",
                     })),
                   ]}
                   placeholder="— Без привязки к цели —"
@@ -418,7 +423,9 @@ export function TaskModal(props: Props) {
 
                 {/* Goal mini-card */}
                 {selectedGoal && (() => {
-                  const s = sphereColors[selectedGoal.sphere];
+                  const s = selectedGoal.sphere
+                    ? sphereColors[selectedGoal.sphere]
+                    : { color: "#a78bfa", icon: "🎯", label: "Цель" };
                   return (
                     <div
                       className="rounded-2xl px-4 py-3 flex flex-col gap-2"
@@ -440,7 +447,7 @@ export function TaskModal(props: Props) {
                             {selectedGoal.title}
                           </p>
                           <p className="text-[9px] text-white/35 mt-0.5">
-                            {s.label} · 🎯 Цель недели
+                            {s.label} · 🎯 Цель
                           </p>
                         </div>
                         {selectedGoal.done && (

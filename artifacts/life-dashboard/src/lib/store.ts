@@ -92,6 +92,7 @@ export type Task = {
   timeFrom?: string;
   timeTo?: string;
   goalId?: string;
+  checklistItemId?: string;
   done: boolean;
   noDeadline: boolean;
   completedAt?: string;
@@ -622,12 +623,22 @@ export const useStore = create<Store>()(
           );
           let taskXPDelta = wasDone ? -task.xp : task.xp;
           let goalsDelta = 0;
-          let newGoals = s.goals;
+          // Sync linked checklist item in goal
+          let newGoals = s.goals.map((g) => {
+            if (g.id !== task.goalId) return g;
+            if (!task.checklistItemId) return g;
+            return {
+              ...g,
+              checklistItems: (g.checklistItems ?? []).map((ci) =>
+                ci.id === task.checklistItemId ? { ...ci, done: !wasDone } : ci
+              ),
+            };
+          });
           if (!wasDone) {
-            const result = autoCompleteGoals(newTasks, s.goals, 0);
+            const result = autoCompleteGoals(newTasks, newGoals, 0);
             newGoals = result.goals; goalsDelta = result.bonusXP;
           } else {
-            const result = autoUncompleteGoals(newTasks, s.goals, 0);
+            const result = autoUncompleteGoals(newTasks, newGoals, 0);
             newGoals = result.goals; goalsDelta = -result.penaltyXP;
           }
           const totalDelta = taskXPDelta + goalsDelta;

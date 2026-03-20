@@ -155,11 +155,16 @@ function hexToRgb(hex: string): string {
   return `${r},${g},${b}`;
 }
 
-function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEvent) => void }) {
+function TaskRow({ task, onToggle, goalTitle }: {
+  task: Task;
+  onToggle: (e: React.MouseEvent) => void;
+  goalTitle?: string;
+}) {
   const isMission = task.category === "Mission";
   const s = isMission ? null : sphereColors[task.sphere];
   const dotColor = isMission ? "#fbbf24" : s!.color;
   const [showXp, setShowXp] = useState(false);
+  const hasGoal = !!task.goalId && !task.done;
 
   const rowStyle: React.CSSProperties = task.done
     ? { opacity: 0.5, background: "transparent" }
@@ -174,6 +179,11 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEven
         background: "rgba(251,191,36,0.05)",
         border: "1px solid rgba(251,191,36,0.22)",
         boxShadow: "0 0 12px rgba(251,191,36,0.08)",
+      }
+    : hasGoal
+    ? {
+        background: "rgba(167,139,250,0.04)",
+        border: "1px solid rgba(167,139,250,0.18)",
       }
     : { background: "rgba(255,255,255,0.01)", border: "1px solid transparent" };
 
@@ -199,6 +209,13 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEven
           style={{ background: "linear-gradient(180deg,#fbbf24,#f59e0b)", boxShadow: "0 0 8px rgba(251,191,36,0.6)" }}
         />
       )}
+      {/* Goal-linked left accent bar */}
+      {hasGoal && !isMission && !task.priority && (
+        <div
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+          style={{ background: "linear-gradient(180deg,rgba(167,139,250,0.9),rgba(139,92,246,0.65))", boxShadow: "0 0 8px rgba(167,139,250,0.55)" }}
+        />
+      )}
 
       {/* Toggle circle */}
       <div
@@ -222,21 +239,31 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (e: React.MouseEven
         <span className="text-sm flex-shrink-0" style={{ filter: "drop-shadow(0 0 5px rgba(251,191,36,0.8))" }}>💎</span>
       )}
 
-      {/* Text */}
-      <span
-        className="flex-1 text-sm leading-snug transition-all duration-300"
-        style={{
-          color: task.done
-            ? "rgba(255,255,255,0.3)"
-            : task.priority
-            ? "rgba(255,255,255,0.85)"
-            : "rgba(255,255,255,0.72)",
-          textDecoration: task.done ? "line-through" : "none",
-          textShadow: task.priority && !task.done ? "0 0 16px rgba(239,68,68,0.25)" : task.done ? "none" : "0 0 20px rgba(255,255,255,0.08)",
-        }}
-      >
-        {task.text}
-      </span>
+      {/* Text + goal label */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <span
+          className="text-sm leading-snug transition-all duration-300"
+          style={{
+            color: task.done
+              ? "rgba(255,255,255,0.3)"
+              : task.priority
+              ? "rgba(255,255,255,0.85)"
+              : "rgba(255,255,255,0.72)",
+            textDecoration: task.done ? "line-through" : "none",
+            textShadow: task.priority && !task.done ? "0 0 16px rgba(239,68,68,0.25)" : task.done ? "none" : "0 0 20px rgba(255,255,255,0.08)",
+          }}
+        >
+          {task.text}
+        </span>
+        {goalTitle && !task.done && (
+          <span
+            className="text-[9px] mt-0.5 leading-none"
+            style={{ color: "rgba(167,139,250,0.48)" }}
+          >
+            ◎ {goalTitle}
+          </span>
+        )}
+      </div>
 
       {/* Priority badge */}
       {task.priority && !task.done && (
@@ -275,9 +302,15 @@ export function Home() {
     prioritySpheres, setPrioritySphere,
     sphereLevels,
     tasks, toggleTask,
+    goals,
     notes, addNote, deleteNote,
     totalXP, dayXP,
   } = useStore();
+
+  const goalTitleMap = useMemo(
+    () => Object.fromEntries(goals.map((g) => [g.id, g.title])),
+    [goals]
+  );
 
   const [selectedSlot, setSelectedSlot] = useState<0 | 1 | null>(null);
   // Start collapsed when both priorities are already chosen, open otherwise
@@ -696,7 +729,7 @@ export function Home() {
               </p>
             )}
             {routine.map((task) => (
-              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} />
+              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} goalTitle={task.goalId ? goalTitleMap[task.goalId] : undefined} />
             ))}
           </div>
         </div>
@@ -716,7 +749,7 @@ export function Home() {
               </p>
             )}
             {special.map((task) => (
-              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} />
+              <TaskRow key={task.id} task={task} onToggle={(e) => handleTaskToggle(task, e)} goalTitle={task.goalId ? goalTitleMap[task.goalId] : undefined} />
             ))}
           </div>
         </div>

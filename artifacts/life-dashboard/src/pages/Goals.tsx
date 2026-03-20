@@ -95,7 +95,7 @@ type GoalCardProps = {
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onAddToDay: (text: string) => void;
+  onAddToDay: (text: string, checklistItemId: string) => void;
 };
 
 function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }: GoalCardProps) {
@@ -361,7 +361,7 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
               {hoveredItem === item.id && !item.done && (
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
-                    onClick={() => onAddToDay(item.text)}
+                    onClick={() => onAddToDay(item.text, item.id)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-semibold transition-all"
                     style={{
                       background: `rgba(${LAV},0.18)`,
@@ -458,7 +458,7 @@ export function Goals() {
   const [showOverviewModal, setShowOverviewModal] = useState(false);
 
   const [taskModalItem, setTaskModalItem] = useState<{
-    text: string; sphere?: SphereKey; goalId: string;
+    text: string; sphere?: SphereKey; goalId: string; checklistItemId?: string;
   } | null>(null);
 
   const meta = TAB_META[activeTab];
@@ -616,7 +616,7 @@ export function Goals() {
               onToggle={() => toggleGoal(goal.id)}
               onEdit={() => openEdit(goal)}
               onDelete={() => deleteGoal(goal.id)}
-              onAddToDay={text => setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id })}
+              onAddToDay={(text, checklistItemId) => setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id, checklistItemId })}
             />
           ))}
         </div>
@@ -757,6 +757,7 @@ export function Goals() {
             xp: 10,
             xpDifficulty: "easy",
             goalId: taskModalItem.goalId,
+            checklistItemId: taskModalItem.checklistItemId,
           }}
           onSave={fields => {
             addTask({ ...fields, done: false } as Parameters<typeof addTask>[0]);
