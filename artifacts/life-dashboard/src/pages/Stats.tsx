@@ -223,7 +223,6 @@ export function Stats() {
 
   const [hovered, setHovered] = useState<SphereKey | null>(null);
   const [period, setPeriod] = useState<Period>("month");
-  const [attentionOpen, setAttentionOpen] = useState(false);
   const [expandedPriority, setExpandedPriority] = useState<number | null>(null);
 
   const displayLevels = sphereLevels;
@@ -283,24 +282,6 @@ export function Stats() {
   const currentLevel = getLevelFromXP(totalXP);
   const levelAtPeriodStart = getLevelFromXP(Math.max(0, totalXP - periodXP));
   const levelsGained = currentLevel - levelAtPeriodStart;
-
-  // Attention analysis
-  const sphereTaskCounts = useMemo(() => {
-    const counts: Record<SphereKey, number> = {} as Record<SphereKey, number>;
-    sphereKeys.forEach((k) => (counts[k] = 0));
-    doneTasks.forEach((t) => {
-      counts[t.sphere] = (counts[t.sphere] || 0) + 1;
-    });
-    return counts;
-  }, [doneTasks]);
-
-  const maxSphere = sphereKeys.reduce((a, b) =>
-    sphereTaskCounts[a] >= sphereTaskCounts[b] ? a : b
-  );
-  const minSphere = sphereKeys.reduce((a, b) =>
-    sphereTaskCounts[a] <= sphereTaskCounts[b] ? a : b
-  );
-  const hasActivity = doneTasks.length > 0;
 
   const monthName = now.toLocaleString("ru-RU", { month: "long" });
 
@@ -622,101 +603,6 @@ export function Stats() {
           Карта жизненного баланса
         </p>
         <GlowDonut levels={displayLevels} hovered={hovered} setHovered={setHovered} />
-      </section>
-
-      {/* ── Attention analysis — compact + collapsible */}
-      <section>
-        <button
-          onClick={() => setAttentionOpen(o => !o)}
-          className="flex items-center justify-between w-full mb-0 group"
-        >
-          <p className="text-[9px] uppercase tracking-[0.25em] font-medium"
-            style={{ color: "rgba(255,255,255,0.2)" }}>
-            Анализ внимания
-          </p>
-          <div className="flex items-center gap-2">
-            {hasActivity && !attentionOpen && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px]"
-                  style={{ color: sphereColors[maxSphere].color }}>
-                  🔥 {sphereColors[maxSphere].label}
-                </span>
-                <span style={{ color: "rgba(255,255,255,0.12)", fontSize: 9 }}>·</span>
-                <span className="text-[9px]"
-                  style={{ color: sphereColors[minSphere].color }}>
-                  💤 {sphereColors[minSphere].label}
-                </span>
-              </div>
-            )}
-            <span
-              className="text-[10px] transition-transform duration-250"
-              style={{
-                color: "rgba(255,255,255,0.25)",
-                display: "inline-block",
-                transform: attentionOpen ? "rotate(180deg)" : "none",
-              }}
-            >
-              ▾
-            </span>
-          </div>
-        </button>
-
-        {attentionOpen && (
-          <div className="mt-3">
-            {!hasActivity ? (
-              <div
-                className="rounded-[1.5rem] p-5 text-center"
-                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
-              >
-                <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.2)" }}>
-                  Нет данных за выбранный период
-                </p>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                {([
-                  { key: maxSphere, title: "Максимум", note: "задач выполнено", badge: "🔥", stat: sphereTaskCounts[maxSphere] },
-                  { key: minSphere, title: "Минимум",  note: "задач выполнено", badge: "💤", stat: sphereTaskCounts[minSphere]  },
-                ] as { key: SphereKey; title: string; note: string; badge: string; stat: number }[]).map(
-                  ({ key, title, badge, stat }) => {
-                    const s = sphereColors[key];
-                    const rgb = hexToRgb(s.color);
-                    return (
-                      <div
-                        key={title}
-                        className="flex-1 rounded-2xl px-4 py-3 flex items-center gap-3"
-                        style={{
-                          background: `rgba(${rgb},0.06)`,
-                          border: `1px solid rgba(${rgb},0.15)`,
-                        }}
-                      >
-                        <span className="text-lg">{s.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[9px] uppercase tracking-[0.15em]"
-                            style={{ color: "rgba(255,255,255,0.22)" }}>
-                            {title}
-                          </p>
-                          <p className="text-sm font-light truncate"
-                            style={{ color: s.color }}>
-                            {s.label}
-                          </p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-lg font-light tabular-nums"
-                            style={{ color: "rgba(255,255,255,0.7)", lineHeight: 1 }}>
-                            {stat}
-                          </p>
-                          <p className="text-[8px]" style={{ color: "rgba(255,255,255,0.2)" }}>задач</p>
-                        </div>
-                        <span className="text-sm flex-shrink-0">{badge}</span>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </section>
 
       {/* ── Level controls */}

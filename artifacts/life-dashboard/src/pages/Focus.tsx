@@ -371,8 +371,8 @@ export function Focus() {
           })()}
         </div>
 
-        {/* ── task name input — shown for Pomodoro and Breath ── */}
-        {(modeIdx === 0 || modeIdx === 3) && (
+        {/* ── task name input — Pomodoro only ── */}
+        {modeIdx === 0 && (
           <div className="relative w-full max-w-xs">
             <input
               type="text"
@@ -404,6 +404,21 @@ export function Focus() {
               >✕</button>
             )}
           </div>
+        )}
+
+        {/* ── breath mantra ── */}
+        {isBreath && (
+          <p
+            className="text-[9px] uppercase tracking-[0.32em] text-center select-none"
+            style={{
+              color: `rgba(167,139,250,0.38)`,
+              letterSpacing: "0.32em",
+              fontWeight: 300,
+              textShadow: `0 0 20px rgba(167,139,250,0.18)`,
+            }}
+          >
+            Верни фокус на себя
+          </p>
         )}
 
         {/* ── circle ── */}
