@@ -460,6 +460,7 @@ export function Goals() {
   const [activeTab, setActiveTab] = useState<TabKey>("mid");
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
 
   const [taskModalItem, setTaskModalItem] = useState<{
     text: string; sphere?: SphereKey; goalId: string;
@@ -486,32 +487,22 @@ export function Goals() {
 
       {/* ══ Header ══ */}
       <div className="flex items-center justify-between pt-2">
-        <div>
-          <h1
-            className="text-3xl font-bold tracking-[0.12em] uppercase"
-            style={{
-              color: "rgba(255,255,255,0.90)",
-              textShadow: `0 0 40px rgba(${LAV},0.50), 0 0 80px rgba(${LAV},0.20)`,
-              letterSpacing: "0.14em",
-            }}
-          >
-            ЦЕЛИ
-          </h1>
-          <p className="text-[10px] uppercase tracking-[0.22em] mt-0.5"
-            style={{ color: `rgba(${LAV},0.40)` }}>
-            Шаг за шагом к мечте
-          </p>
-        </div>
+        <h1
+          className="text-xl font-light tracking-[0.15em] uppercase"
+          style={{ color: "rgba(255,255,255,0.65)", textShadow: `0 0 30px rgba(${LAV},0.35)` }}
+        >
+          Цели
+        </h1>
         <div className="flex gap-2">
           <button
             onClick={openAdd}
             className="px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all"
             style={{
-              background: `rgba(${LAV},0.20)`,
+              background: `rgba(${LAV},0.18)`,
               color: LAV_HEX,
-              border: `1px solid rgba(${LAV},0.35)`,
-              boxShadow: `0 0 20px rgba(${LAV},0.20)`,
-              textShadow: `0 0 10px rgba(${LAV},0.60)`,
+              border: `1px solid rgba(${LAV},0.32)`,
+              boxShadow: `0 0 18px rgba(${LAV},0.18)`,
+              textShadow: `0 0 10px rgba(${LAV},0.55)`,
             }}
           >
             + Новая цель
@@ -624,47 +615,124 @@ export function Goals() {
         </div>
       )}
 
-      {/* ══ Drafts / Ideas section ══ */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
+      {/* ══ Drafts button ══ */}
+      <div
+        className="flex items-center justify-between px-5 py-3.5 rounded-2xl transition-all"
+        style={{
+          background: "rgba(255,255,255,0.018)",
+          border: "1px dashed rgba(255,255,255,0.09)",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">💡</span>
           <div>
-            <p className="text-[8px] uppercase tracking-[0.30em] font-bold"
-              style={{ color: "rgba(255,255,255,0.16)" }}>
-              ИДЕИ И ЧЕРНОВИКИ
+            <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Идеи и Черновики
             </p>
-            <p className="text-[8px]" style={{ color: "rgba(255,255,255,0.10)" }}>
-              Без срока — мечты на будущее
+            <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.16)" }}>
+              {draftGoals.length > 0 ? `${draftGoals.length} без срока` : "Цели без срока — мечты на будущее"}
             </p>
           </div>
-          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.16)" }}>{draftGoals.length}</span>
         </div>
+        <button
+          onClick={() => setShowDraftsModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+          style={{
+            background: `rgba(${LAV},0.12)`,
+            color: LAV_HEX,
+            border: `1px solid rgba(${LAV},0.22)`,
+            textShadow: `0 0 8px rgba(${LAV},0.50)`,
+          }}
+        >
+          ПОСМОТРЕТЬ ВСЕ →
+        </button>
+      </div>
 
-        {draftGoals.length === 0 ? (
+      {/* ══ Drafts modal ══ */}
+      {showDraftsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(14px)" }}
+          onClick={e => e.target === e.currentTarget && setShowDraftsModal(false)}
+        >
           <div
-            className="rounded-[1.5rem] px-5 py-4 text-center"
-            style={{ background: "rgba(255,255,255,0.01)", border: "1px dashed rgba(255,255,255,0.06)" }}
+            className="w-full max-w-2xl flex flex-col rounded-3xl overflow-hidden"
+            style={{
+              background: "rgba(11,10,24,0.98)",
+              border: `1px solid rgba(${LAV},0.18)`,
+              boxShadow: `0 0 60px rgba(${LAV},0.12)`,
+              maxHeight: "88vh",
+            }}
           >
-            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.13)" }}>
-              Добавь идею — цель без срока, которая ждёт своего времени
-            </p>
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: `rgba(${LAV},0.12)`, background: `rgba(${LAV},0.04)` }}
+            >
+              <div>
+                <h2 className="text-base font-semibold tracking-wide" style={{ color: `rgba(${LAV},0.85)` }}>
+                  💡 Идеи и Черновики
+                </h2>
+                <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.22)" }}>
+                  {draftGoals.length} целей без срока
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowDraftsModal(false); openAdd(); }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                  style={{
+                    background: `rgba(${LAV},0.16)`,
+                    color: LAV_HEX,
+                    border: `1px solid rgba(${LAV},0.28)`,
+                  }}
+                >+ Добавить</button>
+                <button
+                  onClick={() => setShowDraftsModal(false)}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/60 hover:bg-white/5 transition-all text-lg"
+                >✕</button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto px-6 py-5 flex flex-col gap-3">
+              {draftGoals.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-4xl mb-3">💡</p>
+                  <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.22)" }}>
+                    Нет черновиков
+                  </p>
+                  <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.12)" }}>
+                    Добавь идею — цель без срока, которая ждёт своего времени
+                  </p>
+                  <button
+                    onClick={() => { setShowDraftsModal(false); openAdd(); }}
+                    className="mt-4 px-5 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: `rgba(${LAV},0.14)`,
+                      color: LAV_HEX,
+                      border: `1px solid rgba(${LAV},0.24)`,
+                    }}
+                  >+ Добавить идею</button>
+                </div>
+              ) : (
+                draftGoals.map(goal => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    goals={goals}
+                    tasks={tasks}
+                    onToggle={() => toggleGoal(goal.id)}
+                    onEdit={() => { setShowDraftsModal(false); openEdit(goal); }}
+                    onDelete={() => deleteGoal(goal.id)}
+                    onAddToDay={text => { setShowDraftsModal(false); setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id }); }}
+                  />
+                ))
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {draftGoals.map(goal => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                goals={goals}
-                tasks={tasks}
-                onToggle={() => toggleGoal(goal.id)}
-                onEdit={() => openEdit(goal)}
-                onDelete={() => deleteGoal(goal.id)}
-                onAddToDay={text => setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id })}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+        </div>
+      )}
 
       {/* ── GoalModal ── */}
       {showModal && (

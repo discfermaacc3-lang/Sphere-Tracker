@@ -96,6 +96,7 @@ export type Task = {
   noDeadline: boolean;
   completedAt?: string;
   recurringDays?: number[];
+  recurringEndDate?: string;
   recurringTemplateId?: string;
 };
 

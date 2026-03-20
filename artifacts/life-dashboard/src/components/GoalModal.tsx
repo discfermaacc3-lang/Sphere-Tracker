@@ -56,14 +56,6 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     return w === 0 ? 6 : w - 1; // Mon=0..Sun=6
   })();
 
-  function prevMonth() {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-    else setViewMonth(m => m - 1);
-  }
-  function nextMonth() {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-    else setViewMonth(m => m + 1);
-  }
 
   function handleDay(iso: string) {
     if (phase === "start") {
@@ -79,7 +71,26 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     }
   }
 
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+  function prevYear() { setViewYear(y => y - 1); }
+  function nextYear() { setViewYear(y => y + 1); }
+
   const effectiveEnd = hovered && phase === "end" ? hovered : endDate;
+
+  const navBtn = (onClick: () => void, label: string) => (
+    <button
+      onClick={onClick}
+      className="w-6 h-6 rounded-lg flex items-center justify-center text-xs transition-all hover:bg-purple-500/20"
+      style={{ color: `rgba(${LAV_RGB},0.60)`, background: `rgba(${LAV_RGB},0.08)` }}
+    >{label}</button>
+  );
 
   return (
     <div
@@ -90,24 +101,30 @@ function DateRangePicker({ startDate, endDate, onChange }: {
         boxShadow: `0 0 30px rgba(${LAV_RGB},0.10)`,
       }}
     >
-      {/* Month nav */}
+      {/* Month + Year nav — two rows */}
       <div
-        className="flex items-center justify-between px-4 py-3"
+        className="flex flex-col gap-1 px-4 pt-3 pb-2"
         style={{ borderBottom: `1px solid rgba(${LAV_RGB},0.12)` }}
       >
-        <button
-          onClick={prevMonth}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all"
-          style={{ color: `rgba(${LAV_RGB},0.60)`, background: `rgba(${LAV_RGB},0.08)` }}
-        >‹</button>
-        <span className="text-xs font-medium tracking-[0.12em]" style={{ color: `rgba(${LAV_RGB},0.85)` }}>
-          {MONTH_RU[viewMonth]} {viewYear}
-        </span>
-        <button
-          onClick={nextMonth}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all"
-          style={{ color: `rgba(${LAV_RGB},0.60)`, background: `rgba(${LAV_RGB},0.08)` }}
-        >›</button>
+        {/* Month row */}
+        <div className="flex items-center justify-between">
+          {navBtn(prevMonth, "‹")}
+          <span className="text-xs font-medium tracking-[0.12em]" style={{ color: `rgba(${LAV_RGB},0.85)` }}>
+            {MONTH_RU[viewMonth]}
+          </span>
+          {navBtn(nextMonth, "›")}
+        </div>
+        {/* Year row */}
+        <div className="flex items-center justify-between">
+          {navBtn(prevYear, "«")}
+          <span
+            className="text-base font-bold tabular-nums"
+            style={{ color: `rgba(${LAV_RGB},0.70)`, textShadow: `0 0 12px rgba(${LAV_RGB},0.40)` }}
+          >
+            {viewYear}
+          </span>
+          {navBtn(nextYear, "»")}
+        </div>
       </div>
 
       {/* Phase hint */}

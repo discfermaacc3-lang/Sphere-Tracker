@@ -38,6 +38,7 @@ type TaskFields = BaseFields & {
   timeTo?: string;
   goalId?: string;
   recurringDays?: number[];
+  recurringEndDate?: string;
 };
 
 type TemplateFields = BaseFields;
@@ -111,6 +112,12 @@ export function TaskModal(props: Props) {
   const [recurringDays, setRecurringDays] = useState<number[]>(
     props.mode === "task" ? (props.initial?.recurringDays ?? []) : []
   );
+  const [recurringEndType, setRecurringEndType] = useState<"always" | "until">(
+    props.mode === "task" && props.initial?.recurringEndDate ? "until" : "always"
+  );
+  const [recurringEndDate, setRecurringEndDate] = useState<string>(
+    props.mode === "task" ? (props.initial?.recurringEndDate ?? "") : ""
+  );
 
   function toggleDay(idx: number) {
     setRecurringDays((prev) =>
@@ -148,6 +155,7 @@ export function TaskModal(props: Props) {
         timeTo: timeTo || undefined,
         goalId: goalId || undefined,
         recurringDays: recurringDays.length > 0 ? recurringDays : undefined,
+        recurringEndDate: recurringDays.length > 0 && recurringEndType === "until" && recurringEndDate ? recurringEndDate : undefined,
       });
     } else {
       props.onSave({
@@ -520,6 +528,41 @@ export function TaskModal(props: Props) {
                   <p className="text-[10px] text-white/18">
                     Выбери дни — задача будет создаваться автоматически
                   </p>
+                )}
+
+                {/* Recurring end condition */}
+                {recurringDays.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2">
+                    <p className="text-[9px] uppercase tracking-[0.20em]" style={{ color: "rgba(255,255,255,0.28)" }}>
+                      Конец повтора
+                    </p>
+                    <div className="flex gap-2">
+                      {(["always", "until"] as const).map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setRecurringEndType(opt)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                          style={{
+                            background: recurringEndType === opt ? "rgba(167,139,250,0.20)" : "rgba(255,255,255,0.04)",
+                            color: recurringEndType === opt ? "#a78bfa" : "rgba(255,255,255,0.35)",
+                            border: recurringEndType === opt ? "1px solid rgba(167,139,250,0.35)" : "1px solid rgba(255,255,255,0.08)",
+                            textShadow: recurringEndType === opt ? "0 0 8px rgba(167,139,250,0.50)" : "none",
+                          }}
+                        >
+                          {opt === "always" ? "Всегда" : "До даты…"}
+                        </button>
+                      ))}
+                    </div>
+                    {recurringEndType === "until" && (
+                      <input
+                        type="date"
+                        value={recurringEndDate}
+                        onChange={e => setRecurringEndDate(e.target.value)}
+                        className="px-3 py-2 rounded-xl text-sm bg-white/4 border border-white/10 text-white/70 outline-none focus:border-purple-400/40 transition-colors w-full"
+                        style={{ colorScheme: "dark" }}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </Field>
