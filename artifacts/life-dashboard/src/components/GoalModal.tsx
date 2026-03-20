@@ -1,106 +1,265 @@
 import { useState } from "react";
-import { Goal, GoalLevel, GOAL_XP, GOAL_TARGET_XP_DEFAULT } from "@/lib/store";
+import { Goal } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
-import { DreamSelect } from "./DreamSelect";
 
 const LAV = "#a78bfa";
+const LAV_RGB = "167,139,250";
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const LEVEL_OPTS: { key: GoalLevel | "custom" | "draft"; label: string; emoji: string; color: string }[] = [
-  { key: "year",   label: "ГОД",        emoji: "✨", color: "#fde047" },
-  { key: "month",  label: "МЕСЯЦ",      emoji: "🌙", color: "#a78bfa" },
-  { key: "week",   label: "НЕДЕЛЯ",     emoji: "⭐", color: "#86efac" },
-  { key: "custom", label: "СВОЙ СРОК",  emoji: "⏳", color: "#67e8f9" },
-  { key: "draft",  label: "БЕЗ СРОКА",  emoji: "💡", color: "rgba(255,255,255,0.30)" },
+const MONTH_RU = ["Январь","Февраль","Март","Апрель","Май","Июнь",
+  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const WDAY_RU = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+const DURATION_PRESETS = [
+  { label: "2 нед",  days: 14  },
+  { label: "1 мес",  days: 30  },
+  { label: "3 мес",  days: 90  },
+  { label: "6 мес",  days: 180 },
+  { label: "1 год",  days: 365 },
 ];
+const XP_BONUS_PRESETS = [50, 100, 250, 500, 1000];
 
-const MONTH_NAMES = [
-  "Январь","Февраль","Март","Апрель","Май","Июнь",
-  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь",
-];
+/* ── date helpers ── */
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function diffDays(a: string, b: string): number {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+}
+function formatDateRu(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTH_RU[d.getMonth()].slice(0, 3).toLowerCase()} ${d.getFullYear()}`;
+}
+function isoFromYMD(y: number, m: number, day: number): string {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
-const CURRENT_MONTH = new Date().getMonth();
-const CURRENT_YEAR  = new Date().getFullYear();
-const TODAY_ISO     = new Date().toISOString().slice(0, 10);
+/* ══════════════════════════════════════════
+   DateRangePicker — лавандовый инлайн-календарь
+   ══════════════════════════════════════════ */
+function DateRangePicker({ startDate, endDate, onChange }: {
+  startDate: string;
+  endDate: string;
+  onChange: (start: string, end: string) => void;
+}) {
+  const initD = startDate ? new Date(startDate) : new Date();
+  const [viewYear, setViewYear] = useState(initD.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initD.getMonth());
+  const [phase, setPhase] = useState<"start" | "end">("start");
+  const [hovered, setHovered] = useState<string | null>(null);
 
-type LevelKey = GoalLevel | "custom" | "draft";
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstWday = (() => {
+    const w = new Date(viewYear, viewMonth, 1).getDay();
+    return w === 0 ? 6 : w - 1; // Mon=0..Sun=6
+  })();
 
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  function handleDay(iso: string) {
+    if (phase === "start") {
+      onChange(iso, iso);
+      setPhase("end");
+    } else {
+      if (iso < startDate) {
+        onChange(iso, startDate);
+      } else {
+        onChange(startDate, iso);
+      }
+      setPhase("start");
+    }
+  }
+
+  const effectiveEnd = hovered && phase === "end" ? hovered : endDate;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden select-none"
+      style={{
+        background: "rgba(14,12,32,0.96)",
+        border: `1px solid rgba(${LAV_RGB},0.22)`,
+        boxShadow: `0 0 30px rgba(${LAV_RGB},0.10)`,
+      }}
+    >
+      {/* Month nav */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid rgba(${LAV_RGB},0.12)` }}
+      >
+        <button
+          onClick={prevMonth}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all"
+          style={{ color: `rgba(${LAV_RGB},0.60)`, background: `rgba(${LAV_RGB},0.08)` }}
+        >‹</button>
+        <span className="text-xs font-medium tracking-[0.12em]" style={{ color: `rgba(${LAV_RGB},0.85)` }}>
+          {MONTH_RU[viewMonth]} {viewYear}
+        </span>
+        <button
+          onClick={nextMonth}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all"
+          style={{ color: `rgba(${LAV_RGB},0.60)`, background: `rgba(${LAV_RGB},0.08)` }}
+        >›</button>
+      </div>
+
+      {/* Phase hint */}
+      <div className="px-4 pt-2 pb-1">
+        <p className="text-[9px] text-center tracking-[0.18em]"
+          style={{ color: `rgba(${LAV_RGB},0.40)` }}>
+          {phase === "start" ? "ВЫБЕРИ ДАТУ НАЧАЛА" : "ВЫБЕРИ ДАТУ ЗАВЕРШЕНИЯ"}
+        </p>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 px-3 pb-1">
+        {WDAY_RU.map(d => (
+          <div key={d} className="text-center text-[8px] py-1" style={{ color: `rgba(${LAV_RGB},0.35)` }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 px-3 pb-3 gap-y-0.5">
+        {/* Empty cells before first day */}
+        {Array.from({ length: firstWday }).map((_, i) => <div key={`e${i}`} />)}
+
+        {/* Day cells */}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const iso = isoFromYMD(viewYear, viewMonth, day);
+          const isStart = iso === startDate;
+          const isEnd = iso === endDate;
+          const inRange = startDate && effectiveEnd
+            ? iso > (startDate < effectiveEnd ? startDate : effectiveEnd)
+              && iso < (startDate < effectiveEnd ? effectiveEnd : startDate)
+            : false;
+          const isToday = iso === TODAY_ISO;
+          const isHov = iso === hovered && phase === "end";
+
+          let bg = "transparent";
+          let color = "rgba(255,255,255,0.55)";
+          let border = "transparent";
+          let shadow = "";
+
+          if (isStart || isEnd) {
+            bg = LAV;
+            color = "#fff";
+            shadow = `0 0 12px rgba(${LAV_RGB},0.55)`;
+          } else if (inRange) {
+            bg = `rgba(${LAV_RGB},0.18)`;
+            color = `rgba(${LAV_RGB},0.90)`;
+          } else if (isHov) {
+            bg = `rgba(${LAV_RGB},0.12)`;
+            color = LAV;
+          } else if (isToday) {
+            border = `rgba(${LAV_RGB},0.40)`;
+            color = LAV;
+          }
+
+          return (
+            <button
+              key={iso}
+              onClick={() => handleDay(iso)}
+              onMouseEnter={() => setHovered(iso)}
+              onMouseLeave={() => setHovered(null)}
+              className="flex items-center justify-center text-xs rounded-lg transition-all"
+              style={{
+                width: "100%",
+                aspectRatio: "1",
+                background: bg,
+                color,
+                border: `1px solid ${border}`,
+                boxShadow: shadow,
+                fontWeight: isStart || isEnd ? 700 : 400,
+              }}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   GoalModal
+   ══════════════════════════════════════════ */
 type Props = {
-  defaultLevel?: GoalLevel | "custom" | "draft";
+  defaultLevel?: string;
   parentGoals: Goal[];
   initial?: Partial<Goal>;
   onSave: (fields: Omit<Goal, "id">) => void;
   onClose: () => void;
 };
 
+function inputCls(extra = "") {
+  return `w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/70 placeholder-white/20 outline-none focus:border-purple-500/40 transition-colors ${extra}`;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] mb-1.5 font-medium">{label}</p>
+      <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] mb-2 font-semibold">{label}</p>
       {children}
     </div>
   );
 }
 
-function inputCls(extra = "") {
-  return `w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/70 placeholder-white/20 outline-none focus:border-purple-500/40 transition-colors ${extra}`;
+function detectIsDraft(initial?: Partial<Goal>): boolean {
+  if (!initial) return false;
+  return !initial.startDate && !initial.endDate && !initial.level && !initial.durationMonths && !initial.durationWeeks;
 }
 
-function detectInitialLevelKey(initial?: Partial<Goal>): LevelKey {
-  if (!initial) return "month";
-  if (initial.durationMonths || initial.durationWeeks) return "custom";
-  if (!initial.level) return "draft";
-  return initial.level;
-}
-
-export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave, onClose }: Props) {
-  const initLevelKey = initial ? detectInitialLevelKey(initial) : defaultLevel;
-
+export function GoalModal({ parentGoals, initial, onSave, onClose }: Props) {
   const [isMission, setIsMission] = useState(initial?.isMission ?? false);
-  const [levelKey, setLevelKey] = useState<LevelKey>(initLevelKey);
+  const [isDraft, setIsDraft] = useState(detectIsDraft(initial));
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [successCriteria, setSuccessCriteria] = useState(initial?.successCriteria ?? "");
   const [sphere, setSphere] = useState<SphereKey>(initial?.sphere ?? "work");
-  const [parentId, setParentId] = useState<string | undefined>(initial?.parentId);
 
-  const goalLevel = (levelKey === "custom" || levelKey === "draft") ? undefined : levelKey as GoalLevel;
-  const isDraft = levelKey === "draft";
-  const isCustom = levelKey === "custom";
+  // Date range
+  const defaultStart = initial?.startDate ?? TODAY_ISO;
+  const defaultEnd = initial?.endDate ?? addDays(TODAY_ISO, 30);
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
+  const [selectedPresetDays, setSelectedPresetDays] = useState<number | "custom">(() => {
+    if (initial?.startDate && initial?.endDate) {
+      const d = diffDays(initial.startDate, initial.endDate);
+      const found = DURATION_PRESETS.find(p => p.days === d);
+      return found ? found.days : "custom";
+    }
+    return 30;
+  });
+  const [showCalendar, setShowCalendar] = useState(false);
 
-  const defaultTargetXP = goalLevel ? GOAL_TARGET_XP_DEFAULT[goalLevel] : 100;
-  const [targetXP, setTargetXP] = useState(String(initial?.targetXP ?? defaultTargetXP));
+  // XP bonus
+  const [xpBonus, setXpBonus] = useState(String(initial?.xp ?? 100));
 
-  const [month, setMonth] = useState<number>(initial?.month ?? CURRENT_MONTH);
-  const [year, setYear] = useState<number>(initial?.year ?? CURRENT_YEAR);
+  const days = isDraft ? 0 : diffDays(startDate, endDate);
 
-  const [durationUnit, setDurationUnit] = useState<"months" | "weeks">(
-    initial?.durationWeeks ? "weeks" : "months"
-  );
-  const [durationCount, setDurationCount] = useState(
-    String(initial?.durationMonths ?? initial?.durationWeeks ?? 3)
-  );
-  const [startDate, setStartDate] = useState(initial?.startDate ?? TODAY_ISO);
-
-  const bonusXP = goalLevel ? GOAL_XP[goalLevel] : 0;
-
-  const targetXPPresets =
-    goalLevel === "week"  ? [50, 100, 150, 200] :
-    goalLevel === "month" ? [250, 500, 750, 1000] :
-    goalLevel === "year"  ? [1000, 2000, 3000, 5000] :
-                            [100, 250, 500];
-
-  const levelMeta = LEVEL_OPTS.find(o => o.key === levelKey) ?? LEVEL_OPTS[1];
-
-  const parentGoalsList =
-    goalLevel === "month" ? parentGoals.filter(g => g.level === "year") :
-    goalLevel === "week"  ? parentGoals.filter(g => g.level === "month") : [];
+  function selectPreset(d: number) {
+    setSelectedPresetDays(d);
+    setStartDate(TODAY_ISO);
+    setEndDate(addDays(TODAY_ISO, d));
+    setShowCalendar(false);
+  }
 
   function handleSave() {
     if (!title.trim()) return;
 
-    const durationM = isCustom && durationUnit === "months" ? Math.max(1, parseInt(durationCount) || 1) : undefined;
-    const durationW = isCustom && durationUnit === "weeks"  ? Math.max(1, parseInt(durationCount) || 1) : undefined;
+    const xp = Math.max(0, parseInt(xpBonus) || 0);
 
     onSave({
       title: title.trim(),
@@ -108,137 +267,103 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
       successCriteria: successCriteria.trim() || undefined,
       sphere: isMission ? undefined : sphere,
       category: undefined,
-      level: goalLevel,
+      level: undefined,
       isMission,
-      durationMonths: durationM,
-      durationWeeks: durationW,
-      startDate: isCustom ? startDate : undefined,
-      parentId: parentId || undefined,
+      startDate: isDraft ? undefined : startDate,
+      endDate: isDraft ? undefined : endDate,
+      durationMonths: undefined,
+      durationWeeks: undefined,
+      parentId: undefined,
       done: initial?.done ?? false,
-      xp: isDraft ? 0 : bonusXP,
-      targetXP: isDraft ? 0 : Math.max(1, parseInt(targetXP) || defaultTargetXP),
-      month: goalLevel === "month" ? month : goalLevel === "week" ? month : undefined,
-      year: goalLevel !== undefined ? year : undefined,
+      xp,
+      targetXP: 0,
+      month: undefined,
+      year: undefined,
       checklistItems: initial?.checklistItems,
-      isIdea: initial?.isIdea,
+      isIdea: isDraft,
     });
     onClose();
   }
 
+  const totalDays = diffDays(startDate, endDate);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.80)", backdropFilter: "blur(10px)" }}
+      style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(12px)" }}
     >
       <div
         className="w-full max-w-lg rounded-3xl border border-white/10 flex flex-col overflow-hidden"
-        style={{ background: "rgba(12,12,22,0.98)", maxHeight: "92vh" }}
+        style={{ background: "rgba(11,10,22,0.99)", maxHeight: "92vh" }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b border-white/5"
-          style={{ background: `rgba(167,139,250,0.06)` }}
+          style={{ background: `rgba(${LAV_RGB},0.05)` }}
         >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">{levelMeta.emoji}</span>
-            <div>
-              <h2 className="text-sm font-medium text-white/80">
-                {initial?.id ? "Редактировать цель" : "Новая цель"}
-              </h2>
-              <p className="text-[10px]" style={{ color: levelMeta.color }}>
-                {levelMeta.label}
-                {!isDraft && bonusXP > 0 && ` · +${bonusXP} XP при завершении`}
-                {isDraft && " · черновик без срока"}
-              </p>
-            </div>
+          <div>
+            <h2 className="text-base font-semibold text-white/85 tracking-wide">
+              {initial?.title ? "Редактировать цель" : "Новая цель"}
+            </h2>
+            <p className="text-[10px] mt-0.5" style={{ color: `rgba(${LAV_RGB},0.55)` }}>
+              {isDraft ? "Черновик без срока" : `${formatDateRu(startDate)} → ${formatDateRu(endDate)} · ${totalDays > 0 ? totalDays + " дн." : ""}`}
+            </p>
           </div>
-          <button onClick={onClose} className="text-white/25 hover:text-white/60 transition-colors text-lg leading-none">✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/60 hover:bg-white/5 transition-all text-lg leading-none">✕</button>
         </div>
 
         {/* Body */}
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5">
 
-          {/* ── MISSION checkbox ── */}
+          {/* Mission checkbox */}
           <button
             onClick={() => setIsMission(m => !m)}
             className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left"
             style={{
-              background: isMission ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${isMission ? "rgba(251,191,36,0.30)" : "rgba(255,255,255,0.08)"}`,
+              background: isMission ? "rgba(251,191,36,0.07)" : "rgba(255,255,255,0.025)",
+              border: `1px solid ${isMission ? "rgba(251,191,36,0.28)" : "rgba(255,255,255,0.07)"}`,
             }}
           >
             <div
-              className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all"
-              style={{
-                borderColor: isMission ? "#fbbf24" : "rgba(255,255,255,0.20)",
-                background: isMission ? "rgba(251,191,36,0.20)" : "transparent",
-              }}
+              className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all"
+              style={{ borderColor: isMission ? "#fbbf24" : "rgba(255,255,255,0.18)", background: isMission ? "rgba(251,191,36,0.20)" : "transparent" }}
             >
-              {isMission && <span className="text-[10px] text-amber-400">✓</span>}
+              {isMission && <span className="text-[10px] font-bold text-amber-400">✓</span>}
             </div>
             <div>
-              <p className="text-xs font-medium" style={{ color: isMission ? "#fbbf24" : "rgba(255,255,255,0.55)" }}>
+              <p className="text-xs font-semibold tracking-wide" style={{ color: isMission ? "#fbbf24" : "rgba(255,255,255,0.50)" }}>
                 🌟 МИССИЯ
               </p>
-              <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+              <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.22)" }}>
                 Цель, влияющая на будущее — выходит за рамки одной сферы
               </p>
             </div>
           </button>
 
-          {/* ── Level selector ── */}
-          <Field label="Горизонт планирования">
-            <div className="grid grid-cols-5 gap-1">
-              {LEVEL_OPTS.map(opt => {
-                const active = levelKey === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    onClick={() => setLevelKey(opt.key)}
-                    className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl transition-all"
-                    style={{
-                      background: active ? `${opt.color}15` : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${active ? `${opt.color}40` : "rgba(255,255,255,0.06)"}`,
-                      boxShadow: active ? `0 0 12px ${opt.color}15` : "none",
-                    }}
-                  >
-                    <span className="text-base leading-none">{opt.emoji}</span>
-                    <span
-                      className="text-[8px] font-medium text-center leading-tight"
-                      style={{ color: active ? opt.color : "rgba(255,255,255,0.25)" }}
-                    >
-                      {opt.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-
-          {/* ── Title ── */}
+          {/* Title */}
           <Field label="Название цели">
             <input
               className={inputCls()}
-              placeholder={isDraft ? "Идея или заметка для будущего..." : "Чего я хочу достичь?"}
+              placeholder={isDraft ? "Идея или мечта..." : "Чего я хочу достичь?"}
               value={title}
               autoFocus
               onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSave()}
+              onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSave()}
             />
           </Field>
 
-          {/* ── Description ── */}
+          {/* Description */}
           <Field label="Описание">
             <textarea
               className={inputCls("resize-none")}
-              placeholder={isDraft ? "Контекст, мысли, зачем это важно..." : "Зачем эта цель важна?"}
+              placeholder="Зачем эта цель важна?"
               rows={2}
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
           </Field>
 
-          {/* ── Success criteria (non-draft only) ── */}
+          {/* Success criteria */}
           {!isDraft && (
             <Field label="Критерий достижения">
               <input
@@ -250,88 +375,7 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
             </Field>
           )}
 
-          {/* ── Custom duration ── */}
-          {isCustom && (
-            <Field label="Длительность и начало">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    max={36}
-                    className={inputCls("w-20 flex-shrink-0")}
-                    value={durationCount}
-                    onChange={e => setDurationCount(e.target.value)}
-                  />
-                  <div className="flex gap-1">
-                    {(["months", "weeks"] as const).map(u => (
-                      <button
-                        key={u}
-                        onClick={() => setDurationUnit(u)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                        style={{
-                          background: durationUnit === u ? "rgba(103,232,249,0.15)" : "rgba(255,255,255,0.05)",
-                          color: durationUnit === u ? "#67e8f9" : "rgba(255,255,255,0.30)",
-                          border: `1px solid ${durationUnit === u ? "rgba(103,232,249,0.30)" : "transparent"}`,
-                        }}
-                      >
-                        {u === "months" ? "месяцев" : "недель"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] text-white/30 flex-shrink-0">Начало:</span>
-                  <input
-                    type="date"
-                    className={inputCls("flex-1")}
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
-                  />
-                </div>
-                <p className="text-[9px] text-white/20">
-                  Цель будет отображаться в каждом месяце на протяжении {durationCount} {durationUnit === "months" ? "мес." : "нед."}
-                </p>
-              </div>
-            </Field>
-          )}
-
-          {/* ── Month/Year deadline for month-level ── */}
-          {goalLevel === "month" && (
-            <Field label="Месяц планирования">
-              <div className="flex gap-2">
-                <DreamSelect
-                  className="flex-1"
-                  value={String(month)}
-                  onChange={v => setMonth(Number(v))}
-                  options={MONTH_NAMES.map((name, i) => ({ value: String(i), label: name }))}
-                />
-                <DreamSelect
-                  className="w-28"
-                  value={String(year)}
-                  onChange={v => setYear(Number(v))}
-                  options={[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(y => ({
-                    value: String(y), label: String(y),
-                  }))}
-                />
-              </div>
-            </Field>
-          )}
-
-          {/* ── Year for week/year level ── */}
-          {(goalLevel === "week" || goalLevel === "year") && (
-            <Field label={goalLevel === "year" ? "Год" : "Год (недельная цель)"}>
-              <DreamSelect
-                value={String(year)}
-                onChange={v => setYear(Number(v))}
-                options={[CURRENT_YEAR, CURRENT_YEAR + 1].map(y => ({
-                  value: String(y), label: String(y),
-                }))}
-              />
-            </Field>
-          )}
-
-          {/* ── Sphere (hidden for Mission) ── */}
+          {/* Sphere */}
           {!isMission && (
             <Field label="Сфера жизни">
               <div className="grid grid-cols-4 gap-2">
@@ -344,17 +388,15 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
                       onClick={() => setSphere(k)}
                       className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
                       style={{
-                        background: active ? sc.color + "20" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${active ? sc.color + "50" : "rgba(255,255,255,0.06)"}`,
+                        background: active ? sc.color + "1E" : "rgba(255,255,255,0.025)",
+                        border: `1px solid ${active ? sc.color + "45" : "rgba(255,255,255,0.06)"}`,
+                        boxShadow: active ? `0 0 14px ${sc.color}20` : "none",
                       }}
                     >
-                      <span
-                        className="text-lg"
-                        style={{ filter: active ? `drop-shadow(0 0 6px ${sc.color})` : "grayscale(1) opacity(0.35)" }}
-                      >
+                      <span className="text-xl" style={{ filter: active ? `drop-shadow(0 0 6px ${sc.color})` : "grayscale(1) opacity(0.30)" }}>
                         {sc.icon}
                       </span>
-                      <span className="text-[9px]" style={{ color: active ? sc.color : "rgba(255,255,255,0.30)" }}>
+                      <span className="text-[9px]" style={{ color: active ? sc.color : "rgba(255,255,255,0.28)" }}>
                         {sc.label}
                       </span>
                     </button>
@@ -364,80 +406,129 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
             </Field>
           )}
 
-          {/* ── XP target (hidden for drafts) ── */}
-          {!isDraft && (
-            <Field label="Целевое XP для выполнения">
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2 flex-wrap">
-                  {targetXPPresets.map(preset => (
+          {/* Period / Draft toggle */}
+          <Field label="Период цели">
+            <div className="flex flex-col gap-3">
+              {/* Draft checkbox */}
+              <button
+                onClick={() => { setIsDraft(d => !d); setShowCalendar(false); }}
+                className="flex items-center gap-2.5 text-left"
+              >
+                <div
+                  className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+                  style={{ borderColor: isDraft ? LAV : "rgba(255,255,255,0.20)", background: isDraft ? `rgba(${LAV_RGB},0.20)` : "transparent" }}
+                >
+                  {isDraft && <span className="text-[9px]" style={{ color: LAV }}>✓</span>}
+                </div>
+                <span className="text-[10px]" style={{ color: isDraft ? LAV : "rgba(255,255,255,0.35)" }}>
+                  💡 Без срока (черновик)
+                </span>
+              </button>
+
+              {/* Duration presets grid + custom */}
+              {!isDraft && (
+                <>
+                  <div className="flex gap-2 flex-wrap">
+                    {DURATION_PRESETS.map(p => {
+                      const active = selectedPresetDays === p.days;
+                      return (
+                        <button
+                          key={p.days}
+                          onClick={() => selectPreset(p.days)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                          style={{
+                            background: active ? `rgba(${LAV_RGB},0.20)` : "rgba(255,255,255,0.04)",
+                            color: active ? LAV : "rgba(255,255,255,0.40)",
+                            border: `1px solid ${active ? `rgba(${LAV_RGB},0.38)` : "rgba(255,255,255,0.08)"}`,
+                            boxShadow: active ? `0 0 12px rgba(${LAV_RGB},0.20)` : "none",
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
                     <button
-                      key={preset}
-                      onClick={() => setTargetXP(String(preset))}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      onClick={() => { setSelectedPresetDays("custom"); setShowCalendar(c => !c); }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                       style={{
-                        background: targetXP === String(preset) ? "rgba(167,139,250,0.20)" : "rgba(255,255,255,0.05)",
-                        color: targetXP === String(preset) ? LAV : "rgba(255,255,255,0.35)",
-                        border: `1px solid ${targetXP === String(preset) ? "rgba(167,139,250,0.40)" : "transparent"}`,
+                        background: selectedPresetDays === "custom" ? `rgba(${LAV_RGB},0.20)` : "rgba(255,255,255,0.04)",
+                        color: selectedPresetDays === "custom" ? LAV : "rgba(255,255,255,0.40)",
+                        border: `1px solid ${selectedPresetDays === "custom" ? `rgba(${LAV_RGB},0.38)` : "rgba(255,255,255,0.08)"}`,
                       }}
                     >
-                      {preset} XP
+                      ✦ Свой
                     </button>
-                  ))}
+                  </div>
+
+                  {/* Date range display */}
+                  <div
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
+                    style={{ background: `rgba(${LAV_RGB},0.07)`, border: `1px solid rgba(${LAV_RGB},0.18)` }}
+                  >
+                    <span className="text-sm" style={{ color: `rgba(${LAV_RGB},0.70)` }}>📅</span>
+                    <span className="text-xs font-medium flex-1" style={{ color: `rgba(${LAV_RGB},0.85)` }}>
+                      {formatDateRu(startDate)} → {formatDateRu(endDate)}
+                    </span>
+                    <span className="text-[10px]" style={{ color: `rgba(${LAV_RGB},0.45)` }}>
+                      {days} дн.
+                    </span>
+                  </div>
+
+                  {/* Inline calendar (custom only) */}
+                  {showCalendar && (
+                    <DateRangePicker
+                      startDate={startDate}
+                      endDate={endDate}
+                      onChange={(s, e) => {
+                        setStartDate(s);
+                        setEndDate(e);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </Field>
+
+          {/* XP Bonus */}
+          {!isDraft && (
+            <Field label="Бонус XP при завершении">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  {XP_BONUS_PRESETS.map(p => {
+                    const active = xpBonus === String(p);
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setXpBonus(String(p))}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                        style={{
+                          background: active ? `rgba(${LAV_RGB},0.20)` : "rgba(255,255,255,0.04)",
+                          color: active ? LAV : "rgba(255,255,255,0.40)",
+                          border: `1px solid ${active ? `rgba(${LAV_RGB},0.38)` : "rgba(255,255,255,0.08)"}`,
+                        }}
+                      >
+                        {p} XP
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     className={inputCls("flex-1")}
                     placeholder="Своё значение..."
-                    value={targetXP}
-                    onChange={e => setTargetXP(e.target.value)}
+                    value={xpBonus}
+                    onChange={e => setXpBonus(e.target.value)}
                   />
                   <span className="text-xs text-white/30 flex-shrink-0">XP</span>
                 </div>
-                <p className="text-[9px] text-white/20">
-                  Цель выполнится автоматически, когда XP задач достигнет этого значения
+                <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.18)" }}>
+                  Начислится разово когда ты завершишь все шаги и нажмёшь «Завершить цель»
                 </p>
               </div>
             </Field>
-          )}
-
-          {/* ── Parent goal ── */}
-          {parentGoalsList.length > 0 && !isDraft && (
-            <Field label={goalLevel === "week" ? "Родительская месячная цель" : "Родительская годовая цель"}>
-              <DreamSelect
-                value={parentId ?? ""}
-                onChange={v => setParentId(v || undefined)}
-                options={[
-                  { value: "", label: "— Без привязки —" },
-                  ...parentGoalsList.map(g => ({
-                    value: g.id,
-                    label: g.title,
-                    icon: g.sphere ? sphereColors[g.sphere].icon : "🌟",
-                    color: g.sphere ? sphereColors[g.sphere].color : LAV,
-                  })),
-                ]}
-                placeholder="— Без привязки —"
-              />
-            </Field>
-          )}
-
-          {/* ── Reward info (non-draft) ── */}
-          {!isDraft && bonusXP > 0 && (
-            <div
-              className="rounded-xl px-4 py-3 flex items-center gap-3"
-              style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.20)" }}
-            >
-              <span className="text-xl">{levelMeta.emoji}</span>
-              <div>
-                <p className="text-xs font-semibold" style={{ color: LAV }}>
-                  Награда при завершении: +{bonusXP} XP
-                </p>
-                <p className="text-[9px] text-white/25">
-                  Начислится только когда цель будет полностью достигнута
-                </p>
-              </div>
-            </div>
           )}
         </div>
 
@@ -445,7 +536,8 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
         <div className="px-6 py-4 border-t border-white/5 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm text-white/35 hover:text-white/60 transition-colors border border-white/8"
+            className="flex-1 py-2.5 rounded-xl text-sm text-white/35 hover:text-white/60 transition-colors"
+            style={{ border: "1px solid rgba(255,255,255,0.08)" }}
           >
             Отмена
           </button>
@@ -454,12 +546,12 @@ export function GoalModal({ defaultLevel = "month", parentGoals, initial, onSave
             disabled={!title.trim()}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30"
             style={{
-              background: `linear-gradient(135deg, rgba(167,139,250,0.80), rgba(139,92,246,0.90))`,
+              background: `linear-gradient(135deg, rgba(${LAV_RGB},0.80), rgba(139,92,246,0.90))`,
               color: "white",
-              boxShadow: "0 0 20px rgba(167,139,250,0.25)",
+              boxShadow: "0 0 24px rgba(167,139,250,0.28)",
             }}
           >
-            {isDraft ? "Сохранить черновик" : "Сохранить цель"}
+            {isDraft ? "Сохранить идею" : "Сохранить цель"}
           </button>
         </div>
       </div>

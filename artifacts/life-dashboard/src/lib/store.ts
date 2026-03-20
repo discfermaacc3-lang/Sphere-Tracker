@@ -64,6 +64,7 @@ export type Goal = {
   targetXP: number;
   month?: number;
   year?: number;
+  endDate?: string;
   checklistItems?: GoalChecklistItem[];
   isIdea?: boolean;
 };
