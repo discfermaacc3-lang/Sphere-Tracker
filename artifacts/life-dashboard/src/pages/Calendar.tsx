@@ -146,10 +146,13 @@ export function Calendar() {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [draftForModal, setDraftForModal] = useState<{ id: string; text: string } | null>(null);
 
-  // Magic highlight
+  // Magic highlight (for task cross-reference)
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [pinnedDate, setPinnedDate] = useState<string | null>(null);
   const activeHighlight = pinnedDate ?? hoveredDate;
+
+  // Cell hover (for border glow on calendar cells)
+  const [hoveredCellDs, setHoveredCellDs] = useState<string | null>(null);
 
   // Draft input
   const [draftInput, setDraftInput] = useState("");
@@ -215,27 +218,55 @@ export function Calendar() {
       ...dayTkList.map((t) => `${t.category === "Mission" ? "💎" : "·"} ${t.text}`),
     ];
 
+    const isCellHovered = hoveredCellDs === ds;
+
+    /* resolve border / background for this cell */
+    let cellBorder: string;
+    let cellBackground: string;
+    let cellBoxShadow: string | undefined;
+    let cellBackdropFilter: string | undefined;
+
+    if (hasGlow) {
+      cellBorder = glowStyle.border as string;
+      cellBackground = glowStyle.background as string;
+      cellBoxShadow = glowStyle.boxShadow as string;
+    } else if (isSelectedDay) {
+      cellBorder = "1px solid rgba(167,139,250,0.55)";
+      cellBackground = "rgba(167,139,250,0.18)";
+    } else if (isToday) {
+      cellBorder = "1px solid rgba(167,139,250,0.52)";
+      cellBackground = "linear-gradient(135deg,rgba(167,139,250,0.17),rgba(139,92,246,0.10))";
+      cellBoxShadow = "0 0 20px rgba(167,139,250,0.24), inset 0 1px 0 rgba(255,255,255,0.07)";
+      cellBackdropFilter = "blur(10px)";
+    } else if (isCellHovered) {
+      cellBorder = "1px solid rgba(167,139,250,0.32)";
+      cellBackground = isPast ? "rgba(255,255,255,0.03)" : "rgba(167,139,250,0.05)";
+      cellBoxShadow = "0 0 12px rgba(167,139,250,0.12)";
+    } else {
+      /* default: visible glassmorphism base for all cells */
+      cellBorder = isPast
+        ? "1px solid rgba(255,255,255,0.06)"
+        : "1px solid rgba(255,255,255,0.09)";
+      cellBackground = isPast
+        ? "rgba(255,255,255,0.012)"
+        : "rgba(255,255,255,0.028)";
+    }
+
     return (
       <div
         key={ds}
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
-        className="relative group/cell rounded-xl flex flex-col cursor-pointer transition-all hover:bg-white/[0.04]"
+        onMouseEnter={() => setHoveredCellDs(ds)}
+        onMouseLeave={() => setHoveredCellDs(null)}
+        className="relative group/cell rounded-xl flex flex-col cursor-pointer"
         style={{
           aspectRatio: "1",
           padding: tall ? "12px 10px 8px" : "8px 7px 6px",
-          ...(hasGlow
-            ? glowStyle
-            : isSelectedDay
-            ? { background: "rgba(167,139,250,0.18)", border: "1px solid rgba(167,139,250,0.55)" }
-            : isToday
-            ? {
-                background: "linear-gradient(135deg,rgba(167,139,250,0.17),rgba(139,92,246,0.10))",
-                border: "1px solid rgba(167,139,250,0.52)",
-                boxShadow: "0 0 20px rgba(167,139,250,0.24), inset 0 1px 0 rgba(255,255,255,0.07)",
-                backdropFilter: "blur(10px)",
-              }
-            : { border: "1px solid transparent" }),
-          transition: "all 0.2s ease",
+          border: cellBorder,
+          background: cellBackground,
+          boxShadow: cellBoxShadow,
+          backdropFilter: cellBackdropFilter,
+          transition: "border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease",
         }}
       >
         {/* Day number */}
@@ -369,10 +400,10 @@ export function Calendar() {
       {/* Calendar grid */}
       {(() => {
         const isMonth = viewMode === "month";
-        /* Month view: 15% side padding to narrow the grid → square cells via aspectRatio.
-           Week view: compact, no extra side padding */
-        const innerPad = isMonth ? "15%" : "0";
-        const cellGap  = isMonth ? 4 : 6;
+        /* Both views: 15% side padding — creates a single vertical content corridor.
+           Square cells via aspectRatio on each cell. */
+        const innerPad = "15%";
+        const cellGap  = 4;
 
         return (
           <div
