@@ -125,6 +125,7 @@ export type FocusSession = {
   startTime: string;
   durationMinutes: number;
   xp: number;
+  type?: "pomodoro" | "short" | "long";
 };
 
 export type RecurringTaskTemplate = {
