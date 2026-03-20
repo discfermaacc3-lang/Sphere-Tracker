@@ -176,6 +176,7 @@ type Store = {
   currentMonth: Date;
   prevMonth: () => void;
   nextMonth: () => void;
+  goToMonth: (year: number, month: number) => void;
   isArchiveMode: boolean;
   isFutureMonth: boolean;
 
@@ -466,6 +467,9 @@ export const useStore = create<Store>()(
           d.setMonth(d.getMonth() + 1);
           return switchMonth(s, d);
         }),
+
+      goToMonth: (year, month) =>
+        set((s) => switchMonth(s, new Date(year, month, 1))),
 
       monthData: {},
 

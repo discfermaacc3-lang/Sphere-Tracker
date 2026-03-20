@@ -125,9 +125,29 @@ function AddEventModal({
   );
 }
 
+/* Return the month that has the majority of days in the given week (≥4 of 7) */
+function getPrimaryMonthOf(weekStart: string): { year: number; month: number } {
+  const days = getWeekDaysFrom(weekStart);
+  const counts = new Map<string, number>();
+  days.forEach((d) => {
+    const key = d.slice(0, 7);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  let dominant = days[0].slice(0, 7);
+  let max = 0;
+  counts.forEach((v, k) => { if (v > max) { max = v; dominant = k; } });
+  const [y, m] = dominant.split("-").map(Number);
+  return { year: y, month: m - 1 };
+}
+
+/* Monday of the first week that contains (or starts in) a given month */
+function getFirstWeekOfMonth(year: number, month: number): string {
+  return getMondayOf(new Date(year, month, 1).toISOString().slice(0, 10));
+}
+
 export function Calendar() {
   const {
-    currentMonth, prevMonth, nextMonth,
+    currentMonth, prevMonth, nextMonth, goToMonth,
     tasks, goals, calendarEvents, addCalendarEvent, deleteCalendarEvent,
     toggleTask, addTask, deleteTask,
     calendarDrafts, addCalendarDraft, removeCalendarDraft,
@@ -153,6 +173,57 @@ export function Calendar() {
 
   // Cell hover (for border glow on calendar cells)
   const [hoveredCellDs, setHoveredCellDs] = useState<string | null>(null);
+
+  // ── Derived display month (week mode → primary month of viewed week) ──
+  const dispM = viewMode === "week" ? getPrimaryMonthOf(viewedWeekStart) : { year, month };
+  const dispYear  = dispM.year;
+  const dispMonth = dispM.month;
+
+  // Check if viewed week is cross-month (spans two calendar months)
+  const weekMonths = viewMode === "week"
+    ? [...new Set(getWeekDaysFrom(viewedWeekStart).map((d) => d.slice(0, 7)))]
+    : [];
+  const isCrossMonth = weekMonths.length > 1;
+  const crossMonthLabel = isCrossMonth
+    ? weekMonths.map((k) => MONTH_NAMES[parseInt(k.split("-")[1]) - 1].slice(0, 3)).join(" → ")
+    : "";
+
+  // ── Fade animation for header month label ──
+  const displayTitle = `${MONTH_NAMES[dispMonth]} ${dispYear}`;
+  const [shownTitle, setShownTitle] = useState(displayTitle);
+  const [titleVisible, setTitleVisible] = useState(true);
+  useEffect(() => {
+    if (displayTitle === shownTitle) return;
+    setTitleVisible(false);
+    const t = setTimeout(() => { setShownTitle(displayTitle); setTitleVisible(true); }, 160);
+    return () => clearTimeout(t);
+  }, [displayTitle, shownTitle]);
+
+  // ── Bidirectional navigation helpers ──
+  function navigateWeek(delta: number) {
+    const newStart = shiftWeek(viewedWeekStart, delta);
+    setViewedWeekStart(newStart);
+    const { year: ny, month: nm } = getPrimaryMonthOf(newStart);
+    if (ny !== year || nm !== month) goToMonth(ny, nm);
+  }
+
+  function handlePrevMonth() {
+    prevMonth();
+    if (viewMode === "week") {
+      const ny = month === 0 ? year - 1 : year;
+      const nm = month === 0 ? 11 : month - 1;
+      setViewedWeekStart(getFirstWeekOfMonth(ny, nm));
+    }
+  }
+
+  function handleNextMonth() {
+    nextMonth();
+    if (viewMode === "week") {
+      const ny = month === 11 ? year + 1 : year;
+      const nm = month === 11 ? 0 : month + 1;
+      setViewedWeekStart(getFirstWeekOfMonth(ny, nm));
+    }
+  }
 
   // Draft input
   const [draftInput, setDraftInput] = useState("");
@@ -212,6 +283,10 @@ export function Calendar() {
     const glowStyle = getCellGlow(ds);
     const hasGlow = ds === activeHighlight;
     const dayNum = parseInt(String(label));
+
+    /* In week view: flag days that belong to a month other than the primary displayed month */
+    const primaryKey = `${dispYear}-${String(dispMonth + 1).padStart(2, "0")}`;
+    const isOtherMonth = tall && ds.slice(0, 7) !== primaryKey;
 
     const tooltipLines = [
       ...dayEvList.map((e) => `${EVENT_META[e.category].emoji} ${e.title}`),
@@ -278,6 +353,8 @@ export function Calendar() {
               ? "#a78bfa"
               : isSelectedDay
               ? "rgba(255,255,255,0.95)"
+              : isOtherMonth
+              ? isPast ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.32)"
               : isPast
               ? "rgba(255,255,255,0.20)"
               : "rgba(255,255,255,0.62)",
@@ -352,23 +429,53 @@ export function Calendar() {
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full" style={{ overflow: "visible" }}>
       {/* Header */}
       <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
-        <h1 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}>
-          Календарь
-        </h1>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 30px rgba(167,139,250,0.35)" }}>
+            Календарь
+          </h1>
+          {/* Dynamic month + fade */}
+          <div className="flex items-center gap-2">
+            <span
+              className="text-2xl font-extralight tracking-[0.18em] uppercase"
+              style={{
+                color: "rgba(255,255,255,0.88)",
+                textShadow: "0 0 40px rgba(167,139,250,0.55)",
+                opacity: titleVisible ? 1 : 0,
+                transition: "opacity 0.16s ease",
+              }}
+            >
+              {shownTitle}
+            </span>
+            {/* Cross-month badge */}
+            {isCrossMonth && (
+              <span
+                className="text-[9px] px-2 py-0.5 rounded-full font-medium tracking-[0.08em]"
+                style={{
+                  background: "rgba(167,139,250,0.12)",
+                  color: "rgba(167,139,250,0.75)",
+                  border: "1px solid rgba(167,139,250,0.22)",
+                }}
+              >
+                {crossMonthLabel}
+              </span>
+            )}
+          </div>
+        </div>
+
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Month navigation */}
+          {/* Month navigation — syncs week start in week mode */}
           <div className="flex items-center gap-1">
-            <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">‹</button>
-            <span className="text-sm text-white/60 font-medium min-w-[110px] text-center">{MONTH_NAMES[month]} {year}</span>
-            <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">›</button>
+            <button onClick={handlePrevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">‹</button>
+            <span className="text-xs text-white/35 font-medium min-w-[90px] text-center tracking-wide">{MONTH_NAMES[month]} {year}</span>
+            <button onClick={handleNextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">›</button>
           </div>
 
-          {/* Week navigation — only in week mode */}
+          {/* Week navigation — syncs month */}
           {viewMode === "week" && (
             <div className="flex items-center gap-1 pl-1 border-l border-white/8">
-              <button onClick={() => setViewedWeekStart(shiftWeek(viewedWeekStart, -1))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">‹</button>
+              <button onClick={() => navigateWeek(-1)} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">‹</button>
               <span className="text-xs text-indigo-300/80 font-medium min-w-[78px] text-center">Неделя {weekNum}</span>
-              <button onClick={() => setViewedWeekStart(shiftWeek(viewedWeekStart, +1))} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">›</button>
+              <button onClick={() => navigateWeek(+1)} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all text-base">›</button>
             </div>
           )}
 
