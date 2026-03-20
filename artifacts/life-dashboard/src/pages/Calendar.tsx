@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useStore, CalendarEvent, EventCategory, EVENT_META, computeGoalEarnedXP } from "@/lib/store";
 import { TaskModal } from "@/components/TaskModal";
 import { sphereColors } from "@/lib/sphereColors";

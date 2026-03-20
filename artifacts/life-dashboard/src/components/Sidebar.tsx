@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 
 const navItems = [
@@ -12,91 +13,164 @@ const navItems = [
 ];
 
 export function Sidebar() {
-  const { currentPage, setCurrentPage } = useStore();
+  const { currentPage, setCurrentPage, focusIsRunning } = useStore();
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
+
+  function handleNav(key: string) {
+    if (key === currentPage) return;
+    if (currentPage === "focus" && focusIsRunning) {
+      setPendingNav(key);
+      return;
+    }
+    setCurrentPage(key);
+  }
+
+  function confirmAbort() {
+    if (pendingNav) setCurrentPage(pendingNav);
+    setPendingNav(null);
+  }
 
   return (
-    <aside
-      className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40 sidebar-scroll"
-      style={{
-        background: "rgba(16,12,38,0.75)",
-        backdropFilter: "blur(28px)",
-        WebkitBackdropFilter: "blur(28px)",
-        borderRight: "1px solid rgba(167,139,250,0.08)",
-      }}
-    >
-      {/* Logo */}
-      <div
-        className="mb-7 w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+    <>
+      <aside
+        className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40 sidebar-scroll"
         style={{
-          background: "linear-gradient(135deg,rgba(167,139,250,0.5),rgba(139,92,246,0.3))",
-          boxShadow: "0 0 20px rgba(167,139,250,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
-          border: "1px solid rgba(167,139,250,0.25)",
-          color: "rgba(255,255,255,0.9)",
-          letterSpacing: "0.05em",
+          background: "rgba(16,12,38,0.75)",
+          backdropFilter: "blur(28px)",
+          WebkitBackdropFilter: "blur(28px)",
+          borderRight: "1px solid rgba(167,139,250,0.08)",
         }}
       >
-        L
-      </div>
+        {/* Logo */}
+        <div
+          className="mb-7 w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+          style={{
+            background: "linear-gradient(135deg,rgba(167,139,250,0.5),rgba(139,92,246,0.3))",
+            boxShadow: "0 0 20px rgba(167,139,250,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+            border: "1px solid rgba(167,139,250,0.25)",
+            color: "rgba(255,255,255,0.9)",
+            letterSpacing: "0.05em",
+          }}
+        >
+          L
+        </div>
 
-      {navItems.map((item) => {
-        const active = currentPage === item.key;
-        return (
-          <button
-            key={item.key}
-            onClick={() => setCurrentPage(item.key)}
-            title={item.label}
-            className="relative flex flex-col items-center gap-1 w-[54px] py-3 rounded-2xl transition-all duration-300 cursor-pointer group"
+        {navItems.map((item) => {
+          const active = currentPage === item.key;
+          return (
+            <button
+              key={item.key}
+              onClick={() => handleNav(item.key)}
+              title={item.label}
+              className="relative flex flex-col items-center gap-1 w-[54px] py-3 rounded-2xl transition-all duration-300 cursor-pointer group"
+              style={{
+                background: active ? "rgba(167,139,250,0.12)" : "transparent",
+              }}
+            >
+              {active && (
+                <div
+                  className="absolute inset-0 rounded-2xl"
+                  style={{
+                    background: "rgba(167,139,250,0.08)",
+                    boxShadow: "0 0 20px rgba(167,139,250,0.2)",
+                  }}
+                />
+              )}
+
+              <span
+                className="relative text-lg transition-all duration-300"
+                style={{
+                  color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.22)",
+                  filter: active
+                    ? "drop-shadow(0 0 8px rgba(167,139,250,0.9)) drop-shadow(0 0 16px rgba(167,139,250,0.5))"
+                    : "none",
+                  transform: active ? "scale(1.1)" : "scale(1)",
+                }}
+              >
+                {item.icon}
+              </span>
+
+              <span
+                className="relative text-[8px] font-medium tracking-wide leading-tight transition-all duration-300"
+                style={{
+                  color: active ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.18)",
+                  textShadow: active ? "0 0 8px rgba(167,139,250,0.6)" : "none",
+                }}
+              >
+                {item.label}
+              </span>
+
+              {active && (
+                <div
+                  className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-[3px] h-7 rounded-r-full"
+                  style={{
+                    background: "linear-gradient(to bottom, rgba(167,139,250,0.8), rgba(139,92,246,0.4))",
+                    boxShadow: "0 0 8px rgba(167,139,250,0.6)",
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </aside>
+
+      {/* ── Guard Modal ── */}
+      {pendingNav && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: "rgba(4,3,12,0.72)", backdropFilter: "blur(10px)" }}
+        >
+          <div
+            className="flex flex-col gap-7 max-w-sm w-full mx-6 rounded-3xl p-8"
             style={{
-              background: active ? "rgba(167,139,250,0.12)" : "transparent",
+              background: "rgba(14,10,30,0.92)",
+              border: "1px solid rgba(167,139,250,0.22)",
+              backdropFilter: "blur(28px)",
+              boxShadow: "0 0 80px rgba(167,139,250,0.12), 0 40px 80px rgba(0,0,0,0.55)",
             }}
           >
-            {/* Active glow behind icon */}
-            {active && (
-              <div
-                className="absolute inset-0 rounded-2xl"
+            <div className="flex flex-col items-center gap-3 text-center">
+              <span style={{ fontSize: 30, lineHeight: 1, filter: "drop-shadow(0 0 12px rgba(167,139,250,0.7))" }}>⚡</span>
+              <h3
+                className="text-base font-light tracking-[0.10em]"
+                style={{ color: "rgba(255,255,255,0.90)", textShadow: "0 0 20px rgba(167,139,250,0.35)" }}
+              >
+                Прервать фокус?
+              </h3>
+              <p className="text-xs leading-relaxed max-w-[240px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                Если вы уйдёте сейчас, прогресс текущей сессии будет потерян.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={() => setPendingNav(null)}
+                className="w-full py-3 rounded-2xl text-sm font-light tracking-[0.10em] transition-all"
                 style={{
-                  background: "rgba(167,139,250,0.08)",
-                  boxShadow: "0 0 20px rgba(167,139,250,0.2)",
+                  background: "rgba(167,139,250,0.18)",
+                  color: "#a78bfa",
+                  border: "1px solid rgba(167,139,250,0.35)",
+                  boxShadow: "0 0 28px rgba(167,139,250,0.12)",
+                  textShadow: "0 0 10px #a78bfa",
                 }}
-              />
-            )}
-
-            <span
-              className="relative text-lg transition-all duration-300"
-              style={{
-                color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.22)",
-                filter: active
-                  ? "drop-shadow(0 0 8px rgba(167,139,250,0.9)) drop-shadow(0 0 16px rgba(167,139,250,0.5))"
-                  : "none",
-                transform: active ? "scale(1.1)" : "scale(1)",
-              }}
-            >
-              {item.icon}
-            </span>
-
-            <span
-              className="relative text-[8px] font-medium tracking-wide leading-tight transition-all duration-300"
-              style={{
-                color: active ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.18)",
-                textShadow: active ? "0 0 8px rgba(167,139,250,0.6)" : "none",
-              }}
-            >
-              {item.label}
-            </span>
-
-            {/* Active dot indicator */}
-            {active && (
-              <div
-                className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-[3px] h-7 rounded-r-full"
+              >
+                Продолжить фокус
+              </button>
+              <button
+                onClick={confirmAbort}
+                className="w-full py-3 rounded-2xl text-sm font-light tracking-[0.10em] transition-all"
                 style={{
-                  background: "linear-gradient(to bottom, rgba(167,139,250,0.8), rgba(139,92,246,0.4))",
-                  boxShadow: "0 0 8px rgba(167,139,250,0.6)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.35)",
+                  border: "1px solid rgba(255,255,255,0.08)",
                 }}
-              />
-            )}
-          </button>
-        );
-      })}
-    </aside>
+              >
+                Да, прервать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

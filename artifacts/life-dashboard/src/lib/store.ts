@@ -180,6 +180,10 @@ type Store = {
   isArchiveMode: boolean;
   isFutureMonth: boolean;
 
+  // Focus guard — true while timer or breath is running
+  focusIsRunning: boolean;
+  setFocusIsRunning: (v: boolean) => void;
+
   // Per-month data (lives + all historical months)
   monthData: Record<string, MonthData>;
 
@@ -470,6 +474,9 @@ export const useStore = create<Store>()(
 
       goToMonth: (year, month) =>
         set((s) => switchMonth(s, new Date(year, month, 1))),
+
+      focusIsRunning: false,
+      setFocusIsRunning: (v) => set({ focusIsRunning: v }),
 
       monthData: {},
 

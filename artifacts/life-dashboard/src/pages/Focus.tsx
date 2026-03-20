@@ -29,7 +29,7 @@ function getTodayStr() { return new Date().toISOString().slice(0,10); }
 
 /* ─── component ──────────────────────────────────────────── */
 export function Focus() {
-  const { addXP, focusHistory, addFocusSession } = useStore();
+  const { addXP, focusHistory, addFocusSession, setFocusIsRunning } = useStore();
 
   /* mode: 0-2 = timer, 3 = breath */
   const [modeIdx, setModeIdx]             = useState(0);
@@ -58,6 +58,16 @@ export function Focus() {
   const breathTimerRef                    = useRef<ReturnType<typeof setTimeout>|null>(null);
   const breathStartRef                    = useRef<string|null>(null);
   const breathStartTimeRef                = useRef<number>(0);
+
+  /* breath duration & countdown */
+  const [breathCustomMin, setBreathCustomMin] = useState(5);
+  const [breathSecsLeft, setBreathSecsLeft]   = useState(5 * 60);
+  const breathCountdownRef                    = useRef<ReturnType<typeof setInterval>|null>(null);
+
+  /* focus guard */
+  const [guardPending, setGuardPending] = useState<
+    { type: "mode"; idx: number } | { type: "reset" } | null
+  >(null);
 
   /* derived */
   const totalSecs  = minutes * 60 + seconds;
@@ -182,11 +192,42 @@ export function Focus() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running]);
 
-  /* ── mode select ── */
-  function selectMode(idx: number) {
+  /* ── sync focusIsRunning into store for sidebar guard ── */
+  useEffect(() => {
+    setFocusIsRunning(running || breathRunning);
+  }, [running, breathRunning]);
+
+  /* ── breath countdown: reset when stopped ── */
+  useEffect(() => {
+    if (!breathRunning) {
+      if (breathCountdownRef.current) clearInterval(breathCountdownRef.current);
+      setBreathSecsLeft(breathCustomMin * 60);
+    }
+  }, [breathRunning, breathCustomMin]);
+
+  /* ── breath countdown: tick when running ── */
+  useEffect(() => {
+    if (!breathRunning) return;
+    if (breathCountdownRef.current) clearInterval(breathCountdownRef.current);
+    breathCountdownRef.current = setInterval(() => {
+      setBreathSecsLeft(s => {
+        if (s <= 1) {
+          clearInterval(breathCountdownRef.current!);
+          setBreathRunning(false);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => { if (breathCountdownRef.current) clearInterval(breathCountdownRef.current); };
+  }, [breathRunning]);
+
+  /* ── core mode switch (no guard) ── */
+  function doSelectMode(idx: number) {
     setRunning(false);
     setBreathRunning(false);
     if (breathTimerRef.current) clearTimeout(breathTimerRef.current);
+    if (breathCountdownRef.current) clearInterval(breathCountdownRef.current);
     setModeIdx(idx);
     if (idx < 3) {
       const m = TIMER_MODES[idx];
@@ -198,12 +239,31 @@ export function Focus() {
     setBreathPhase("inhale");
   }
 
-  function resetTimer() {
+  /* ── core reset (no guard) ── */
+  function doResetTimer() {
     setRunning(false);
     const base = TIMER_MODES[modeIdx]?.minutes ?? 25;
     setMinutes(base);
     setSeconds(0);
     completedRef.current = false;
+  }
+
+  /* ── guarded mode select ── */
+  function selectMode(idx: number) {
+    if ((running || breathRunning) && idx !== modeIdx) {
+      setGuardPending({ type: "mode", idx });
+      return;
+    }
+    doSelectMode(idx);
+  }
+
+  /* ── guarded reset ── */
+  function resetTimer() {
+    if (running || breathRunning) {
+      setGuardPending({ type: "reset" });
+      return;
+    }
+    doResetTimer();
   }
 
   function applyCustomTime() {
@@ -213,6 +273,12 @@ export function Focus() {
     setSeconds(0);
     sessionDurRef.current = v;
     completedRef.current  = false;
+  }
+
+  function applyBreathTime() {
+    if (!breathRunning) {
+      setBreathSecsLeft(breathCustomMin * 60);
+    }
   }
 
   /* ── stats ── */
@@ -537,11 +603,96 @@ export function Focus() {
           </div>
         )}
 
-        {/* breathing hint — only when idle, no text labels */}
-        {isBreath && !breathRunning && (
-          <p className="text-[9px] uppercase tracking-[0.18em] text-center" style={{ color:`rgba(${LAV_RGB},.28)` }}>
-            вдох 4с · выдох 6с
-          </p>
+        {/* ── breath duration & countdown ── */}
+        {isBreath && (
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+
+            {/* hint — only when idle */}
+            {!breathRunning && (
+              <p className="text-[9px] uppercase tracking-[0.18em] text-center" style={{ color:`rgba(${LAV_RGB},.28)` }}>
+                вдох 4с · выдох 6с
+              </p>
+            )}
+
+            {/* countdown display when running */}
+            {breathRunning && (
+              <p className="text-sm tabular-nums font-light tracking-[0.12em]"
+                style={{ color:`rgba(${LAV_RGB},.65)`, textShadow:`0 0 16px rgba(${LAV_RGB},.40)` }}>
+                {String(Math.floor(breathSecsLeft / 60)).padStart(2,"0")}:{String(breathSecsLeft % 60).padStart(2,"0")}
+              </p>
+            )}
+
+            {/* divider */}
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex-1 h-px" style={{ background:"rgba(255,255,255,.05)" }}/>
+              <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color:"rgba(255,255,255,.18)" }}>
+                Длительность
+              </span>
+              <div className="flex-1 h-px" style={{ background:"rgba(255,255,255,.05)" }}/>
+            </div>
+
+            {/* [−] input [+] */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setBreathCustomMin(v => Math.max(1, v - 1))}
+                disabled={breathRunning}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-light transition-all active:scale-90 disabled:opacity-30"
+                style={{
+                  background:"rgba(167,139,250,.10)", color:"#a78bfa",
+                  border:"1px solid rgba(167,139,250,.25)",
+                  boxShadow:"0 0 10px rgba(167,139,250,.08)",
+                }}
+              >−</button>
+
+              <div className="relative">
+                <input
+                  type="number"
+                  min={1} max={60}
+                  value={breathCustomMin}
+                  disabled={breathRunning}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setBreathCustomMin(Math.max(1, Math.min(60, v)));
+                  }}
+                  className="focus-numinput text-center text-xl font-light tabular-nums outline-none rounded-xl py-1.5 pl-3 disabled:opacity-40"
+                  style={{
+                    width: "100px",
+                    paddingRight: "36px",
+                    background:"rgba(255,255,255,.04)",
+                    border:"1px solid rgba(167,139,250,.20)",
+                    color:"rgba(255,255,255,.78)",
+                    textShadow:`0 0 14px rgba(${LAV_RGB},.25)`,
+                    letterSpacing:"0.04em",
+                  }}
+                />
+                <span className="absolute top-1/2 -translate-y-1/2 text-[8px] pointer-events-none select-none"
+                  style={{ right:"10px", color:"rgba(255,255,255,.22)" }}>
+                  мин
+                </span>
+              </div>
+
+              <button
+                onClick={() => setBreathCustomMin(v => Math.min(60, v + 1))}
+                disabled={breathRunning}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-light transition-all active:scale-90 disabled:opacity-30"
+                style={{
+                  background:"rgba(167,139,250,.10)", color:"#a78bfa",
+                  border:"1px solid rgba(167,139,250,.25)",
+                  boxShadow:"0 0 10px rgba(167,139,250,.08)",
+                }}
+              >+</button>
+            </div>
+
+            {/* apply — only when stopped */}
+            {!breathRunning && (
+              <button onClick={applyBreathTime}
+                className="px-8 py-1.5 rounded-2xl text-xs tracking-[0.12em] transition-all"
+                style={{ background:"rgba(167,139,250,.11)", color:"#a78bfa", border:"1px solid rgba(167,139,250,.22)" }}
+              >
+                Задать
+              </button>
+            )}
+          </div>
         )}
 
       </div>{/* /centered */}
@@ -646,6 +797,69 @@ export function Focus() {
           очищается каждую полночь
         </p>
       </div>
+
+      {/* ── Focus Guard Modal ── */}
+      {guardPending && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: "rgba(4,3,12,0.72)", backdropFilter: "blur(10px)" }}
+        >
+          <div
+            className="flex flex-col gap-7 max-w-sm w-full mx-6 rounded-3xl p-8"
+            style={{
+              background: "rgba(14,10,30,0.92)",
+              border: "1px solid rgba(167,139,250,0.22)",
+              backdropFilter: "blur(28px)",
+              boxShadow: "0 0 80px rgba(167,139,250,0.12), 0 40px 80px rgba(0,0,0,0.55)",
+            }}
+          >
+            <div className="flex flex-col items-center gap-3 text-center">
+              <span style={{ fontSize: 30, lineHeight: 1, filter: "drop-shadow(0 0 12px rgba(167,139,250,0.7))" }}>⚡</span>
+              <h3
+                className="text-base font-light tracking-[0.10em]"
+                style={{ color: "rgba(255,255,255,0.90)", textShadow: "0 0 20px rgba(167,139,250,0.35)" }}
+              >
+                Прервать фокус?
+              </h3>
+              <p className="text-xs leading-relaxed max-w-[240px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                Если вы уйдёте сейчас, прогресс текущей сессии будет потерян.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={() => setGuardPending(null)}
+                className="w-full py-3 rounded-2xl text-sm font-light tracking-[0.10em] transition-all"
+                style={{
+                  background: "rgba(167,139,250,0.18)",
+                  color: "#a78bfa",
+                  border: "1px solid rgba(167,139,250,0.35)",
+                  boxShadow: "0 0 28px rgba(167,139,250,0.12)",
+                  textShadow: "0 0 10px #a78bfa",
+                }}
+              >
+                Продолжить фокус
+              </button>
+              <button
+                onClick={() => {
+                  const pending = guardPending;
+                  setGuardPending(null);
+                  if (pending.type === "mode") doSelectMode(pending.idx);
+                  else if (pending.type === "reset") doResetTimer();
+                }}
+                className="w-full py-3 rounded-2xl text-sm font-light tracking-[0.10em] transition-all"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.35)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                Да, прервать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
