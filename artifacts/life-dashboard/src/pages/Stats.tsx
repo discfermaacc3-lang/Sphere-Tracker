@@ -122,7 +122,6 @@ function GlowDonut({ levels, hovered, setHovered }: {
           </filter>
         </defs>
 
-        {/* Track rings */}
         {sphereKeys.map((key, i) => {
           const col = sphereColors[key].color;
           const start = i * SECTOR_DEG + GAP_DEG / 2;
@@ -136,7 +135,6 @@ function GlowDonut({ levels, hovered, setHovered }: {
           );
         })}
 
-        {/* Neon ring segments */}
         {sphereKeys.map((key, i) => {
           const level = animated[key];
           const ratio = level / 10;
@@ -161,7 +159,6 @@ function GlowDonut({ levels, hovered, setHovered }: {
           );
         })}
 
-        {/* Icon labels */}
         {sphereKeys.map((key, i) => {
           const midDeg = i * SECTOR_DEG + SECTOR_DEG / 2;
           const labelR = MAX_R + 20;
@@ -182,7 +179,6 @@ function GlowDonut({ levels, hovered, setHovered }: {
           );
         })}
 
-        {/* Center */}
         <circle cx={CX} cy={CY} r={MIN_R - 5}
           fill="rgba(16,12,38,0.95)" style={{ filter: "url(#center-glow)" }} />
         <circle cx={CX} cy={CY} r={MIN_R - 5}
@@ -221,19 +217,23 @@ function GlowDonut({ levels, hovered, setHovered }: {
 export function Stats() {
   const {
     sphereLevels, setSphereLevel, tasks,
-    isArchiveMode, currentMonth, totalXP,
+    isArchiveMode, totalXP,
+    prioritySpheres,
   } = useStore();
 
   const [hovered, setHovered] = useState<SphereKey | null>(null);
   const [period, setPeriod] = useState<Period>("month");
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const [expandedPriority, setExpandedPriority] = useState<number | null>(null);
 
-  // sphereLevels is always the correct month's data (loaded by store on navigation)
   const displayLevels = sphereLevels;
 
-  // ── Period date bounds ────────────────────────────────────────
-  const today = new Date().toISOString().slice(0, 10);
+  // ── current month prefix for "always month" context
+  const now = new Date();
+  const thisMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // ── Period date bounds
   const periodFilter = useMemo((): ((completedAt: string | undefined) => boolean) => {
-    const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     if (period === "day") {
       return (ca) => ca === todayStr;
@@ -245,10 +245,8 @@ export function Stats() {
       return (ca) => !!ca && ca >= weekStr && ca <= todayStr;
     }
     if (period === "month") {
-      const prefix = todayStr.slice(0, 7); // "YYYY-MM"
-      return (ca) => !!ca && ca.startsWith(prefix);
+      return (ca) => !!ca && ca.startsWith(thisMonthPrefix);
     }
-    // year
     const prefix = todayStr.slice(0, 4);
     return (ca) => !!ca && ca.startsWith(prefix);
   }, [period]);
@@ -258,18 +256,35 @@ export function Stats() {
     [tasks, periodFilter]
   );
 
-  // XP earned in period (sum of done tasks)
+  // tasks completed this month (for priority sphere stats)
+  const monthDoneTasks = useMemo(
+    () => tasks.filter((t) => t.done && t.completedAt?.startsWith(thisMonthPrefix)),
+    [tasks]
+  );
+
+  // all tasks this month by sphere (done + pending)
+  const monthTasksBySphere = useMemo(() => {
+    const m: Record<string, { done: typeof tasks; all: typeof tasks }> = {};
+    tasks.forEach(t => {
+      if (!m[t.sphere]) m[t.sphere] = { done: [], all: [] };
+      if (t.dueDate?.startsWith(thisMonthPrefix) || t.completedAt?.startsWith(thisMonthPrefix)) {
+        m[t.sphere].all.push(t);
+        if (t.done) m[t.sphere].done.push(t);
+      }
+    });
+    return m;
+  }, [tasks]);
+
   const periodXP = useMemo(
     () => doneTasks.reduce((s, t) => s + t.xp, 0),
     [doneTasks]
   );
 
-  // Level gained = level at end of period minus level at start
   const currentLevel = getLevelFromXP(totalXP);
   const levelAtPeriodStart = getLevelFromXP(Math.max(0, totalXP - periodXP));
   const levelsGained = currentLevel - levelAtPeriodStart;
 
-  // Attention analysis — tasks per sphere in period
+  // Attention analysis
   const sphereTaskCounts = useMemo(() => {
     const counts: Record<SphereKey, number> = {} as Record<SphereKey, number>;
     sphereKeys.forEach((k) => (counts[k] = 0));
@@ -286,6 +301,8 @@ export function Stats() {
     sphereTaskCounts[a] <= sphereTaskCounts[b] ? a : b
   );
   const hasActivity = doneTasks.length > 0;
+
+  const monthName = now.toLocaleString("ru-RU", { month: "long" });
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
@@ -312,7 +329,7 @@ export function Stats() {
         )}
       </div>
 
-      {/* ── Period filter tabs ─────────────────────────────────── */}
+      {/* ── Period filter tabs */}
       <div
         className="flex gap-1 p-1 rounded-[1.2rem]"
         style={{
@@ -341,30 +358,12 @@ export function Stats() {
         })}
       </div>
 
-      {/* ── Summary stat cards ─────────────────────────────────── */}
+      {/* ── Summary stat cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          {
-            label: "Задач выполнено",
-            value: doneTasks.length,
-            unit: "шт",
-            color: "#86efac",
-            icon: "✓",
-          },
-          {
-            label: "XP заработано",
-            value: periodXP,
-            unit: "XP",
-            color: "#a78bfa",
-            icon: "✦",
-          },
-          {
-            label: "Уровней получено",
-            value: levelsGained,
-            unit: "ур",
-            color: "#fde047",
-            icon: "⭐",
-          },
+          { label: "Задач выполнено", value: doneTasks.length, unit: "шт",  color: "#86efac", icon: "✓" },
+          { label: "XP заработано",   value: periodXP,         unit: "XP",  color: "#a78bfa", icon: "✦" },
+          { label: "Уровней получено",value: levelsGained,     unit: "ур",  color: "#fde047", icon: "⭐" },
         ].map(({ label, value, unit, color, icon }) => (
           <div
             key={label}
@@ -383,13 +382,8 @@ export function Stats() {
                 transform: "translate(30%,-30%)",
               }}
             />
-            <span className="text-base" style={{ filter: `drop-shadow(0 0 8px ${color})` }}>
-              {icon}
-            </span>
-            <p
-              className="text-2xl font-light tabular-nums"
-              style={{ color, textShadow: `0 0 18px ${color}60` }}
-            >
+            <span className="text-base" style={{ filter: `drop-shadow(0 0 8px ${color})` }}>{icon}</span>
+            <p className="text-2xl font-light tabular-nums" style={{ color, textShadow: `0 0 18px ${color}60` }}>
               {value}
               <span className="text-xs ml-1" style={{ color: "rgba(255,255,255,0.25)" }}>{unit}</span>
             </p>
@@ -401,7 +395,219 @@ export function Stats() {
         ))}
       </div>
 
-      {/* ── Glow donut chart ───────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════
+          ── Priority Spheres — центральный акцент
+          ══════════════════════════════════════════════════════════════ */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[9px] uppercase tracking-[0.25em] font-medium"
+            style={{ color: "rgba(255,255,255,0.2)" }}>
+            Приоритеты месяца
+          </p>
+          <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.14)" }}>
+            {monthName} {now.getFullYear()}
+          </p>
+        </div>
+
+        {prioritySpheres[0] === null && prioritySpheres[1] === null ? (
+          <div
+            className="rounded-[1.75rem] p-8 text-center"
+            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.2)" }}>
+              Приоритеты не заданы
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.1)" }}>
+              Зайди на Главную и выбери две сферы-приоритета
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {([0, 1] as const).map(slotIdx => {
+              const key = prioritySpheres[slotIdx];
+              if (!key) return null;
+              const s = sphereColors[key];
+              const rgb = hexToRgb(s.color);
+              const level = displayLevels[key];
+              const pct = (level / 10) * 100;
+              const sphereData = monthTasksBySphere[key] || { done: [], all: [] };
+              const doneCount = sphereData.done.length;
+              const totalCount = sphereData.all.length;
+              const completionPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+              const isExpanded = expandedPriority === slotIdx;
+
+              return (
+                <div
+                  key={key}
+                  className="rounded-[1.75rem] overflow-hidden transition-all duration-400"
+                  style={{
+                    background: `rgba(${rgb},0.05)`,
+                    backdropFilter: "blur(24px)",
+                    border: `1px solid rgba(${rgb},0.18)`,
+                    boxShadow: `0 0 50px rgba(${rgb},0.07)`,
+                  }}
+                >
+                  {/* Card header */}
+                  <div className="p-5 flex items-center gap-4">
+                    {/* Icon */}
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: `rgba(${rgb},0.12)`,
+                        border: `1px solid rgba(${rgb},0.22)`,
+                        boxShadow: `0 0 24px rgba(${rgb},0.18)`,
+                      }}
+                    >
+                      <span className="text-2xl"
+                        style={{ filter: `drop-shadow(0 0 12px ${s.color}) drop-shadow(0 0 24px ${s.color}50)` }}>
+                        {s.icon}
+                      </span>
+                    </div>
+
+                    {/* Labels */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between mb-1">
+                        <p className="text-base font-light"
+                          style={{ color: s.color, textShadow: `0 0 18px ${s.color}60` }}>
+                          {s.label}
+                        </p>
+                        <span className="text-xs tabular-nums ml-3 flex-shrink-0"
+                          style={{ color: "rgba(255,255,255,0.28)" }}>
+                          Ур. {level}<span style={{ color: "rgba(255,255,255,0.15)" }}>/10</span>
+                        </span>
+                      </div>
+
+                      {/* Level progress bar */}
+                      <div className="h-1 rounded-full mb-2" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, rgba(${rgb},0.4), ${s.color})`,
+                            boxShadow: `0 0 10px ${s.color}60`,
+                          }}
+                        />
+                      </div>
+
+                      {/* Task completion row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-[3px] rounded-full flex-1 min-w-[80px]"
+                            style={{ background: "rgba(255,255,255,0.05)", width: 80 }}>
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${completionPct}%`,
+                                background: `linear-gradient(90deg, rgba(${rgb},0.5), ${s.color}cc)`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] tabular-nums"
+                            style={{ color: `rgba(${rgb},0.75)` }}>
+                            {doneCount}/{totalCount} задач
+                          </span>
+                        </div>
+                        {totalCount > 0 && (
+                          <span className="text-[10px] font-medium"
+                            style={{ color: completionPct >= 80 ? "#86efac" : `rgba(${rgb},.60)` }}>
+                            {completionPct}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expand toggle */}
+                    {doneCount > 0 && (
+                      <button
+                        onClick={() => setExpandedPriority(isExpanded ? null : slotIdx)}
+                        className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+                        style={{
+                          background: isExpanded ? `rgba(${rgb},0.18)` : "rgba(255,255,255,0.04)",
+                          border: `1px solid rgba(${rgb},${isExpanded ? "0.35" : "0.12"})`,
+                          color: isExpanded ? s.color : "rgba(255,255,255,0.3)",
+                          fontSize: 12,
+                          transform: isExpanded ? "rotate(180deg)" : "none",
+                          transition: "all 0.25s",
+                        }}
+                        title="Развернуть задачи"
+                      >
+                        ▾
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded task list */}
+                  {isExpanded && (
+                    <div
+                      className="px-5 pb-5 flex flex-col gap-1.5"
+                      style={{ borderTop: `1px solid rgba(${rgb},0.10)` }}
+                    >
+                      <p className="text-[8px] uppercase tracking-[0.18em] pt-3 pb-1"
+                        style={{ color: `rgba(${rgb},0.45)` }}>
+                        Выполнено за {monthName}
+                      </p>
+                      {sphereData.done.map(t => (
+                        <div key={t.id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                          style={{
+                            background: `rgba(${rgb},0.04)`,
+                            border: `1px solid rgba(${rgb},0.09)`,
+                          }}
+                        >
+                          <span style={{ color: s.color, fontSize: 10, flexShrink: 0 }}>✓</span>
+                          <span className="flex-1 text-xs font-light truncate"
+                            style={{ color: "rgba(255,255,255,0.55)" }}>
+                            {t.text}
+                          </span>
+                          {t.completedAt && (
+                            <span className="text-[9px] flex-shrink-0"
+                              style={{ color: "rgba(255,255,255,0.18)" }}>
+                              {t.completedAt.slice(5).replace("-", ".")}
+                            </span>
+                          )}
+                          <span className="text-[9px] flex-shrink-0"
+                            style={{ color: `rgba(${rgb},0.50)` }}>
+                            +{t.xp}XP
+                          </span>
+                        </div>
+                      ))}
+                      {sphereData.all.filter(t => !t.done).length > 0 && (
+                        <>
+                          <p className="text-[8px] uppercase tracking-[0.18em] pt-2 pb-1"
+                            style={{ color: "rgba(255,255,255,0.12)" }}>
+                            В процессе
+                          </p>
+                          {sphereData.all.filter(t => !t.done).slice(0, 5).map(t => (
+                            <div key={t.id}
+                              className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                              style={{
+                                background: "rgba(255,255,255,0.02)",
+                                border: "1px solid rgba(255,255,255,0.05)",
+                              }}
+                            >
+                              <span style={{ color: "rgba(255,255,255,0.18)", fontSize: 10, flexShrink: 0 }}>○</span>
+                              <span className="flex-1 text-xs font-light truncate"
+                                style={{ color: "rgba(255,255,255,0.30)" }}>
+                                {t.text}
+                              </span>
+                              <span className="text-[9px] flex-shrink-0"
+                                style={{ color: "rgba(255,255,255,0.12)" }}>
+                                +{t.xp}XP
+                              </span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Glow donut chart */}
       <section
         className="flex flex-col items-center rounded-[2rem] py-7"
         style={{
@@ -418,97 +624,102 @@ export function Stats() {
         <GlowDonut levels={displayLevels} hovered={hovered} setHovered={setHovered} />
       </section>
 
-      {/* ── Attention analysis ─────────────────────────────────── */}
+      {/* ── Attention analysis — compact + collapsible */}
       <section>
-        <p className="text-[9px] uppercase tracking-[0.25em] mb-4 font-medium"
-          style={{ color: "rgba(255,255,255,0.2)" }}>
-          Анализ внимания
-        </p>
-        {!hasActivity ? (
-          <div
-            className="rounded-[1.5rem] p-6 text-center"
-            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
-          >
-            <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.2)" }}>
-              Нет данных за выбранный период
-            </p>
-            <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.1)" }}>
-              Выполни задачи — здесь появится анализ
-            </p>
+        <button
+          onClick={() => setAttentionOpen(o => !o)}
+          className="flex items-center justify-between w-full mb-0 group"
+        >
+          <p className="text-[9px] uppercase tracking-[0.25em] font-medium"
+            style={{ color: "rgba(255,255,255,0.2)" }}>
+            Анализ внимания
+          </p>
+          <div className="flex items-center gap-2">
+            {hasActivity && !attentionOpen && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px]"
+                  style={{ color: sphereColors[maxSphere].color }}>
+                  🔥 {sphereColors[maxSphere].label}
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.12)", fontSize: 9 }}>·</span>
+                <span className="text-[9px]"
+                  style={{ color: sphereColors[minSphere].color }}>
+                  💤 {sphereColors[minSphere].label}
+                </span>
+              </div>
+            )}
+            <span
+              className="text-[10px] transition-transform duration-250"
+              style={{
+                color: "rgba(255,255,255,0.25)",
+                display: "inline-block",
+                transform: attentionOpen ? "rotate(180deg)" : "none",
+              }}
+            >
+              ▾
+            </span>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {([
-              {
-                key: maxSphere,
-                title: "Максимум внимания",
-                note: "Этой сфере посвящено больше всего задач за период.",
-                badge: "🔥",
-                stat: sphereTaskCounts[maxSphere],
-              },
-              {
-                key: minSphere,
-                title: "Минимум внимания",
-                note: "Уделить больше времени этой сфере в следующем периоде.",
-                badge: "💤",
-                stat: sphereTaskCounts[minSphere],
-              },
-            ] as { key: SphereKey; title: string; note: string; badge: string; stat: number }[]).map(
-              ({ key, title, note, badge, stat }) => {
-                const s = sphereColors[key];
-                return (
-                  <div
-                    key={title}
-                    className="rounded-[1.75rem] p-5 flex flex-col gap-3 relative overflow-hidden"
-                    style={{
-                      background: `rgba(${hexToRgb(s.color)},0.06)`,
-                      backdropFilter: "blur(20px)",
-                      border: `1px solid rgba(${hexToRgb(s.color)},0.16)`,
-                      boxShadow: `0 0 40px rgba(${hexToRgb(s.color)},0.06)`,
-                    }}
-                  >
-                    <div
-                      className="absolute top-0 right-0 w-24 h-24 rounded-full pointer-events-none"
-                      style={{
-                        background: `radial-gradient(circle,rgba(${hexToRgb(s.color)},0.20) 0%,transparent 70%)`,
-                        filter: "blur(16px)",
-                        transform: "translate(30%,-30%)",
-                      }}
-                    />
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] uppercase tracking-[0.2em] font-medium"
-                        style={{ color: "rgba(255,255,255,0.22)" }}>
-                        {title}
-                      </p>
-                      <span className="text-base">{badge}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl"
-                        style={{ filter: `drop-shadow(0 0 14px ${s.color}) drop-shadow(0 0 28px ${s.color}50)` }}>
-                        {s.icon}
-                      </span>
-                      <div>
-                        <p className="text-sm font-light" style={{ color: s.color, textShadow: `0 0 14px ${s.color}60` }}>
-                          {s.label}
-                        </p>
-                        <p className="text-2xl font-light" style={{ color: "rgba(255,255,255,0.75)" }}>
-                          {stat}
-                          <span className="text-xs ml-1" style={{ color: "rgba(255,255,255,0.2)" }}>задач</span>
-                        </p>
+        </button>
+
+        {attentionOpen && (
+          <div className="mt-3">
+            {!hasActivity ? (
+              <div
+                className="rounded-[1.5rem] p-5 text-center"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  Нет данных за выбранный период
+                </p>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                {([
+                  { key: maxSphere, title: "Максимум", note: "задач выполнено", badge: "🔥", stat: sphereTaskCounts[maxSphere] },
+                  { key: minSphere, title: "Минимум",  note: "задач выполнено", badge: "💤", stat: sphereTaskCounts[minSphere]  },
+                ] as { key: SphereKey; title: string; note: string; badge: string; stat: number }[]).map(
+                  ({ key, title, badge, stat }) => {
+                    const s = sphereColors[key];
+                    const rgb = hexToRgb(s.color);
+                    return (
+                      <div
+                        key={title}
+                        className="flex-1 rounded-2xl px-4 py-3 flex items-center gap-3"
+                        style={{
+                          background: `rgba(${rgb},0.06)`,
+                          border: `1px solid rgba(${rgb},0.15)`,
+                        }}
+                      >
+                        <span className="text-lg">{s.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] uppercase tracking-[0.15em]"
+                            style={{ color: "rgba(255,255,255,0.22)" }}>
+                            {title}
+                          </p>
+                          <p className="text-sm font-light truncate"
+                            style={{ color: s.color }}>
+                            {s.label}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-lg font-light tabular-nums"
+                            style={{ color: "rgba(255,255,255,0.7)", lineHeight: 1 }}>
+                            {stat}
+                          </p>
+                          <p className="text-[8px]" style={{ color: "rgba(255,255,255,0.2)" }}>задач</p>
+                        </div>
+                        <span className="text-sm flex-shrink-0">{badge}</span>
                       </div>
-                    </div>
-                    <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>
-                      {note}
-                    </p>
-                  </div>
-                );
-              }
+                    );
+                  }
+                )}
+              </div>
             )}
           </div>
         )}
       </section>
 
-      {/* ── Level controls ─────────────────────────────────────── */}
+      {/* ── Level controls */}
       <section>
         <p className="text-[9px] uppercase tracking-[0.25em] mb-4 font-medium"
           style={{ color: "rgba(255,255,255,0.2)" }}>
@@ -525,16 +736,17 @@ export function Stats() {
             const s = sphereColors[key];
             const level = displayLevels[key];
             const pct = (level / 10) * 100;
+            const rgb = hexToRgb(s.color);
             const isHov = hovered === key;
             return (
               <div
                 key={key}
                 className="rounded-[1.5rem] px-5 py-4 flex items-center gap-4 transition-all duration-300"
                 style={{
-                  background: isHov ? `rgba(${hexToRgb(s.color)},0.08)` : "rgba(255,255,255,0.025)",
+                  background: isHov ? `rgba(${rgb},0.08)` : "rgba(255,255,255,0.025)",
                   backdropFilter: "blur(16px)",
-                  border: `1px solid rgba(${hexToRgb(s.color)},${isHov ? "0.22" : "0.07"})`,
-                  boxShadow: isHov ? `0 0 30px rgba(${hexToRgb(s.color)},0.10)` : "none",
+                  border: `1px solid rgba(${rgb},${isHov ? "0.22" : "0.07"})`,
+                  boxShadow: isHov ? `0 0 30px rgba(${rgb},0.10)` : "none",
                 }}
                 onMouseEnter={() => setHovered(key)}
                 onMouseLeave={() => setHovered(null)}
@@ -566,7 +778,7 @@ export function Stats() {
                       className="h-full rounded-full"
                       style={{
                         width: `${pct}%`,
-                        background: `linear-gradient(90deg, rgba(${hexToRgb(s.color)},0.4), ${s.color})`,
+                        background: `linear-gradient(90deg, rgba(${rgb},0.4), ${s.color})`,
                         boxShadow: isHov ? `0 0 12px ${s.color}70, 0 0 24px ${s.color}30` : `0 0 6px ${s.color}40`,
                         transition: "width 0.55s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s",
                       }}
@@ -574,7 +786,6 @@ export function Stats() {
                   </div>
                 </div>
 
-                {/* Controls — hidden in archive mode */}
                 {!isArchiveMode && (
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -584,7 +795,7 @@ export function Stats() {
                       style={{
                         background: "rgba(255,255,255,0.04)",
                         color: s.color,
-                        border: `1px solid rgba(${hexToRgb(s.color)},0.20)`,
+                        border: `1px solid rgba(${rgb},0.20)`,
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 12px ${s.color}40`)}
                       onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
@@ -600,7 +811,7 @@ export function Stats() {
                       style={{
                         background: "rgba(255,255,255,0.04)",
                         color: s.color,
-                        border: `1px solid rgba(${hexToRgb(s.color)},0.20)`,
+                        border: `1px solid rgba(${rgb},0.20)`,
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.boxShadow = `0 0 12px ${s.color}40`)}
                       onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
@@ -608,7 +819,6 @@ export function Stats() {
                   </div>
                 )}
 
-                {/* Archive: show level as read-only badge */}
                 {isArchiveMode && (
                   <span
                     className="text-sm font-light tabular-nums flex-shrink-0 w-10 text-right"
@@ -622,6 +832,7 @@ export function Stats() {
           })}
         </div>
       </section>
+
     </div>
   );
 }
