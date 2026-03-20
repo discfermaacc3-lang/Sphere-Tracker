@@ -455,7 +455,6 @@ export function Goals() {
   const [activeTab, setActiveTab] = useState<TabKey>("mid");
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
 
   const [taskModalItem, setTaskModalItem] = useState<{
@@ -492,15 +491,15 @@ export function Goals() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowOverviewModal(true)}
-            className="px-4 py-2.5 rounded-2xl text-xs font-semibold tracking-[0.10em] uppercase transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] uppercase tracking-[0.13em] transition-all hover:opacity-90"
             style={{
-              background: `rgba(${LAV},0.10)`,
-              color: LAV_HEX,
-              border: `1px solid rgba(${LAV},0.25)`,
-              textShadow: `0 0 8px rgba(${LAV},0.45)`,
+              color: `rgba(${LAV},0.40)`,
+              border: `1px solid rgba(${LAV},0.13)`,
+              background: "transparent",
             }}
           >
-            ✦ Обзор всех
+            <span style={{ fontSize: "12px", lineHeight: 1 }}>◎</span>
+            карта
           </button>
           <button
             onClick={openAdd}
@@ -623,121 +622,54 @@ export function Goals() {
         </div>
       )}
 
-      {/* ══ Drafts button ══ */}
-      <div
-        className="flex items-center justify-between px-5 py-3.5 rounded-2xl transition-all"
-        style={{
-          background: "rgba(255,255,255,0.018)",
-          border: "1px dashed rgba(255,255,255,0.09)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-lg">💡</span>
-          <div>
-            <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>
-              Идеи и Черновики
-            </p>
-            <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.16)" }}>
-              {draftGoals.length > 0 ? `${draftGoals.length} без срока` : "Цели без срока — мечты на будущее"}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowDraftsModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-          style={{
-            background: `rgba(${LAV},0.12)`,
-            color: LAV_HEX,
-            border: `1px solid rgba(${LAV},0.22)`,
-            textShadow: `0 0 8px rgba(${LAV},0.50)`,
-          }}
-        >
-          ПОСМОТРЕТЬ ВСЕ →
-        </button>
-      </div>
-
-      {/* ══ Drafts modal ══ */}
-      {showDraftsModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(14px)" }}
-          onClick={e => e.target === e.currentTarget && setShowDraftsModal(false)}
-        >
-          <div
-            className="w-full max-w-2xl flex flex-col rounded-3xl overflow-hidden"
-            style={{
-              background: "rgba(11,10,24,0.98)",
-              border: `1px solid rgba(${LAV},0.18)`,
-              boxShadow: `0 0 60px rgba(${LAV},0.12)`,
-              maxHeight: "88vh",
-            }}
+      {/* ══ Drafts inline ══ */}
+      {draftGoals.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2">
+          <p
+            className="text-[9px] uppercase tracking-[0.22em] font-semibold px-1"
+            style={{ color: "rgba(255,255,255,0.16)" }}
           >
-            {/* Header */}
-            <div
-              className="flex items-center justify-between px-6 py-4 border-b"
-              style={{ borderColor: `rgba(${LAV},0.12)`, background: `rgba(${LAV},0.04)` }}
-            >
-              <div>
-                <h2 className="text-base font-semibold tracking-wide" style={{ color: `rgba(${LAV},0.85)` }}>
-                  💡 Идеи и Черновики
-                </h2>
-                <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.22)" }}>
-                  {draftGoals.length} целей без срока
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setShowDraftsModal(false); openAdd(); }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                  style={{
-                    background: `rgba(${LAV},0.16)`,
-                    color: LAV_HEX,
-                    border: `1px solid rgba(${LAV},0.28)`,
-                  }}
-                >+ Добавить</button>
-                <button
-                  onClick={() => setShowDraftsModal(false)}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/60 hover:bg-white/5 transition-all text-lg"
-                >✕</button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="overflow-y-auto px-6 py-5 flex flex-col gap-3">
-              {draftGoals.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-4xl mb-3">💡</p>
-                  <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.22)" }}>
-                    Нет черновиков
+            💡 черновики · {draftGoals.length}
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {draftGoals.map(g => (
+              <div
+                key={g.id}
+                className="flex items-center gap-3.5 px-4 py-3 rounded-2xl group transition-all"
+                style={{
+                  background: "rgba(255,255,255,0.012)",
+                  border: "1px dashed rgba(255,255,255,0.055)",
+                }}
+              >
+                <span className="text-sm flex-shrink-0" style={{ opacity: 0.28 }}>💡</span>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-sm font-light truncate"
+                    style={{ color: "rgba(255,255,255,0.36)" }}
+                  >
+                    {g.title}
                   </p>
-                  <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.12)" }}>
-                    Добавь идею — цель без срока, которая ждёт своего времени
-                  </p>
-                  <button
-                    onClick={() => { setShowDraftsModal(false); openAdd(); }}
-                    className="mt-4 px-5 py-2 rounded-xl text-sm font-medium transition-all"
-                    style={{
-                      background: `rgba(${LAV},0.14)`,
-                      color: LAV_HEX,
-                      border: `1px solid rgba(${LAV},0.24)`,
-                    }}
-                  >+ Добавить идею</button>
+                  {g.description && (
+                    <p
+                      className="text-[10px] truncate mt-0.5"
+                      style={{ color: "rgba(255,255,255,0.13)" }}
+                    >
+                      {g.description}
+                    </p>
+                  )}
                 </div>
-              ) : (
-                draftGoals.map(goal => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    goals={goals}
-                    tasks={tasks}
-                    onToggle={() => toggleGoal(goal.id)}
-                    onEdit={() => { setShowDraftsModal(false); openEdit(goal); }}
-                    onDelete={() => deleteGoal(goal.id)}
-                    onAddToDay={text => { setShowDraftsModal(false); setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id }); }}
-                  />
-                ))
-              )}
-            </div>
+                <button
+                  onClick={() => openEdit(g)}
+                  className="opacity-0 group-hover:opacity-100 text-[9px] px-2.5 py-1 rounded-lg transition-all uppercase tracking-[0.12em] flex-shrink-0"
+                  style={{
+                    color: `rgba(${LAV},0.55)`,
+                    border: `1px solid rgba(${LAV},0.16)`,
+                  }}
+                >
+                  изм.
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
