@@ -51,9 +51,13 @@ export type Goal = {
   title: string;
   description?: string;
   successCriteria?: string;
-  sphere: SphereKey;
-  category: TaskCategory;
-  level: GoalLevel;
+  sphere?: SphereKey;
+  category?: TaskCategory;
+  level?: GoalLevel;
+  isMission?: boolean;
+  durationMonths?: number;
+  durationWeeks?: number;
+  startDate?: string;
   parentId?: string;
   done: boolean;
   xp: number;
@@ -418,7 +422,7 @@ function autoCompleteGoals(tasks: Task[], goals: Goal[], bonusXP: number): { goa
     const nextGoals = currentGoals.map((g) => {
       if (g.done) return g;
       const earned = computeGoalEarnedXP(g, currentGoals, tasks);
-      if (earned >= g.targetXP) { changed = true; totalBonus += g.xp; return { ...g, done: true }; }
+      if (g.targetXP > 0 && earned >= g.targetXP) { changed = true; totalBonus += g.xp; return { ...g, done: true }; }
       return g;
     });
     currentGoals = nextGoals;
