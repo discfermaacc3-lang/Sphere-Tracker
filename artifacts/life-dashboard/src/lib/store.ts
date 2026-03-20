@@ -40,10 +40,17 @@ export const IDEA_CATEGORIES: { key: IdeaCategory; label: string; emoji: string;
   { key: "other",      label: "Другое",      emoji: "💡", color: "#64748b" },
 ];
 
+export type GoalChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 export type Goal = {
   id: string;
   title: string;
   description?: string;
+  successCriteria?: string;
   sphere: SphereKey;
   category: TaskCategory;
   level: GoalLevel;
@@ -53,6 +60,8 @@ export type Goal = {
   targetXP: number;
   month?: number;
   year?: number;
+  checklistItems?: GoalChecklistItem[];
+  isIdea?: boolean;
 };
 
 export type Idea = {
@@ -209,6 +218,9 @@ type Store = {
   editGoal: (id: string, updates: Partial<Omit<Goal, "id">>) => void;
   deleteGoal: (id: string) => void;
   toggleGoal: (id: string) => void;
+  addGoalChecklistItem: (goalId: string, text: string) => void;
+  toggleGoalChecklistItem: (goalId: string, itemId: string) => void;
+  deleteGoalChecklistItem: (goalId: string, itemId: string) => void;
 
   customIdeaCategories: CustomIdeaCategory[];
   addIdeaCategory: (cat: Omit<CustomIdeaCategory, "key">) => void;
@@ -530,6 +542,30 @@ export const useStore = create<Store>()(
         set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)) })),
       deleteGoal: (id) =>
         set((s) => ({ goals: s.goals.filter((g) => g.id !== id && g.parentId !== id) })),
+      addGoalChecklistItem: (goalId, text) =>
+        set((s) => ({
+          goals: s.goals.map((g) =>
+            g.id === goalId
+              ? { ...g, checklistItems: [...(g.checklistItems ?? []), { id: "ci-" + Date.now(), text, done: false }] }
+              : g
+          ),
+        })),
+      toggleGoalChecklistItem: (goalId, itemId) =>
+        set((s) => ({
+          goals: s.goals.map((g) =>
+            g.id === goalId
+              ? { ...g, checklistItems: (g.checklistItems ?? []).map((ci) => ci.id === itemId ? { ...ci, done: !ci.done } : ci) }
+              : g
+          ),
+        })),
+      deleteGoalChecklistItem: (goalId, itemId) =>
+        set((s) => ({
+          goals: s.goals.map((g) =>
+            g.id === goalId
+              ? { ...g, checklistItems: (g.checklistItems ?? []).filter((ci) => ci.id !== itemId) }
+              : g
+          ),
+        })),
       toggleGoal: (id) =>
         set((s) => {
           const goal = s.goals.find((g) => g.id === id);

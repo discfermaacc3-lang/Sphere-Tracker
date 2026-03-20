@@ -55,6 +55,7 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [successCriteria, setSuccessCriteria] = useState(initial?.successCriteria ?? "");
   const [sphere, setSphere] = useState<SphereKey>(initial?.sphere ?? "work");
   const [category, setCategory] = useState<TaskCategory>(initial?.category ?? "Other");
   const [parentId, setParentId] = useState<string | undefined>(initial?.parentId);
@@ -73,6 +74,7 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
     onSave({
       title: title.trim(),
       description,
+      successCriteria: successCriteria.trim() || undefined,
       sphere,
       category,
       level,
@@ -82,6 +84,7 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
       targetXP: Math.max(1, parseInt(targetXP) || GOAL_TARGET_XP_DEFAULT[level]),
       month: level !== "year" ? month : undefined,
       year,
+      checklistItems: initial?.checklistItems,
     });
     onClose();
   }
@@ -142,6 +145,16 @@ export function GoalModal({ level, parentGoals, initial, onSave, onClose }: Prop
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+
+          {/* Success criteria */}
+          <Field label="Критерий достижения">
+            <input
+              className={inputCls()}
+              placeholder="Как я пойму, что цель достигнута?"
+              value={successCriteria}
+              onChange={(e) => setSuccessCriteria(e.target.value)}
             />
           </Field>
 
