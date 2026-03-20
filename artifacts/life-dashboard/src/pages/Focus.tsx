@@ -10,8 +10,8 @@ const TIMER_MODES = [
 
 /* Breathing: только Вдох (4с) и Выдох (6с) — без задержки */
 const BREATH_PHASES = [
-  { key: "inhale" as const, label: "Вдох",  ms: 4000, scale: 1.17, glowOp: 0.30 },
-  { key: "exhale" as const, label: "Выдох", ms: 6000, scale: 0.80, glowOp: 0.06 },
+  { key: "inhale" as const, label: "Вдох",  ms: 4000, scale: 1.00, glowOp: 0.28 },
+  { key: "exhale" as const, label: "Выдох", ms: 6000, scale: 0.07, glowOp: 0.03 },
 ];
 
 const FOCUS_XP = 15;
@@ -354,30 +354,9 @@ export function Focus() {
               </svg>
             )}
 
-            {/* center */}
+            {/* center — timer display only; star is outside the disc in breath mode */}
             <div className="relative text-center z-10 select-none">
-              {isBreath ? (
-                /* ── Дыхание: только сияющая звёздочка, никакого текста ── */
-                <div style={{
-                  fontSize: 36,
-                  lineHeight: 1,
-                  color:"#a78bfa",
-                  transform: breathRunning
-                    ? breathPhase === "inhale" ? "scale(1.5)" : "scale(0.12)"
-                    : "scale(0.55)",
-                  opacity: breathRunning
-                    ? breathPhase === "inhale" ? 1 : 0.35
-                    : 0.28,
-                  transition: breathRunning
-                    ? `transform ${bTransDur} ease-in-out, opacity ${bTransDur} ease-in-out`
-                    : "transform 1s ease, opacity 1s ease",
-                  textShadow: breathRunning && breathPhase === "inhale"
-                    ? `0 0 28px rgba(${LAV_RGB},1), 0 0 56px rgba(${LAV_RGB},.55), 0 0 90px rgba(${LAV_RGB},.25)`
-                    : `0 0 10px rgba(${LAV_RGB},.30)`,
-                }}>
-                  ✦
-                </div>
-              ) : (
+              {isBreath ? null : (
                 <>
                   <div className="text-5xl font-light tabular-nums"
                     style={{
@@ -414,6 +393,34 @@ export function Focus() {
               </div>
             )}
           </div>
+
+          {/* ── Breath star — absolute anchor; center never moves ── */}
+          {isBreath && (
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: `translate(-50%, -50%) scale(${
+                breathRunning
+                  ? breathPhase === "inhale" ? 1.4 : 0.28
+                  : 0.55
+              })`,
+              zIndex: 20,
+              pointerEvents: "none",
+              fontSize: 36,
+              lineHeight: 1,
+              color: "#a78bfa",
+              opacity: breathRunning
+                ? breathPhase === "inhale" ? 1 : 0.45
+                : 0.30,
+              transition: breathRunning
+                ? `transform ${bTransDur} ease-in-out, opacity ${bTransDur} ease-in-out`
+                : "transform 1s ease, opacity 1s ease",
+              textShadow: breathRunning && breathPhase === "inhale"
+                ? `0 0 28px rgba(${LAV_RGB},1), 0 0 56px rgba(${LAV_RGB},.55), 0 0 90px rgba(${LAV_RGB},.25)`
+                : `0 0 10px rgba(${LAV_RGB},.30)`,
+            }}>✦</div>
+          )}
         </div>
 
         {/* ── controls ── */}
