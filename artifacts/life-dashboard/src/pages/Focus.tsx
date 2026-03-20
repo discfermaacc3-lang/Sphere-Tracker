@@ -58,13 +58,29 @@ export function Focus() {
     const style = document.createElement("style");
     style.id = id;
     style.textContent = `
-      @keyframes focus-breathe {
-        0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(var(--fc), 0.10), inset 0 1px 0 rgba(255,255,255,0.06); }
-        50%       { transform: scale(1.013); box-shadow: 0 0 90px rgba(var(--fc), 0.22), 0 0 140px rgba(var(--fc), 0.10), inset 0 1px 0 rgba(255,255,255,0.06); }
+      @keyframes focus-aura {
+        0%, 100% {
+          transform: scale(0.88);
+          opacity: 0.52;
+        }
+        50% {
+          transform: scale(1.22);
+          opacity: 1;
+        }
       }
-      @keyframes focus-bg-pulse {
-        0%, 100% { opacity: 0.10; }
-        50%       { opacity: 0.24; }
+      @keyframes focus-disc-glow {
+        0%, 100% {
+          box-shadow:
+            0 0 40px 6px  rgba(167,139,250,0.13),
+            0 0 80px 18px rgba(167,139,250,0.06),
+            inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        50% {
+          box-shadow:
+            0 0 70px 24px rgba(167,139,250,0.30),
+            0 0 130px 50px rgba(34,211,238,0.10),
+            inset 0 1px 0 rgba(255,255,255,0.07);
+        }
       }
       @keyframes xp-float {
         0%   { opacity: 0;   transform: translate(-50%, 0)    scale(0.7); }
@@ -136,10 +152,10 @@ export function Focus() {
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-col items-center gap-1.5 pt-2">
         <h1
-          className="text-xl font-light tracking-[0.15em] uppercase"
-          style={{ color: "rgba(255,255,255,0.6)", textShadow: "0 0 30px rgba(167,139,250,0.3)" }}
+          className="text-2xl font-light tracking-[0.25em] uppercase text-center w-full"
+          style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 0 40px rgba(167,139,250,0.40)" }}
         >
           Фокус
         </h1>
@@ -147,7 +163,7 @@ export function Focus() {
         {todayHistory.length > 0 && (
           <span className="text-xs font-light" style={{ color: "rgba(255,255,255,0.28)" }}>
             Сегодня:&nbsp;
-            <span style={{ color }}>{totalMinToday} мин</span>
+            <span style={{ color: "#a78bfa" }}>{totalMinToday} мин</span>
             &nbsp;·&nbsp;
             <span style={{ color: "#fbbf24", textShadow: "0 0 8px rgba(251,191,36,0.5)" }}>
               +{totalXPToday} XP
@@ -185,18 +201,24 @@ export function Focus() {
         {/* ── Timer circle ── */}
         <div className="relative" style={{ width: 240, height: 240 }}>
 
-          {/* Breathing glow behind the ring */}
+          {/* Breathing aura — lavender + mint, expands like inhale/exhale */}
           <div
             style={{
-              position: "absolute", inset: -20,
+              position: "absolute",
+              top: "50%", left: "50%",
+              width: 300, height: 300,
+              marginTop: -150, marginLeft: -150,
               borderRadius: "50%",
-              background: `radial-gradient(circle, rgba(${hexToRgb(color)},0.18) 0%, transparent 68%)`,
-              animation: running ? "focus-bg-pulse 4s ease-in-out infinite" : "none",
+              background: "radial-gradient(circle, rgba(167,139,250,0.22) 0%, rgba(34,211,238,0.09) 48%, transparent 70%)",
+              animation: running
+                ? "focus-aura 5s ease-in-out infinite"
+                : "focus-aura 5s ease-in-out infinite paused",
+              opacity: running ? 1 : 0.38,
               pointerEvents: "none",
             }}
           />
 
-          {/* Glass disc */}
+          {/* Glass disc — static size, only glow breathes */}
           <div
             className="relative flex items-center justify-center rounded-full"
             style={{
@@ -204,9 +226,10 @@ export function Focus() {
               background:    "rgba(255,255,255,0.025)",
               backdropFilter:"blur(20px)",
               border:        "1px solid rgba(255,255,255,0.06)",
-              // CSS variable for the keyframe
-              ["--fc" as string]: hexToRgb(color),
-              animation: running ? "focus-breathe 4s ease-in-out infinite" : "none",
+              animation: running ? "focus-disc-glow 5s ease-in-out infinite" : "none",
+              boxShadow: running
+                ? undefined
+                : "0 0 40px 6px rgba(167,139,250,0.10), inset 0 1px 0 rgba(255,255,255,0.06)",
             }}
           >
             {/* SVG ring */}
