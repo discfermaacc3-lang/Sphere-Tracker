@@ -123,6 +123,7 @@ export type FocusSession = {
   id: string;
   date: string;
   startTime: string;
+  endTime?: string;
   durationMinutes: number;
   xp: number;
   type?: "pomodoro" | "short" | "long";

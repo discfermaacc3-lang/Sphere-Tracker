@@ -8,17 +8,17 @@ const TIMER_MODES = [
   { label: "Длинный",  minutes: 15, color: "#86efac", rgb: "134,239,172", type: "long"     as const, givesXP: false },
 ];
 
+/* Breathing: только Вдох (4с) и Выдох (6с) — без задержки */
 const BREATH_PHASES = [
-  { key: "inhale" as const, label: "Вдох",     ms: 4000, scale: 1.18, glowOp: 0.32 },
-  { key: "hold"   as const, label: "Задержка", ms: 2000, scale: 1.18, glowOp: 0.32 },
-  { key: "exhale" as const, label: "Выдох",    ms: 4000, scale: 0.78, glowOp: 0.07 },
+  { key: "inhale" as const, label: "Вдох",  ms: 4000, scale: 1.17, glowOp: 0.30 },
+  { key: "exhale" as const, label: "Выдох", ms: 6000, scale: 0.80, glowOp: 0.06 },
 ];
 
-const FOCUS_XP   = 15;
-const LAV_RGB    = "167,139,250";
-const MINT_RGB   = "34,211,238";
-const RING_R     = 96;
-const CIRCUMF    = 2 * Math.PI * RING_R;
+const FOCUS_XP = 15;
+const LAV_RGB  = "167,139,250";
+const MINT_RGB = "34,211,238";
+const RING_R   = 96;
+const CIRCUMF  = 2 * Math.PI * RING_R;
 
 /* ─── helpers ────────────────────────────────────────────── */
 function getTimeStr() {
@@ -49,16 +49,15 @@ export function Focus() {
   const prevRunningRef                    = useRef(false);
   const completedRef                      = useRef(false);
 
-  /* custom time stepper */
+  /* custom time */
   const [customMin, setCustomMin]         = useState(25);
-  const holdRef                           = useRef<ReturnType<typeof setInterval>|null>(null);
 
   /* breath */
   const [breathRunning, setBreathRunning] = useState(false);
-  const [breathPhase, setBreathPhase]     = useState<"inhale"|"hold"|"exhale">("inhale");
+  const [breathPhase, setBreathPhase]     = useState<"inhale"|"exhale">("inhale");
   const breathTimerRef                    = useRef<ReturnType<typeof setTimeout>|null>(null);
 
-  /* progress ring */
+  /* derived */
   const totalSecs  = minutes * 60 + seconds;
   const progress   = Math.max(0, 1 - totalSecs / (sessionDurRef.current * 60));
   const strokeDash = CIRCUMF * progress;
@@ -66,25 +65,29 @@ export function Focus() {
 
   /* ── inject CSS once ── */
   useEffect(() => {
-    const id = "focus-keyframes";
+    const id = "focus-kf";
     if (document.getElementById(id)) return;
     const s = document.createElement("style");
     s.id = id;
     s.textContent = `
       @keyframes xp-float {
-        0%   { opacity:0; transform:translate(-50%,0)    scale(.7); }
-        15%  { opacity:1; transform:translate(-50%,-14px) scale(1.1); }
-        70%  { opacity:1; transform:translate(-50%,-44px) scale(1); }
-        100% { opacity:0; transform:translate(-50%,-68px) scale(.9); }
+        0%   { opacity:0; transform:translate(-50%,0) scale(.7); }
+        18%  { opacity:1; transform:translate(-50%,-12px) scale(1.1); }
+        70%  { opacity:1; transform:translate(-50%,-40px) scale(1); }
+        100% { opacity:0; transform:translate(-50%,-64px) scale(.9); }
       }
       @keyframes focus-aura {
-        0%,100% { transform:scale(.88); opacity:.5; }
-        50%     { transform:scale(1.22); opacity:1; }
+        0%,100% { transform:scale(.88); opacity:.48; }
+        50%     { transform:scale(1.24); opacity:1; }
       }
       @keyframes focus-disc-glow {
-        0%,100% { box-shadow:0 0 40px 6px rgba(${LAV_RGB},.12),0 0 80px 18px rgba(${LAV_RGB},.05),inset 0 1px 0 rgba(255,255,255,.06); }
-        50%     { box-shadow:0 0 70px 24px rgba(${LAV_RGB},.28),0 0 130px 50px rgba(${MINT_RGB},.09),inset 0 1px 0 rgba(255,255,255,.07); }
+        0%,100% { box-shadow:0 0 36px 5px rgba(${LAV_RGB},.11),0 0 72px 16px rgba(${LAV_RGB},.04),inset 0 1px 0 rgba(255,255,255,.06); }
+        50%     { box-shadow:0 0 66px 22px rgba(${LAV_RGB},.27),0 0 120px 46px rgba(${MINT_RGB},.08),inset 0 1px 0 rgba(255,255,255,.07); }
       }
+      /* скрыть стрелки браузера в числовом поле */
+      .focus-numinput::-webkit-inner-spin-button,
+      .focus-numinput::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+      .focus-numinput { -moz-appearance:textfield; }
     `;
     document.head.appendChild(s);
     return () => { document.getElementById(id)?.remove(); };
@@ -95,18 +98,18 @@ export function Focus() {
     if (breathTimerRef.current) clearTimeout(breathTimerRef.current);
     if (!isBreath || !breathRunning) return;
 
-    function advance(phase: "inhale"|"hold"|"exhale") {
+    function advance(phase: "inhale"|"exhale") {
       setBreathPhase(phase);
       const p = BREATH_PHASES.find(x => x.key === phase)!;
-      const next = phase === "inhale" ? "hold" : phase === "hold" ? "exhale" : "inhale";
+      const next: "inhale"|"exhale" = phase === "inhale" ? "exhale" : "inhale";
       breathTimerRef.current = setTimeout(() => advance(next), p.ms);
     }
     setBreathPhase("inhale");
-    breathTimerRef.current = setTimeout(() => advance("hold"), BREATH_PHASES[0].ms);
+    breathTimerRef.current = setTimeout(() => advance("exhale"), BREATH_PHASES[0].ms);
     return () => { if (breathTimerRef.current) clearTimeout(breathTimerRef.current); };
   }, [isBreath, breathRunning]);
 
-  /* ── session start tracking ── */
+  /* ── session start ── */
   useEffect(() => {
     if (running && !prevRunningRef.current) {
       sessionStartRef.current = getTimeStr();
@@ -115,18 +118,19 @@ export function Focus() {
     prevRunningRef.current = running;
   }, [running]);
 
-  /* ── completion detection ── */
+  /* ── completion ── */
   useEffect(() => {
     if (totalSecs === 0 && running && !completedRef.current) {
       completedRef.current = true;
       if (timerMode.givesXP) {
         addXP(FOCUS_XP);
         setShowXPFloat(true);
-        setTimeout(() => setShowXPFloat(false), 2000);
+        setTimeout(() => setShowXPFloat(false), 2200);
       }
       addFocusSession({
         date:            getTodayStr(),
         startTime:       sessionStartRef.current ?? getTimeStr(),
+        endTime:         getTimeStr(),
         durationMinutes: sessionDurRef.current,
         xp:              timerMode.givesXP ? FOCUS_XP : 0,
         type:            timerMode.type,
@@ -134,7 +138,7 @@ export function Focus() {
     }
   }, [totalSecs, running]);
 
-  /* ── countdown interval ── */
+  /* ── countdown ── */
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
@@ -155,7 +159,7 @@ export function Focus() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running]);
 
-  /* ── helpers ── */
+  /* ── mode select ── */
   function selectMode(idx: number) {
     setRunning(false);
     setBreathRunning(false);
@@ -173,49 +177,37 @@ export function Focus() {
 
   function resetTimer() {
     setRunning(false);
-    const base = isBreath ? 0 : TIMER_MODES[modeIdx]?.minutes ?? 25;
+    const base = TIMER_MODES[modeIdx]?.minutes ?? 25;
     setMinutes(base);
     setSeconds(0);
     completedRef.current = false;
   }
 
-  /* stepper with hold-to-repeat */
-  function startHold(delta: number) {
-    setCustomMin(v => Math.max(1, Math.min(180, v + delta)));
-    holdRef.current = setInterval(() => {
-      setCustomMin(v => Math.max(1, Math.min(180, v + delta)));
-    }, 130);
-  }
-  function stopHold() {
-    if (holdRef.current) clearInterval(holdRef.current);
-  }
-
   function applyCustomTime() {
+    const v = Math.max(1, Math.min(180, customMin));
     setRunning(false);
-    setMinutes(customMin);
+    setMinutes(v);
     setSeconds(0);
-    sessionDurRef.current = customMin;
+    sessionDurRef.current = v;
     completedRef.current  = false;
   }
 
-  /* ── today stats ── */
-  const todayStr     = getTodayStr();
+  /* ── stats ── */
+  const todayStr      = getTodayStr();
   const todaySessions = focusHistory.filter(s => s.date === todayStr);
-  const pomodoros    = todaySessions.filter(s => s.type === "pomodoro" || (!s.type && s.xp > 0));
-  const shortBreaks  = todaySessions.filter(s => s.type === "short");
-  const longBreaks   = todaySessions.filter(s => s.type === "long");
+  const pomodoros     = todaySessions.filter(s => s.type === "pomodoro" || (!s.type && s.xp > 0));
   const totalFocusMin = pomodoros.reduce((a, s) => a + s.durationMinutes, 0);
   const totalXPToday  = pomodoros.reduce((a, s) => a + s.xp, 0);
 
   /* ── breath visuals ── */
-  const bPhase  = BREATH_PHASES.find(p => p.key === breathPhase)!;
-  const bScale  = breathRunning ? bPhase.scale : 1.0;
-  const bGlow   = breathRunning ? bPhase.glowOp : 0.06;
-  const bTrans  = breathPhase === "hold"
-    ? "transform 0.4s ease, box-shadow 0.4s ease"
-    : "transform 4s ease-in-out, box-shadow 4s ease-in-out";
+  const bPhase = BREATH_PHASES.find(p => p.key === breathPhase)!;
+  const bScale = breathRunning ? bPhase.scale : 1.0;
+  const bGlow  = breathRunning ? bPhase.glowOp : 0.06;
+  /* разные длительности перехода для вдоха (4s) и выдоха (6s) */
+  const bTransDur = breathPhase === "inhale" ? "4s" : "6s";
+  const bTrans    = `transform ${bTransDur} ease-in-out, box-shadow ${bTransDur} ease-in-out`;
 
-  /* ═══════════════════════════════════════════════════════ */
+  /* ─────────────────────────────────────────────────────── */
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
 
@@ -231,20 +223,21 @@ export function Focus() {
           <span className="text-xs font-light" style={{ color:"rgba(255,255,255,0.28)" }}>
             Сегодня:&nbsp;
             <span style={{ color:"#a78bfa" }}>{totalFocusMin} мин</span>
-            {totalXPToday > 0 && <>
-              &nbsp;·&nbsp;
-              <span style={{ color:"#fbbf24", textShadow:"0 0 8px rgba(251,191,36,0.5)" }}>
-                +{totalXPToday} XP
-              </span>
-            </>}
+            {totalXPToday > 0 && (
+              <>&nbsp;·&nbsp;
+                <span style={{ color:"#a78bfa", textShadow:`0 0 8px rgba(${LAV_RGB},0.5)` }}>
+                  +{totalXPToday} XP
+                </span>
+              </>
+            )}
           </span>
         )}
       </div>
 
       {/* ── centered content ── */}
-      <div className="flex flex-col items-center gap-8">
+      <div className="flex flex-col items-center gap-7">
 
-        {/* mode tabs */}
+        {/* tabs */}
         <div className="flex gap-1.5 flex-wrap justify-center">
           {TIMER_MODES.map((m, i) => {
             const act = modeIdx === i;
@@ -261,7 +254,6 @@ export function Focus() {
               >{m.label}</button>
             );
           })}
-
           {/* breath tab */}
           {(() => {
             const act = modeIdx === 3;
@@ -274,7 +266,7 @@ export function Focus() {
                   border:     `1px solid rgba(${LAV_RGB},${act ? ".35" : "0"})`,
                   boxShadow:  act ? `0 0 20px rgba(${LAV_RGB},.20)` : "none",
                   textShadow: act ? `0 0 10px #a78bfa` : "none",
-                  letterSpacing: "0.08em",
+                  letterSpacing:"0.06em",
                 }}
               >Дыхание</button>
             );
@@ -284,24 +276,21 @@ export function Focus() {
         {/* ── circle ── */}
         <div className="relative flex items-center justify-center" style={{ width:240, height:240 }}>
 
-          {/* aura glow */}
+          {/* aura */}
           <div style={{
             position:"absolute", top:"50%", left:"50%",
             width:310, height:310, marginTop:-155, marginLeft:-155,
             borderRadius:"50%",
-            background:`radial-gradient(circle, rgba(${LAV_RGB},0.20) 0%, rgba(${MINT_RGB},0.08) 48%, transparent 70%)`,
-            animation: (!isBreath && running)
-              ? "focus-aura 5s ease-in-out infinite"
-              : "none",
-            opacity: (!isBreath && running) ? 1 : 0.32,
+            background:`radial-gradient(circle, rgba(${LAV_RGB},0.19) 0%, rgba(${MINT_RGB},0.07) 48%, transparent 70%)`,
+            animation: (!isBreath && running) ? "focus-aura 5s ease-in-out infinite" : "none",
+            opacity:   (!isBreath && running) ? 1 : 0.30,
             transform: isBreath ? `scale(${bScale})` : "none",
             transition: isBreath ? bTrans : "none",
             pointerEvents:"none",
           }}/>
 
           {/* glass disc */}
-          <div
-            className="relative flex items-center justify-center rounded-full"
+          <div className="relative flex items-center justify-center rounded-full"
             style={{
               width:240, height:240,
               background:    "rgba(255,255,255,.025)",
@@ -311,19 +300,19 @@ export function Focus() {
               transition: isBreath ? bTrans : "none",
               animation: (!isBreath && running) ? "focus-disc-glow 5s ease-in-out infinite" : "none",
               boxShadow: isBreath
-                ? `0 0 ${50 + bGlow * 200}px ${20 + bGlow * 80}px rgba(${LAV_RGB},${bGlow}), inset 0 1px 0 rgba(255,255,255,.06)`
+                ? `0 0 ${45 + bGlow * 180}px ${18 + bGlow * 70}px rgba(${LAV_RGB},${bGlow}), inset 0 1px 0 rgba(255,255,255,.06)`
                 : running
                   ? undefined
-                  : `0 0 40px 6px rgba(${LAV_RGB},.10), inset 0 1px 0 rgba(255,255,255,.06)`,
+                  : `0 0 36px 5px rgba(${LAV_RGB},.09), inset 0 1px 0 rgba(255,255,255,.06)`,
             }}
           >
-            {/* SVG ring — only for timer modes */}
+            {/* SVG ring */}
             {!isBreath && (
               <svg width="240" height="240" style={{ position:"absolute", top:0, left:0 }}>
                 <defs>
                   <linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor={color} stopOpacity=".5" />
-                    <stop offset="100%" stopColor={color} />
+                    <stop offset="0%" stopColor={color} stopOpacity=".5"/>
+                    <stop offset="100%" stopColor={color}/>
                   </linearGradient>
                   <filter id="timer-glow">
                     <feGaussianBlur stdDeviation="4" result="blur"/>
@@ -342,25 +331,27 @@ export function Focus() {
               </svg>
             )}
 
-            {/* center text */}
+            {/* center */}
             <div className="relative text-center z-10 select-none">
               {isBreath ? (
                 <>
-                  <div className="text-3xl font-light tracking-[0.12em]"
+                  <div
+                    key={breathPhase}
+                    className="text-2xl font-light tracking-[0.14em]"
                     style={{
-                      color: "#a78bfa",
-                      textShadow:`0 0 30px rgba(${LAV_RGB},.7)`,
-                      transition:"all .6s ease",
-                      opacity: breathRunning ? 1 : 0.35,
+                      color:"#a78bfa",
+                      textShadow:`0 0 28px rgba(${LAV_RGB},.75)`,
+                      opacity: breathRunning ? 1 : 0.30,
+                      transition:"opacity .5s ease",
                     }}
                   >
                     {breathRunning ? bPhase.label : "✦"}
                   </div>
                   {breathRunning && (
                     <div className="text-[9px] uppercase tracking-[0.22em] mt-2"
-                      style={{ color:`rgba(${LAV_RGB},.45)` }}
+                      style={{ color:`rgba(${LAV_RGB},.40)`, transition:"all .5s ease" }}
                     >
-                      {breathPhase === "inhale" ? "4 сек" : breathPhase === "hold" ? "2 сек" : "4 сек"}
+                      {breathPhase === "inhale" ? "4 сек" : "6 сек"}
                     </div>
                   )}
                 </>
@@ -385,15 +376,17 @@ export function Focus() {
               )}
             </div>
 
-            {/* XP float (pomodoro only) */}
+            {/* XP float — lavender */}
             {showXPFloat && (
               <div style={{
-                position:"absolute", bottom:"28px", left:"50%",
-                animation:"xp-float 2s ease-out forwards",
-                pointerEvents:"none", fontSize:22, fontWeight:700,
-                color:"#fbbf24",
-                textShadow:"0 0 24px rgba(251,191,36,.9),0 0 48px rgba(251,191,36,.4)",
-                letterSpacing:"0.04em", zIndex:20, whiteSpace:"nowrap",
+                position:"absolute", bottom:"26px", left:"50%",
+                animation:"xp-float 2.2s ease-out forwards",
+                pointerEvents:"none",
+                fontSize:18, fontWeight:600,
+                color:"#a78bfa",
+                textShadow:`0 0 18px rgba(${LAV_RGB},.90), 0 0 36px rgba(${LAV_RGB},.40)`,
+                letterSpacing:"0.06em",
+                zIndex:20, whiteSpace:"nowrap",
               }}>
                 +{FOCUS_XP} XP
               </div>
@@ -405,40 +398,37 @@ export function Focus() {
         <div className="flex gap-3">
           {isBreath ? (
             <>
-              <button
-                onClick={() => setBreathRunning(v => !v)}
+              <button onClick={() => setBreathRunning(v => !v)}
                 className="px-12 py-3 rounded-2xl text-sm font-light tracking-[0.1em] transition-all duration-300"
                 style={{
                   background:`rgba(${LAV_RGB},.18)`, color:"#a78bfa",
                   border:`1px solid rgba(${LAV_RGB},.30)`,
-                  boxShadow:`0 0 30px rgba(${LAV_RGB},.15)`,
+                  boxShadow:`0 0 28px rgba(${LAV_RGB},.14)`,
                   textShadow:`0 0 10px #a78bfa`,
                 }}
-              >
-                {breathRunning ? "Пауза" : "Начать"}
-              </button>
+              >{breathRunning ? "Пауза" : "Начать"}</button>
               <button
-                onClick={() => { setBreathRunning(false); setBreathPhase("inhale"); if(breathTimerRef.current) clearTimeout(breathTimerRef.current); }}
+                onClick={() => {
+                  setBreathRunning(false);
+                  setBreathPhase("inhale");
+                  if (breathTimerRef.current) clearTimeout(breathTimerRef.current);
+                }}
                 className="px-6 py-3 rounded-2xl text-sm font-light transition-all"
                 style={{ background:"rgba(255,255,255,.04)", color:"rgba(255,255,255,.25)", border:"1px solid rgba(255,255,255,.07)" }}
               >↺</button>
             </>
           ) : (
             <>
-              <button
-                onClick={() => setRunning(v => !v)}
+              <button onClick={() => setRunning(v => !v)}
                 className="px-12 py-3 rounded-2xl text-sm font-light tracking-[0.1em] transition-all duration-300"
                 style={{
                   background:`rgba(${rgb},.18)`, color,
                   border:`1px solid rgba(${rgb},.30)`,
-                  boxShadow:`0 0 30px rgba(${rgb},.15)`,
+                  boxShadow:`0 0 28px rgba(${rgb},.14)`,
                   textShadow:`0 0 10px ${color}`,
                 }}
-              >
-                {running ? "Пауза" : "Старт"}
-              </button>
-              <button
-                onClick={resetTimer}
+              >{running ? "Пауза" : "Старт"}</button>
+              <button onClick={resetTimer}
                 className="px-6 py-3 rounded-2xl text-sm font-light transition-all"
                 style={{ background:"rgba(255,255,255,.04)", color:"rgba(255,255,255,.25)", border:"1px solid rgba(255,255,255,.07)" }}
               >↺</button>
@@ -446,163 +436,155 @@ export function Focus() {
           )}
         </div>
 
-        {/* ── custom time stepper (timer modes only) ── */}
+        {/* ── custom time (timer modes only) ── */}
         {!isBreath && (
-          <div className="flex flex-col items-center gap-4 w-full max-w-xs">
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
 
             {/* divider */}
             <div className="flex items-center gap-3 w-full">
               <div className="flex-1 h-px" style={{ background:"rgba(255,255,255,.05)" }}/>
-              <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color:"rgba(255,255,255,.18)" }}>
+              <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color:"rgba(255,255,255,.18)" }}>
                 Своё время
               </span>
               <div className="flex-1 h-px" style={{ background:"rgba(255,255,255,.05)" }}/>
             </div>
 
-            {/* stepper row */}
-            <div className="flex items-center gap-4">
-              {/* minus */}
+            {/* [−] input [+] */}
+            <div className="flex items-center gap-3">
               <button
-                onPointerDown={() => startHold(-1)} onPointerUp={stopHold} onPointerLeave={stopHold}
-                className="w-10 h-10 rounded-xl text-xl font-light flex items-center justify-center transition-all active:scale-90 select-none"
+                onClick={() => setCustomMin(v => Math.max(1, v - 1))}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-light transition-all active:scale-90"
                 style={{
-                  background:"rgba(167,139,250,.10)",
-                  color:"#a78bfa",
+                  background:"rgba(167,139,250,.10)", color:"#a78bfa",
                   border:"1px solid rgba(167,139,250,.25)",
-                  boxShadow:"0 0 12px rgba(167,139,250,.10)",
+                  boxShadow:"0 0 10px rgba(167,139,250,.08)",
                 }}
               >−</button>
 
-              {/* display */}
-              <div className="text-center min-w-[80px]">
-                <span
-                  className="text-4xl font-light tabular-nums"
+              <div className="relative">
+                <input
+                  type="number"
+                  min={1} max={180}
+                  value={customMin}
+                  onChange={e => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) setCustomMin(Math.max(1, Math.min(180, v)));
+                  }}
+                  className="focus-numinput w-[72px] text-center text-xl font-light tabular-nums outline-none rounded-xl py-1.5"
                   style={{
-                    color:"rgba(255,255,255,.82)",
-                    textShadow:`0 0 20px rgba(${LAV_RGB},.30)`,
+                    background:"rgba(255,255,255,.04)",
+                    border:"1px solid rgba(167,139,250,.20)",
+                    color:"rgba(255,255,255,.78)",
+                    textShadow:`0 0 14px rgba(${LAV_RGB},.25)`,
                     letterSpacing:"0.04em",
                   }}
-                >
-                  {String(customMin).padStart(2,"0")}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none"
+                  style={{ color:"rgba(255,255,255,.18)" }}>
+                  мин
                 </span>
-                <div className="text-[9px] uppercase tracking-[0.18em] mt-0.5" style={{ color:"rgba(255,255,255,.22)" }}>
-                  минут
-                </div>
               </div>
 
-              {/* plus */}
               <button
-                onPointerDown={() => startHold(1)} onPointerUp={stopHold} onPointerLeave={stopHold}
-                className="w-10 h-10 rounded-xl text-xl font-light flex items-center justify-center transition-all active:scale-90 select-none"
+                onClick={() => setCustomMin(v => Math.min(180, v + 1))}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-lg font-light transition-all active:scale-90"
                 style={{
-                  background:"rgba(167,139,250,.10)",
-                  color:"#a78bfa",
+                  background:"rgba(167,139,250,.10)", color:"#a78bfa",
                   border:"1px solid rgba(167,139,250,.25)",
-                  boxShadow:"0 0 12px rgba(167,139,250,.10)",
+                  boxShadow:"0 0 10px rgba(167,139,250,.08)",
                 }}
               >+</button>
             </div>
 
             {/* apply */}
-            <button
-              onClick={applyCustomTime}
-              className="px-8 py-2 rounded-2xl text-xs tracking-[0.12em] transition-all"
-              style={{
-                background:"rgba(167,139,250,.12)",
-                color:"#a78bfa",
-                border:"1px solid rgba(167,139,250,.22)",
-              }}
+            <button onClick={applyCustomTime}
+              className="px-8 py-1.5 rounded-2xl text-xs tracking-[0.12em] transition-all"
+              style={{ background:"rgba(167,139,250,.11)", color:"#a78bfa", border:"1px solid rgba(167,139,250,.22)" }}
             >
               Задать
             </button>
           </div>
         )}
 
-        {/* breathing mode hint */}
+        {/* breathing hint */}
         {isBreath && !breathRunning && (
-          <p className="text-xs text-center" style={{ color:"rgba(255,255,255,.2)", maxWidth:200, lineHeight:1.7 }}>
-            Следуй за кругом.<br/>
-            <span style={{ color:"rgba(167,139,250,.5)" }}>Вдох · Задержка · Выдох</span>
+          <p className="text-xs text-center" style={{ color:"rgba(255,255,255,.18)", maxWidth:180, lineHeight:1.8 }}>
+            Следуй за кругом<br/>
+            <span style={{ color:`rgba(${LAV_RGB},.45)` }}>Вдох 4с · Выдох 6с</span>
           </p>
         )}
 
-      </div>{/* end centered */}
+      </div>{/* /centered */}
 
-      {/* ══════════════ ИСТОРИЯ ДНЯ ══════════════ */}
+      {/* ═══ ИСТОРИЯ СЕССИЙ ═══ */}
       {todaySessions.length > 0 && (
         <div
-          className="rounded-2xl border p-5 mt-2 w-full max-w-xs mx-auto"
+          className="rounded-2xl border p-5 mt-2 w-full"
           style={{
             background:"rgba(255,255,255,.02)",
             backdropFilter:"blur(20px)",
             borderColor:"rgba(255,255,255,.06)",
           }}
         >
-          {/* block header */}
-          <p
-            className="text-[9px] uppercase tracking-[0.28em] font-medium text-center mb-4"
-            style={{ color:"rgba(255,255,255,.25)" }}
-          >
-            История дня
-          </p>
-
-          {/* summary stats */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {[
-              { icon:"🍅", value:pomodoros.length,   label:"Помодоро",   color:"#a78bfa" },
-              { icon:"☕", value:shortBreaks.length,  label:"Короткий",   color:"#22d3ee" },
-              { icon:"🌿", value:longBreaks.length,   label:"Длинный",    color:"#86efac" },
-            ].map(stat => (
-              <div key={stat.label}
-                className="flex flex-col items-center gap-1 py-2.5 rounded-xl"
-                style={{ background:"rgba(255,255,255,.025)", border:"1px solid rgba(255,255,255,.05)" }}
-              >
-                <span style={{ fontSize:14 }}>{stat.icon}</span>
-                <span className="text-xl font-light" style={{ color:stat.color, textShadow:`0 0 14px ${stat.color}60` }}>
-                  {stat.value}
-                </span>
-                <span className="text-[8px] uppercase tracking-[0.12em]" style={{ color:"rgba(255,255,255,.2)" }}>
-                  {stat.label}
-                </span>
-              </div>
-            ))}
+          {/* header row */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[9px] uppercase tracking-[0.28em] font-medium"
+              style={{ color:"rgba(255,255,255,.25)" }}>
+              История сессий
+            </p>
+            <p className="text-[9px]" style={{ color:"rgba(255,255,255,.14)" }}>
+              {todaySessions.length}&nbsp;
+              {todaySessions.length === 1 ? "сессия" : todaySessions.length < 5 ? "сессии" : "сессий"}
+              {totalFocusMin > 0 && ` · ${totalFocusMin} мин фокуса`}
+            </p>
           </div>
 
-          {/* total focus time */}
-          {totalFocusMin > 0 && (
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-3"
-              style={{ background:"rgba(167,139,250,.06)", border:"1px solid rgba(167,139,250,.12)" }}
-            >
-              <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color:"rgba(255,255,255,.3)" }}>
-                Время фокуса
-              </span>
-              <span className="text-sm font-light" style={{ color:"#a78bfa", textShadow:`0 0 12px rgba(${LAV_RGB},.5)` }}>
-                {totalFocusMin} мин
-              </span>
-            </div>
-          )}
-
-          {/* session rows */}
+          {/* session list */}
           <div className="flex flex-col gap-1.5">
             {[...todaySessions].reverse().map((s, idx) => {
-              const icon = s.type === "pomodoro" ? "🍅" : s.type === "short" ? "☕" : s.type === "long" ? "🌿" : "🎯";
-              const c    = s.type === "pomodoro" ? "#a78bfa" : s.type === "short" ? "#22d3ee" : s.type === "long" ? "#86efac" : "#a78bfa";
+              const typeLabel =
+                s.type === "pomodoro" ? "Помодоро" :
+                s.type === "short"    ? "Перерыв (кор.)" :
+                s.type === "long"     ? "Перерыв (дл.)" : "Сессия";
+              const icon =
+                s.type === "pomodoro" ? "🍅" :
+                s.type === "short"    ? "☕" :
+                s.type === "long"     ? "🌿" : "✦";
+              const c =
+                s.type === "pomodoro" ? "#a78bfa" :
+                s.type === "short"    ? "#22d3ee" :
+                s.type === "long"     ? "#86efac" : "#a78bfa";
+
               return (
                 <div key={s.id}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
                   style={{
-                    background:"rgba(255,255,255,.02)",
-                    border:"1px solid rgba(255,255,255,.04)",
-                    opacity: Math.max(0.45, 1 - idx * 0.10),
+                    background:"rgba(255,255,255,.022)",
+                    border:"1px solid rgba(255,255,255,.045)",
+                    opacity: Math.max(0.42, 1 - idx * 0.09),
                   }}
                 >
-                  <span style={{ fontSize:12 }}>{icon}</span>
-                  <span className="flex-1 text-xs font-light" style={{ color:"rgba(255,255,255,.5)" }}>
-                    {s.durationMinutes} мин · {s.startTime}
+                  <span style={{ fontSize:13, lineHeight:1 }}>{icon}</span>
+
+                  <span className="text-xs font-light flex-shrink-0"
+                    style={{ color: c, textShadow:`0 0 10px ${c}55`, minWidth:108 }}>
+                    {typeLabel}
                   </span>
+
+                  <span className="text-xs font-light flex-1"
+                    style={{ color:"rgba(255,255,255,.38)" }}>
+                    {s.durationMinutes} мин
+                  </span>
+
+                  <span className="text-[10px] flex-shrink-0"
+                    style={{ color:"rgba(255,255,255,.25)" }}>
+                    {s.endTime ? `завершено ${s.endTime}` : `начало ${s.startTime}`}
+                  </span>
+
                   {s.xp > 0 && (
-                    <span className="text-[10px] font-bold" style={{ color:"#fbbf24", textShadow:"0 0 8px rgba(251,191,36,.5)" }}>
-                      +{s.xp} XP
+                    <span className="text-[10px] font-semibold flex-shrink-0 ml-1"
+                      style={{ color:"#a78bfa", textShadow:`0 0 8px rgba(${LAV_RGB},.55)` }}>
+                      +{s.xp}&nbsp;XP
                     </span>
                   )}
                 </div>
@@ -610,8 +592,8 @@ export function Focus() {
             })}
           </div>
 
-          <p className="text-[8px] text-center mt-3 uppercase tracking-[0.15em]"
-            style={{ color:"rgba(255,255,255,.10)" }}>
+          <p className="text-[8px] text-center mt-3 uppercase tracking-[0.14em]"
+            style={{ color:"rgba(255,255,255,.09)" }}>
             очищается каждую полночь
           </p>
         </div>
