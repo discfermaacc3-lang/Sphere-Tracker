@@ -176,7 +176,28 @@ function TaskCard({
           <button onClick={() => setShowReschedule(!showReschedule)} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all" title="Перенести">📅</button>
           <button onClick={onEdit} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-all">✎</button>
           {deleteMode === "idle" ? (
-            <button onClick={handleDeleteClick} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all" title="Удалить">🗑</button>
+            <button
+              onClick={handleDeleteClick}
+              title="Удалить"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200"
+              style={{ color: "rgba(255,255,255,0.28)", textShadow: "0 0 5px rgba(255,255,255,0.12)" }}
+              onMouseEnter={e => {
+                const t = e.currentTarget;
+                t.style.color = "#f87171";
+                t.style.textShadow = "0 0 10px rgba(239,68,68,0.90), 0 0 22px rgba(239,68,68,0.45)";
+                t.style.background = "rgba(239,68,68,0.08)";
+              }}
+              onMouseLeave={e => {
+                const t = e.currentTarget;
+                t.style.color = "rgba(255,255,255,0.28)";
+                t.style.textShadow = "0 0 5px rgba(255,255,255,0.12)";
+                t.style.background = "";
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd"/>
+              </svg>
+            </button>
           ) : (
             <button onClick={() => setDeleteMode("idle")} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/40 hover:text-white/60 hover:bg-white/5 transition-all" title="Отмена">✕</button>
           )}
@@ -275,8 +296,25 @@ function TemplateCard({
         >✎</button>
         <button
           onClick={onDelete}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs text-white/30 hover:text-red-400 hover:bg-red-500/5 transition-all"
-        >✕</button>
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200"
+          style={{ color: "rgba(255,255,255,0.28)", textShadow: "0 0 5px rgba(255,255,255,0.12)" }}
+          onMouseEnter={e => {
+            const t = e.currentTarget;
+            t.style.color = "#f87171";
+            t.style.textShadow = "0 0 10px rgba(239,68,68,0.90), 0 0 22px rgba(239,68,68,0.45)";
+            t.style.background = "rgba(239,68,68,0.08)";
+          }}
+          onMouseLeave={e => {
+            const t = e.currentTarget;
+            t.style.color = "rgba(255,255,255,0.28)";
+            t.style.textShadow = "0 0 5px rgba(255,255,255,0.12)";
+            t.style.background = "";
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd"/>
+          </svg>
+        </button>
       </div>
     </div>
   );
