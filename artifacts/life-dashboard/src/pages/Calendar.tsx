@@ -221,31 +221,36 @@ export function Calendar() {
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
         className="relative group/cell rounded-xl flex flex-col cursor-pointer transition-all hover:bg-white/[0.04]"
         style={{
-          padding: tall ? "10px 8px 8px" : "8px 6px 6px",
+          aspectRatio: "1",
+          padding: tall ? "12px 10px 8px" : "8px 7px 6px",
           ...(hasGlow
             ? glowStyle
             : isSelectedDay
-            ? { background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.50)" }
+            ? { background: "rgba(167,139,250,0.18)", border: "1px solid rgba(167,139,250,0.55)" }
             : isToday
-            ? { background: "linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.10))", border: "1px solid rgba(99,102,241,0.40)" }
+            ? {
+                background: "linear-gradient(135deg,rgba(167,139,250,0.17),rgba(139,92,246,0.10))",
+                border: "1px solid rgba(167,139,250,0.52)",
+                boxShadow: "0 0 20px rgba(167,139,250,0.24), inset 0 1px 0 rgba(255,255,255,0.07)",
+                backdropFilter: "blur(10px)",
+              }
             : { border: "1px solid transparent" }),
           transition: "all 0.2s ease",
-          minHeight: 0,
         }}
       >
         {/* Day number */}
         <span
-          className="font-medium leading-none"
+          className="font-semibold leading-none"
           style={{
-            fontSize: tall ? 18 : 15,
+            fontSize: tall ? 20 : 15,
             color: isToday
-              ? "#818cf8"
+              ? "#a78bfa"
               : isSelectedDay
               ? "rgba(255,255,255,0.95)"
               : isPast
-              ? "rgba(255,255,255,0.22)"
-              : "rgba(255,255,255,0.60)",
-            textShadow: isToday ? "0 0 16px rgba(129,140,248,0.5)" : "none",
+              ? "rgba(255,255,255,0.20)"
+              : "rgba(255,255,255,0.62)",
+            textShadow: isToday ? "0 0 18px rgba(167,139,250,0.70)" : "none",
           }}
         >
           {label}
@@ -253,7 +258,7 @@ export function Calendar() {
 
         {/* Weekday label in week view */}
         {tall && (
-          <span className="text-[10px] font-medium mt-0.5" style={{ color: "rgba(255,255,255,0.22)", letterSpacing: "0.05em" }}>
+          <span className="text-[10px] font-medium mt-1" style={{ color: isToday ? "rgba(167,139,250,0.55)" : "rgba(255,255,255,0.20)", letterSpacing: "0.06em" }}>
             {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
           </span>
         )}
@@ -263,13 +268,13 @@ export function Calendar() {
           {dayEvList.slice(0, 3).map((e) => (
             <div
               key={e.id}
-              style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
+              style={{ width: tall ? 6 : 5, height: tall ? 6 : 5, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
             />
           ))}
           {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
             <div
               key={t.id}
-              style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
+              style={{ width: tall ? 5 : 4, height: tall ? 5 : 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
             />
           ))}
           {totalItems > 4 && (
@@ -363,77 +368,54 @@ export function Calendar() {
 
       {/* Calendar grid */}
       {(() => {
-        const numRows = Math.ceil(monthCells.length / 7); // 4, 5, or 6
-        // Grid body height = 50vh minus ~80px for headers + legend + padding
-        const gridBodyHeight = "calc(50vh - 80px)";
+        const isMonth = viewMode === "month";
+        /* Month view: 15% side padding to narrow the grid → square cells via aspectRatio.
+           Week view: compact, no extra side padding */
+        const innerPad = isMonth ? "15%" : "0";
+        const cellGap  = isMonth ? 4 : 6;
+
         return (
           <div
             className="rounded-2xl border border-white/5 p-4"
-            style={{ background: "rgba(255,255,255,0.02)", overflow: "visible" }}
+            style={{ background: "rgba(255,255,255,0.02)" }}
           >
-            {/* Weekday headers — full width */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(7, 1fr)",
-                gap: 4,
-                marginBottom: 6,
-              }}
-            >
-              {WEEKDAYS.map((d) => (
-                <div
-                  key={d}
-                  style={{
-                    textAlign: "center",
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.28)",
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    paddingBottom: 2,
-                  }}
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
+            {/* Inner padded wrapper: headers + cells share the same column widths */}
+            <div style={{ paddingInline: innerPad }}>
 
-            {/* Day cells — fill 50vh */}
-            <div style={{ overflow: "visible", height: gridBodyHeight }}>
-              {viewMode === "month" ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(7, 1fr)",
-                    gridTemplateRows: `repeat(${numRows}, 1fr)`,
-                    gap: 4,
-                    height: "100%",
-                    overflow: "visible",
-                  }}
-                >
-                  {monthCells.map((day, idx) => {
-                    if (day === null) return <div key={idx} />;
-                    return renderDayCell(toDateStr(year, month, day), day, false);
-                  })}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(7, 1fr)",
-                    gridTemplateRows: "1fr",
-                    gap: 4,
-                    height: "100%",
-                    overflow: "visible",
-                  }}
-                >
-                  {weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))}
-                </div>
-              )}
+              {/* Weekday headers */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap, marginBottom: 8 }}>
+                {WEEKDAYS.map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      textAlign: "center",
+                      fontSize: 10,
+                      color: "rgba(255,255,255,0.28)",
+                      fontWeight: 700,
+                      letterSpacing: "0.10em",
+                      textTransform: "uppercase",
+                      paddingBottom: 2,
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day cells — height auto via aspectRatio on each cell */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap }}>
+                {isMonth
+                  ? monthCells.map((day, idx) => {
+                      if (day === null) return <div key={idx} style={{ aspectRatio: "1" }} />;
+                      return renderDayCell(toDateStr(year, month, day), day, false);
+                    })
+                  : weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))
+                }
+              </div>
             </div>
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-white/5">
+            <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-white/5">
               {EVENT_CATEGORIES.map((cat) => (
                 <div key={cat} className="flex items-center gap-1.5">
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: EVENT_META[cat].color, boxShadow: `0 0 4px ${EVENT_META[cat].color}` }} />
