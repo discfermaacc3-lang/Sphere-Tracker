@@ -56,6 +56,8 @@ export function Focus() {
   const [breathRunning, setBreathRunning] = useState(false);
   const [breathPhase, setBreathPhase]     = useState<"inhale"|"exhale">("inhale");
   const breathTimerRef                    = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const breathStartRef                    = useRef<string|null>(null);
+  const breathStartTimeRef                = useRef<number>(0);
 
   /* derived */
   const totalSecs  = minutes * 60 + seconds;
@@ -96,16 +98,37 @@ export function Focus() {
   /* ── breath phase machine ── */
   useEffect(() => {
     if (breathTimerRef.current) clearTimeout(breathTimerRef.current);
-    if (!isBreath || !breathRunning) return;
+    if (!isBreath) return;
 
-    function advance(phase: "inhale"|"exhale") {
-      setBreathPhase(phase);
-      const p = BREATH_PHASES.find(x => x.key === phase)!;
-      const next: "inhale"|"exhale" = phase === "inhale" ? "exhale" : "inhale";
-      breathTimerRef.current = setTimeout(() => advance(next), p.ms);
+    if (breathRunning) {
+      /* record start */
+      breathStartRef.current     = getTimeStr();
+      breathStartTimeRef.current = Date.now();
+
+      function advance(phase: "inhale"|"exhale") {
+        setBreathPhase(phase);
+        const p = BREATH_PHASES.find(x => x.key === phase)!;
+        const next: "inhale"|"exhale" = phase === "inhale" ? "exhale" : "inhale";
+        breathTimerRef.current = setTimeout(() => advance(next), p.ms);
+      }
+      setBreathPhase("inhale");
+      breathTimerRef.current = setTimeout(() => advance("exhale"), BREATH_PHASES[0].ms);
+    } else if (breathStartRef.current) {
+      /* stopped — save breath session if at least 30s elapsed */
+      const elapsedMs  = Date.now() - breathStartTimeRef.current;
+      const elapsedMin = Math.round(elapsedMs / 60000);
+      if (elapsedMin >= 1) {
+        addFocusSession({
+          date:            getTodayStr(),
+          startTime:       breathStartRef.current,
+          endTime:         getTimeStr(),
+          durationMinutes: elapsedMin,
+          xp:              0,
+          type:            "breath",
+        });
+      }
+      breathStartRef.current = null;
     }
-    setBreathPhase("inhale");
-    breathTimerRef.current = setTimeout(() => advance("exhale"), BREATH_PHASES[0].ms);
     return () => { if (breathTimerRef.current) clearTimeout(breathTimerRef.current); };
   }, [isBreath, breathRunning]);
 
@@ -334,27 +357,26 @@ export function Focus() {
             {/* center */}
             <div className="relative text-center z-10 select-none">
               {isBreath ? (
-                <>
-                  <div
-                    key={breathPhase}
-                    className="text-2xl font-light tracking-[0.14em]"
-                    style={{
-                      color:"#a78bfa",
-                      textShadow:`0 0 28px rgba(${LAV_RGB},.75)`,
-                      opacity: breathRunning ? 1 : 0.30,
-                      transition:"opacity .5s ease",
-                    }}
-                  >
-                    {breathRunning ? bPhase.label : "✦"}
-                  </div>
-                  {breathRunning && (
-                    <div className="text-[9px] uppercase tracking-[0.22em] mt-2"
-                      style={{ color:`rgba(${LAV_RGB},.40)`, transition:"all .5s ease" }}
-                    >
-                      {breathPhase === "inhale" ? "4 сек" : "6 сек"}
-                    </div>
-                  )}
-                </>
+                /* ── Дыхание: только сияющая звёздочка, никакого текста ── */
+                <div style={{
+                  fontSize: 36,
+                  lineHeight: 1,
+                  color:"#a78bfa",
+                  transform: breathRunning
+                    ? breathPhase === "inhale" ? "scale(1.5)" : "scale(0.12)"
+                    : "scale(0.55)",
+                  opacity: breathRunning
+                    ? breathPhase === "inhale" ? 1 : 0.35
+                    : 0.28,
+                  transition: breathRunning
+                    ? `transform ${bTransDur} ease-in-out, opacity ${bTransDur} ease-in-out`
+                    : "transform 1s ease, opacity 1s ease",
+                  textShadow: breathRunning && breathPhase === "inhale"
+                    ? `0 0 28px rgba(${LAV_RGB},1), 0 0 56px rgba(${LAV_RGB},.55), 0 0 90px rgba(${LAV_RGB},.25)`
+                    : `0 0 10px rgba(${LAV_RGB},.30)`,
+                }}>
+                  ✦
+                </div>
               ) : (
                 <>
                   <div className="text-5xl font-light tabular-nums"
@@ -470,8 +492,10 @@ export function Focus() {
                     const v = parseInt(e.target.value);
                     if (!isNaN(v)) setCustomMin(Math.max(1, Math.min(180, v)));
                   }}
-                  className="focus-numinput w-[72px] text-center text-xl font-light tabular-nums outline-none rounded-xl py-1.5"
+                  className="focus-numinput text-center text-xl font-light tabular-nums outline-none rounded-xl py-1.5 pl-3"
                   style={{
+                    width: "100px",
+                    paddingRight: "36px",
                     background:"rgba(255,255,255,.04)",
                     border:"1px solid rgba(167,139,250,.20)",
                     color:"rgba(255,255,255,.78)",
@@ -479,8 +503,8 @@ export function Focus() {
                     letterSpacing:"0.04em",
                   }}
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none"
-                  style={{ color:"rgba(255,255,255,.18)" }}>
+                <span className="absolute top-1/2 -translate-y-1/2 text-[8px] pointer-events-none select-none"
+                  style={{ right:"10px", color:"rgba(255,255,255,.22)" }}>
                   мин
                 </span>
               </div>
@@ -506,54 +530,69 @@ export function Focus() {
           </div>
         )}
 
-        {/* breathing hint */}
+        {/* breathing hint — only when idle, no text labels */}
         {isBreath && !breathRunning && (
-          <p className="text-xs text-center" style={{ color:"rgba(255,255,255,.18)", maxWidth:180, lineHeight:1.8 }}>
-            Следуй за кругом<br/>
-            <span style={{ color:`rgba(${LAV_RGB},.45)` }}>Вдох 4с · Выдох 6с</span>
+          <p className="text-[9px] uppercase tracking-[0.18em] text-center" style={{ color:`rgba(${LAV_RGB},.28)` }}>
+            вдох 4с · выдох 6с
           </p>
         )}
 
       </div>{/* /centered */}
 
-      {/* ═══ ИСТОРИЯ СЕССИЙ ═══ */}
-      {todaySessions.length > 0 && (
-        <div
-          className="rounded-2xl border p-5 mt-2 w-full"
-          style={{
-            background:"rgba(255,255,255,.02)",
-            backdropFilter:"blur(20px)",
-            borderColor:"rgba(255,255,255,.06)",
-          }}
-        >
-          {/* header row */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[9px] uppercase tracking-[0.28em] font-medium"
-              style={{ color:"rgba(255,255,255,.25)" }}>
-              История сессий
-            </p>
+      {/* ═══ ИСТОРИЯ СЕССИЙ — всегда видима ═══ */}
+      <div
+        className="rounded-2xl border p-5 mt-2 w-full"
+        style={{
+          background:"rgba(255,255,255,.02)",
+          backdropFilter:"blur(20px)",
+          borderColor:"rgba(255,255,255,.06)",
+        }}
+      >
+        {/* header row */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[9px] uppercase tracking-[0.28em] font-medium"
+            style={{ color:"rgba(255,255,255,.25)" }}>
+            История сессий
+          </p>
+          {todaySessions.length > 0 && (
             <p className="text-[9px]" style={{ color:"rgba(255,255,255,.14)" }}>
               {todaySessions.length}&nbsp;
               {todaySessions.length === 1 ? "сессия" : todaySessions.length < 5 ? "сессии" : "сессий"}
               {totalFocusMin > 0 && ` · ${totalFocusMin} мин фокуса`}
             </p>
-          </div>
+          )}
+        </div>
 
-          {/* session list */}
+        {/* пусто */}
+        {todaySessions.length === 0 && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <span style={{ fontSize:24, opacity:0.18 }}>✦</span>
+            <p className="text-[11px] text-center" style={{ color:"rgba(255,255,255,.18)", lineHeight:1.7 }}>
+              Сессий ещё нет<br/>
+              <span style={{ color:`rgba(${LAV_RGB},.30)` }}>Запусти таймер — здесь появится история</span>
+            </p>
+          </div>
+        )}
+
+        {/* session list */}
+        {todaySessions.length > 0 && (
           <div className="flex flex-col gap-1.5">
             {[...todaySessions].reverse().map((s, idx) => {
               const typeLabel =
                 s.type === "pomodoro" ? "Помодоро" :
-                s.type === "short"    ? "Перерыв (кор.)" :
-                s.type === "long"     ? "Перерыв (дл.)" : "Сессия";
+                s.type === "short"    ? "Перерыв кор." :
+                s.type === "long"     ? "Перерыв дл." :
+                s.type === "breath"   ? "Дыхание" : "Сессия";
               const icon =
                 s.type === "pomodoro" ? "🍅" :
                 s.type === "short"    ? "☕" :
-                s.type === "long"     ? "🌿" : "✦";
+                s.type === "long"     ? "🌿" :
+                s.type === "breath"   ? "✦" : "·";
               const c =
                 s.type === "pomodoro" ? "#a78bfa" :
                 s.type === "short"    ? "#22d3ee" :
-                s.type === "long"     ? "#86efac" : "#a78bfa";
+                s.type === "long"     ? "#86efac" :
+                s.type === "breath"   ? "#c4b5fd" : "#a78bfa";
 
               return (
                 <div key={s.id}
@@ -561,13 +600,15 @@ export function Focus() {
                   style={{
                     background:"rgba(255,255,255,.022)",
                     border:"1px solid rgba(255,255,255,.045)",
-                    opacity: Math.max(0.42, 1 - idx * 0.09),
+                    opacity: Math.max(0.44, 1 - idx * 0.08),
                   }}
                 >
-                  <span style={{ fontSize:13, lineHeight:1 }}>{icon}</span>
+                  <span style={{ fontSize:s.type === "breath" ? 14 : 13, lineHeight:1, color: s.type === "breath" ? c : undefined }}>
+                    {icon}
+                  </span>
 
                   <span className="text-xs font-light flex-shrink-0"
-                    style={{ color: c, textShadow:`0 0 10px ${c}55`, minWidth:108 }}>
+                    style={{ color: c, textShadow:`0 0 10px ${c}55`, minWidth:100 }}>
                     {typeLabel}
                   </span>
 
@@ -577,8 +618,8 @@ export function Focus() {
                   </span>
 
                   <span className="text-[10px] flex-shrink-0"
-                    style={{ color:"rgba(255,255,255,.25)" }}>
-                    {s.endTime ? `завершено ${s.endTime}` : `начало ${s.startTime}`}
+                    style={{ color:"rgba(255,255,255,.22)" }}>
+                    {s.endTime ? s.endTime : s.startTime}
                   </span>
 
                   {s.xp > 0 && (
@@ -591,13 +632,13 @@ export function Focus() {
               );
             })}
           </div>
+        )}
 
-          <p className="text-[8px] text-center mt-3 uppercase tracking-[0.14em]"
-            style={{ color:"rgba(255,255,255,.09)" }}>
-            очищается каждую полночь
-          </p>
-        </div>
-      )}
+        <p className="text-[8px] text-center mt-3 uppercase tracking-[0.14em]"
+          style={{ color:"rgba(255,255,255,.08)" }}>
+          очищается каждую полночь
+        </p>
+      </div>
 
     </div>
   );
