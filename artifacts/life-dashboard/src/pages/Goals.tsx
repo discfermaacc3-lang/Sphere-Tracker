@@ -622,57 +622,115 @@ export function Goals() {
         </div>
       )}
 
-      {/* ══ Drafts inline ══ */}
-      {draftGoals.length > 0 && (
-        <div className="flex flex-col gap-2 pt-2">
+      {/* ══ Drafts section ══ */}
+      <div className="flex flex-col gap-3 pt-2">
+        {/* Section header */}
+        <div className="flex items-center justify-between px-1">
           <p
-            className="text-[9px] uppercase tracking-[0.22em] font-semibold px-1"
-            style={{ color: "rgba(255,255,255,0.16)" }}
+            className="text-[9px] uppercase tracking-[0.22em] font-semibold flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.20)" }}
           >
-            💡 черновики · {draftGoals.length}
+            <span>💡</span>
+            <span>Идеи и черновики{draftGoals.length > 0 ? ` · ${draftGoals.length}` : ""}</span>
           </p>
-          <div className="flex flex-col gap-1.5">
-            {draftGoals.map(g => (
-              <div
-                key={g.id}
-                className="flex items-center gap-3.5 px-4 py-3 rounded-2xl group transition-all"
-                style={{
-                  background: "rgba(255,255,255,0.012)",
-                  border: "1px dashed rgba(255,255,255,0.055)",
-                }}
-              >
-                <span className="text-sm flex-shrink-0" style={{ opacity: 0.28 }}>💡</span>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-light truncate"
-                    style={{ color: "rgba(255,255,255,0.36)" }}
-                  >
-                    {g.title}
-                  </p>
-                  {g.description && (
-                    <p
-                      className="text-[10px] truncate mt-0.5"
-                      style={{ color: "rgba(255,255,255,0.13)" }}
-                    >
-                      {g.description}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => openEdit(g)}
-                  className="opacity-0 group-hover:opacity-100 text-[9px] px-2.5 py-1 rounded-lg transition-all uppercase tracking-[0.12em] flex-shrink-0"
+          <button
+            onClick={openAdd}
+            className="text-[9px] uppercase tracking-[0.12em] transition-all hover:opacity-80"
+            style={{ color: `rgba(${LAV},0.35)` }}
+          >
+            + идея
+          </button>
+        </div>
+
+        {/* Cards */}
+        {draftGoals.length === 0 ? (
+          <div
+            className="flex flex-col items-center gap-2 py-7 rounded-2xl"
+            style={{ border: "1px dashed rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.008)" }}
+          >
+            <span className="text-2xl" style={{ opacity: 0.25 }}>💡</span>
+            <p className="text-[11px] text-center" style={{ color: "rgba(255,255,255,0.18)" }}>
+              Добавь идею — мечту без срока
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {draftGoals.map(g => {
+              const sd = g.sphere ? sphereColors[g.sphere] : null;
+              const rgb = sd ? hexToRgb(sd.color) : LAV;
+              return (
+                <div
+                  key={g.id}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl transition-all"
                   style={{
-                    color: `rgba(${LAV},0.55)`,
-                    border: `1px solid rgba(${LAV},0.16)`,
+                    background: "rgba(255,255,255,0.016)",
+                    border: "1px dashed rgba(255,255,255,0.075)",
+                    backdropFilter: "blur(16px)",
+                    WebkitBackdropFilter: "blur(16px)",
                   }}
                 >
-                  изм.
-                </button>
-              </div>
-            ))}
+                  {/* Icon */}
+                  <span className="text-xl flex-shrink-0" style={{ opacity: 0.45 }}>
+                    {sd?.icon ?? "💡"}
+                  </span>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-medium truncate"
+                      style={{ color: "rgba(255,255,255,0.52)" }}
+                    >
+                      {g.title}
+                    </p>
+                    {g.description && (
+                      <p
+                        className="text-[11px] mt-0.5 line-clamp-2"
+                        style={{ color: "rgba(255,255,255,0.22)" }}
+                      >
+                        {g.description}
+                      </p>
+                    )}
+                    {sd && (
+                      <span
+                        className="text-[9px] mt-1.5 inline-block px-1.5 py-0.5 rounded-md"
+                        style={{ color: `rgba(${rgb},0.60)`, background: `rgba(${rgb},0.09)` }}
+                      >
+                        {sd.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => openEdit(g)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] tracking-wide transition-all hover:opacity-90"
+                      style={{
+                        color: `rgba(${LAV},0.60)`,
+                        border: `1px solid rgba(${LAV},0.18)`,
+                        background: `rgba(${LAV},0.05)`,
+                      }}
+                    >
+                      ✏ Изменить
+                    </button>
+                    <button
+                      onClick={() => deleteGoal(g.id)}
+                      className="w-7 h-7 rounded-xl flex items-center justify-center text-sm transition-all hover:opacity-80"
+                      style={{
+                        color: "rgba(255,255,255,0.20)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                      }}
+                      title="Удалить"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── GoalModal ── */}
       {showModal && (
