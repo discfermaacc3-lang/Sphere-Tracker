@@ -41,128 +41,121 @@ export function Sidebar() {
           borderRight: "1px solid rgba(167,139,250,0.08)",
         }}
       >
-        {/* Logo — Sphere Tracker icon */}
+        {/* Logo — neon hand + sprout icon */}
         <div
           className="mb-7 w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
           style={{
-            background: "rgba(167,139,250,0.06)",
-            boxShadow: "0 0 18px rgba(167,139,250,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
-            border: "1px solid rgba(167,139,250,0.18)",
+            background: "linear-gradient(135deg,rgba(167,139,250,0.18),rgba(109,40,217,0.14))",
+            boxShadow: "0 0 20px rgba(167,139,250,0.4), 0 0 40px rgba(167,139,250,0.14), inset 0 1px 0 rgba(255,255,255,0.07)",
+            border: "1px solid rgba(167,139,250,0.32)",
           }}
         >
-          <svg
-            viewBox="0 0 40 44"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="33"
-          >
+          {/* SVG traced from approved reference — one continuous neon line */}
+          <svg viewBox="0 0 100 108" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="34">
             <defs>
-              <filter id="glw" x="-60%" y="-60%" width="220%" height="220%">
-                <feGaussianBlur stdDeviation="1.4" result="blur" />
+              <filter id="neon" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="3.5" result="blur1" />
+                <feGaussianBlur stdDeviation="1.5" result="blur2" in="SourceGraphic" />
                 <feMerge>
-                  <feMergeNode in="blur" />
+                  <feMergeNode in="blur1" />
+                  <feMergeNode in="blur2" />
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
-              <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#c4b5fd" />
-                <stop offset="100%" stopColor="#86efac" />
-              </linearGradient>
             </defs>
 
-            {/* ── Upper arc of the sphere ── */}
-            {/* Goes from bottom-left (6,26) over the top (20,5) to bottom-right (34,26) */}
+            {/* ── Outer arc sweeping from left-wrist over top to right ── */}
+            {/* Starts at wrist area (18,75), sweeps CCW over top (50,14), ends at (82,62) */}
             <path
-              d="M 6,26 C 6,10 34,10 34,26"
-              stroke="#c4b5fd"
-              strokeWidth="1.6"
+              d="M 20,72 C 16,60 12,42 18,28 C 26,12 44,6 62,10 C 78,14 88,30 86,52 C 85,62 80,68 76,72"
+              stroke="#ddd6fe"
+              strokeWidth="4.5"
               strokeLinecap="round"
               fill="none"
-              filter="url(#glw)"
+              filter="url(#neon)"
             />
 
-            {/* ── Branch stem growing from top-right of arc (~31, 15) ── */}
+            {/* ── Palm base (left side, connecting wrist to fingers) ── */}
             <path
-              d="M 29,14 C 31,11 33,8 32,5"
-              stroke="#c4b5fd"
-              strokeWidth="1.1"
+              d="M 20,72 C 18,78 22,86 30,88 C 44,92 62,90 74,84 C 80,80 80,74 76,72"
+              stroke="#ddd6fe"
+              strokeWidth="4.5"
               strokeLinecap="round"
               fill="none"
-              filter="url(#glw)"
+              filter="url(#neon)"
             />
 
-            {/* ── Leaf 1 — center, largest ── */}
+            {/* ── Finger 1 (index — leftmost, tallest) ── */}
             <path
-              d="M 31,9 C 35,7 36,4 33,3 C 30,4 29,7 31,9 Z"
-              stroke="url(#leafGrad)"
-              strokeWidth="1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#glw)"
-            />
-
-            {/* ── Leaf 2 — left of stem ── */}
-            <path
-              d="M 30,12 C 26,10 25,7 27,6 C 29,7 30,10 30,12 Z"
-              stroke="url(#leafGrad)"
-              strokeWidth="0.95"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#glw)"
-            />
-
-            {/* ── Leaf 3 — small tip ── */}
-            <path
-              d="M 32,6 C 34,4 36,2 35,1 C 33,1 31,4 32,6 Z"
-              stroke="url(#leafGrad)"
-              strokeWidth="0.85"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#glw)"
-            />
-
-            {/* ── Lower arc (palm) — holds the sphere from below ── */}
-            <path
-              d="M 7,28 C 7,38 33,38 33,28"
-              stroke="#c4b5fd"
-              strokeWidth="1.6"
+              d="M 20,72 C 16,68 12,60 14,52"
+              stroke="#ddd6fe"
+              strokeWidth="3.5"
               strokeLinecap="round"
               fill="none"
-              filter="url(#glw)"
-            />
-
-            {/* ── Finger 1 (index) spreading from left end ── */}
-            <path
-              d="M 7,27 C 4,25 3,21 5,19"
-              stroke="#c4b5fd"
-              strokeWidth="1.1"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#glw)"
+              filter="url(#neon)"
             />
 
             {/* ── Finger 2 (middle) ── */}
             <path
-              d="M 7,28 C 3,27 2,24 4,22"
-              stroke="#c4b5fd"
-              strokeWidth="1"
+              d="M 24,74 C 19,70 17,63 20,56"
+              stroke="#ddd6fe"
+              strokeWidth="3.2"
               strokeLinecap="round"
               fill="none"
-              filter="url(#glw)"
+              filter="url(#neon)"
             />
 
-            {/* ── Finger 3 (ring/pinky) ── */}
+            {/* ── Finger 3 (ring) ── */}
             <path
-              d="M 7,29 C 3,30 2,33 4,35"
-              stroke="#c4b5fd"
-              strokeWidth="0.9"
+              d="M 29,76 C 25,73 24,67 27,61"
+              stroke="#ddd6fe"
+              strokeWidth="3"
               strokeLinecap="round"
               fill="none"
-              filter="url(#glw)"
+              filter="url(#neon)"
+            />
+
+            {/* ── Plant stem ── */}
+            <path
+              d="M 50,82 C 50,72 50,58 50,36"
+              stroke="#ddd6fe"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#neon)"
+            />
+
+            {/* ── Left leaf (large) ── */}
+            <path
+              d="M 50,58 C 44,52 30,46 28,36 C 32,28 44,34 50,48"
+              stroke="#ddd6fe"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#neon)"
+            />
+
+            {/* ── Right leaf (large) ── */}
+            <path
+              d="M 50,54 C 56,48 70,42 72,32 C 68,24 56,30 50,44"
+              stroke="#ddd6fe"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#neon)"
+            />
+
+            {/* ── Top bud / small center leaf ── */}
+            <path
+              d="M 50,38 C 46,30 46,20 50,14 C 54,20 54,30 50,38"
+              stroke="#ddd6fe"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#neon)"
             />
           </svg>
         </div>
