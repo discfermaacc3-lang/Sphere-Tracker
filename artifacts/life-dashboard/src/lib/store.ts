@@ -272,6 +272,8 @@ type Store = {
   addTask: (task: Omit<Task, "id">) => void;
   editTask: (id: string, updates: Partial<Omit<Task, "id">>) => void;
   deleteTask: (id: string) => void;
+  deleteRecurringFromDate: (checklistItemId: string, fromDate: string) => void;
+  editRecurringFromDate: (checklistItemId: string, fromDate: string, updates: Partial<Omit<Task, "id">>) => void;
   rescheduleTask: (id: string, newDate: string) => void;
 
   routineTemplates: RoutineTemplate[];
@@ -617,7 +619,7 @@ export const useStore = create<Store>()(
             const dow = cur.getDay(); // 0=Sun..6=Sat
             const ourDow = dow === 0 ? 6 : dow - 1; // 0=Mon..6=Sun
             if (recurring.days.includes(ourDow)) {
-              const dueDateStr = cur.toISOString().slice(0, 10);
+              const dueDateStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
               newTasks.push({
                 id: `rci-${itemId}-${idx++}`,
                 text,
@@ -770,6 +772,20 @@ export const useStore = create<Store>()(
       editTask: (id, updates) =>
         set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
       deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      deleteRecurringFromDate: (checklistItemId, fromDate) =>
+        set((s) => ({
+          tasks: s.tasks.filter(
+            (t) => !(t.checklistItemId === checklistItemId && t.dueDate && t.dueDate >= fromDate)
+          ),
+        })),
+      editRecurringFromDate: (checklistItemId, fromDate, updates) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.checklistItemId === checklistItemId && t.dueDate && t.dueDate >= fromDate
+              ? { ...t, ...updates }
+              : t
+          ),
+        })),
       rescheduleTask: (id, newDate) =>
         set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, dueDate: newDate } : t)) })),
 

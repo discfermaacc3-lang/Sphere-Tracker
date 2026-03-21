@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useStore, CalendarEvent, EventCategory, EVENT_META, computeGoalEarnedXP } from "@/lib/store";
+import { useStore, CalendarEvent, EventCategory, EVENT_META, computeGoalEarnedXP, Task } from "@/lib/store";
 import { TaskModal } from "@/components/TaskModal";
 import { sphereColors } from "@/lib/sphereColors";
 
@@ -149,7 +149,7 @@ export function Calendar() {
   const {
     currentMonth, prevMonth, nextMonth, goToMonth,
     tasks, goals, calendarEvents, addCalendarEvent, deleteCalendarEvent,
-    toggleTask, addTask, deleteTask,
+    toggleTask, addTask, deleteTask, deleteRecurringFromDate, editRecurringFromDate,
     calendarDrafts, addCalendarDraft, removeCalendarDraft,
   } = useStore();
 
@@ -165,6 +165,9 @@ export function Calendar() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [draftForModal, setDraftForModal] = useState<{ id: string; text: string } | null>(null);
+
+  // Recurring bulk-action dialog
+  const [recurringDialog, setRecurringDialog] = useState<{ task: Task; action: "delete" | "edit"; newText?: string } | null>(null);
 
   // Magic highlight (for task cross-reference)
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
@@ -379,16 +382,64 @@ export function Calendar() {
               style={{ width: tall ? 6 : 5, height: tall ? 6 : 5, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
             />
           ))}
-          {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => (
-            <div
-              key={t.id}
-              style={{ width: tall ? 5 : 4, height: tall ? 5 : 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color }}
-            />
-          ))}
+          {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => {
+            const isFutureRecurring = ds > todayStr && !!t.checklistItemId;
+            const dotColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
+            return isFutureRecurring ? (
+              <div
+                key={t.id}
+                style={{
+                  width: tall ? 5 : 4, height: tall ? 5 : 4,
+                  borderRadius: "50%", flexShrink: 0,
+                  background: "transparent",
+                  border: `1.5px dashed ${dotColor}`,
+                  opacity: 0.55,
+                }}
+              />
+            ) : (
+              <div
+                key={t.id}
+                style={{ width: tall ? 5 : 4, height: tall ? 5 : 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: dotColor }}
+              />
+            );
+          })}
           {totalItems > 4 && (
             <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)", lineHeight: "5px" }}>+{totalItems - 4}</span>
           )}
         </div>
+
+        {/* Week view: compact task name chips */}
+        {tall && dayTkList.length > 0 && (
+          <div className="flex flex-col gap-0.5 mt-1.5" style={{ minWidth: 0 }}>
+            {dayTkList.slice(0, 3).map((t) => {
+              const isFutureRecurring = ds > todayStr && !!t.checklistItemId;
+              const chipColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    background: isFutureRecurring ? "transparent" : chipColor + "18",
+                    border: `1px ${isFutureRecurring ? "dashed" : "solid"} ${chipColor}${isFutureRecurring ? "55" : "30"}`,
+                    borderRadius: 5,
+                    padding: "1px 5px",
+                    fontSize: 9,
+                    color: t.done ? "rgba(255,255,255,0.22)" : isFutureRecurring ? chipColor + "cc" : "rgba(255,255,255,0.62)",
+                    textDecoration: t.done ? "line-through" : "none",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    opacity: isFutureRecurring ? 0.72 : 1,
+                  }}
+                >
+                  {isFutureRecurring ? "◌ " : ""}{t.text}
+                </div>
+              );
+            })}
+            {dayTkList.length > 3 && (
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)", paddingLeft: 2 }}>+{dayTkList.length - 3}</span>
+            )}
+          </div>
+        )}
 
         {/* Hover tooltip */}
         {tooltipLines.length > 0 && (
@@ -564,6 +615,10 @@ export function Calendar() {
                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.35)" }} />
                 <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>· Задача</span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: "transparent", border: "1.5px dashed rgba(167,139,250,0.60)" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>◌ Запланировано</span>
+              </div>
             </div>
           </div>
         );
@@ -600,29 +655,66 @@ export function Calendar() {
               {dayTasks.map((t) => {
                 const s = t.category === "Mission" ? null : sphereColors[t.sphere];
                 const dotColor = t.category === "Mission" ? "#fbbf24" : s!.color;
+                const isRecurring = !!t.checklistItemId;
+                const isFuturePlanned = selectedDateStr! > todayStr && isRecurring;
                 return (
-                  <div key={t.id} className="group flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-white/2 transition-all">
+                  <div
+                    key={t.id}
+                    className="group flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-white/2 transition-all"
+                    style={{
+                      border: isFuturePlanned ? `1px dashed ${dotColor}30` : "1px solid transparent",
+                      background: isFuturePlanned ? `${dotColor}06` : "transparent",
+                      opacity: isFuturePlanned ? 0.85 : 1,
+                    }}
+                  >
+                    {/* Toggle dot */}
                     <div
-                      className="w-2 h-2 rounded-full flex-shrink-0 cursor-pointer"
-                      style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}60` }}
-                      onClick={() => toggleTask(t.id)}
+                      className="flex-shrink-0 cursor-pointer"
+                      style={{
+                        width: 8, height: 8, borderRadius: "50%",
+                        background: isFuturePlanned ? "transparent" : dotColor,
+                        border: isFuturePlanned ? `1.5px dashed ${dotColor}` : "none",
+                        boxShadow: !isFuturePlanned ? `0 0 4px ${dotColor}60` : "none",
+                      }}
+                      onClick={() => !isFuturePlanned && toggleTask(t.id)}
                     />
+                    {/* Task text */}
                     <span
                       className="flex-1 text-sm min-w-0 truncate cursor-pointer"
-                      style={{ color: t.done ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}
-                      onClick={() => toggleTask(t.id)}
+                      style={{ color: t.done ? "rgba(255,255,255,0.25)" : isFuturePlanned ? "rgba(255,255,255,0.50)" : "rgba(255,255,255,0.65)", textDecoration: t.done ? "line-through" : "none" }}
+                      onClick={() => !isFuturePlanned && toggleTask(t.id)}
                     >
                       {t.category === "Mission" && <span className="mr-1 text-xs">💎</span>}
                       {t.text}
                     </span>
-                    {t.done && <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/12 text-green-400 flex-shrink-0">✓</span>}
+                    {/* Badges */}
+                    {isFuturePlanned && (
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: `${dotColor}15`, color: dotColor, border: `1px dashed ${dotColor}50` }}>
+                        🔁 план
+                      </span>
+                    )}
+                    {isRecurring && !isFuturePlanned && (
+                      <span className="text-[8px] text-white/20 flex-shrink-0">🔁</span>
+                    )}
+                    {t.done && !isFuturePlanned && (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-500/12 text-green-400 flex-shrink-0">✓</span>
+                    )}
                     <span className="text-[9px] text-white/20 flex-shrink-0">{t.xp} XP</span>
+                    {/* Delete button */}
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteTask(t.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isRecurring) {
+                          setRecurringDialog({ task: t, action: "delete" });
+                        } else {
+                          deleteTask(t.id);
+                        }
+                      }}
                       className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all text-xs flex-shrink-0 w-5 h-5 flex items-center justify-center rounded"
                       title="Удалить"
                     >
-                      🗑
+                      ✕
                     </button>
                   </div>
                 );
@@ -814,6 +906,109 @@ export function Calendar() {
           ))}
         </div>
       </div>
+
+      {/* Recurring bulk-action dialog */}
+      {recurringDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.80)", backdropFilter: "blur(14px)" }}
+          onClick={e => e.target === e.currentTarget && setRecurringDialog(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl overflow-hidden flex flex-col"
+            style={{
+              background: "rgba(10,9,22,0.98)",
+              border: "1px solid rgba(167,139,250,0.22)",
+              boxShadow: "0 0 60px rgba(167,139,250,0.10)",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: "1px solid rgba(167,139,250,0.10)", background: "rgba(167,139,250,0.03)" }}
+            >
+              <div>
+                <p className="text-xs font-semibold tracking-[0.16em] uppercase" style={{ color: "#a78bfa", textShadow: "0 0 10px rgba(167,139,250,0.55)" }}>
+                  🔁 Повторяющаяся задача
+                </p>
+                <p className="text-[10px] text-white/35 mt-0.5 truncate max-w-[220px]">{recurringDialog.task.text}</p>
+              </div>
+              <button onClick={() => setRecurringDialog(null)} className="text-white/25 hover:text-white/60 transition-colors text-lg">✕</button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-5 flex flex-col gap-3">
+              <p className="text-xs text-white/45 leading-relaxed">
+                {recurringDialog.action === "delete"
+                  ? "Что именно удалить?"
+                  : "Какие задачи изменить?"}
+              </p>
+
+              {/* Only this */}
+              <button
+                onClick={() => {
+                  if (recurringDialog.action === "delete") {
+                    deleteTask(recurringDialog.task.id);
+                  }
+                  setRecurringDialog(null);
+                }}
+                className="w-full flex items-start gap-3 px-4 py-3 rounded-2xl text-left transition-all"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,0.10)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.25)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+              >
+                <span className="text-base mt-0.5">✦</span>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Только эту задачу</p>
+                  <p className="text-[10px] text-white/35 mt-0.5">
+                    {recurringDialog.task.dueDate
+                      ? `${recurringDialog.task.dueDate.slice(8)}.${recurringDialog.task.dueDate.slice(5, 7)}.${recurringDialog.task.dueDate.slice(0, 4)}`
+                      : ""}
+                  </p>
+                </div>
+              </button>
+
+              {/* This and all following */}
+              <button
+                onClick={() => {
+                  if (!recurringDialog.task.checklistItemId || !recurringDialog.task.dueDate) return;
+                  if (recurringDialog.action === "delete") {
+                    deleteRecurringFromDate(recurringDialog.task.checklistItemId, recurringDialog.task.dueDate);
+                  }
+                  setRecurringDialog(null);
+                }}
+                className="w-full flex items-start gap-3 px-4 py-3 rounded-2xl text-left transition-all"
+                style={{
+                  background: "rgba(239,68,68,0.06)",
+                  border: "1px solid rgba(239,68,68,0.15)",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.30)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.15)"; }}
+              >
+                <span className="text-base mt-0.5 text-red-400">⚠</span>
+                <div>
+                  <p className="text-sm font-medium text-red-300">Эту и все последующие</p>
+                  <p className="text-[10px] text-red-400/50 mt-0.5">
+                    Все повторы начиная с {recurringDialog.task.dueDate
+                      ? `${recurringDialog.task.dueDate.slice(8)}.${recurringDialog.task.dueDate.slice(5, 7)}`
+                      : ""} будут удалены
+                  </p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setRecurringDialog(null)}
+                className="w-full py-2 rounded-xl text-sm text-white/30 hover:text-white/55 transition-colors border border-white/6 mt-1"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add event modal */}
       {showAddEvent && (
