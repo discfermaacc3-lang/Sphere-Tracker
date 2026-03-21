@@ -13,7 +13,7 @@ const MONTH_NAMES_GEN = [
   "июля","августа","сентября","октября","ноября","декабря",
 ];
 const LEVEL_LABEL: Record<string, string> = { year: "Годовая", month: "Месячная", week: "Недельная" };
-const EVENT_CATEGORIES: EventCategory[] = ["birthday", "holiday", "deadline", "meeting"];
+const EVENT_CATEGORIES: EventCategory[] = ["birthday", "holiday", "meeting"];
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
@@ -332,26 +332,17 @@ export function Calendar() {
         : "rgba(255,255,255,0.028)";
     }
 
-    /* ── Mini event-type icons for this day ── */
-    const hasBirthday       = dayEvList.some((e) => e.category === "birthday");
-    const hasHoliday        = dayEvList.some((e) => e.category === "holiday");
-    const hasMeeting        = dayEvList.some((e) => e.category === "meeting");
-    const deadlineEvCount   = dayEvList.filter((e) => e.category === "deadline").length;
-    const taskDeadlines     = dayTkList.filter((t) => !t.noDeadline && t.dueDate === ds);
-    const taskDeadlineCount = taskDeadlines.length;
-    const totalDeadlines    = deadlineEvCount + taskDeadlineCount;
+    /* ── Mini event-type icons for this day (no deadline category) ── */
+    const hasBirthday = dayEvList.some((e) => e.category === "birthday");
+    const hasHoliday  = dayEvList.some((e) => e.category === "holiday");
+    const hasMeeting  = dayEvList.some((e) => e.category === "meeting");
 
-    // Build a compact list of inline mini-icons (max 3 distinct symbols)
-    type MiniIcon = { emoji: string; color: string; count?: number };
+    // Build a compact row of mini-icons (birthday, holiday, meeting only)
+    type MiniIcon = { emoji: string; color: string };
     const miniIcons: MiniIcon[] = [];
     if (hasBirthday) miniIcons.push({ emoji: "🎂", color: EVENT_META.birthday.color });
     if (hasHoliday)  miniIcons.push({ emoji: "⭐", color: EVENT_META.holiday.color });
     if (hasMeeting)  miniIcons.push({ emoji: "📅", color: EVENT_META.meeting.color });
-    if (totalDeadlines > 0) miniIcons.push({
-      emoji: "⏰",
-      color: deadlineEvCount > 0 ? EVENT_META.deadline.color : "#ef4444",
-      count: totalDeadlines > 1 ? totalDeadlines : undefined,
-    });
 
     /* ── Smart-collapse recurring tasks in chips ──
        Group dayTkList by recurringTemplateId (or by id if solo).
@@ -388,12 +379,12 @@ export function Calendar() {
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
         onMouseEnter={() => setHoveredCellDs(ds)}
         onMouseLeave={() => setHoveredCellDs(null)}
-        className="relative group/cell rounded-xl flex flex-col"
+        className="relative group/cell rounded-xl flex flex-col items-center"
         style={{
           aspectRatio: "1",
           minHeight: 0,
           overflow: "hidden",
-          padding: tall ? "9px 8px 6px" : "6px 5px 5px",
+          padding: tall ? "9px 7px 6px" : "5px 4px 4px",
           border: cellBorder,
           background: cellBackground,
           boxShadow: cellBoxShadow,
@@ -402,9 +393,8 @@ export function Calendar() {
           cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
-        {/* ── TOP ROW: day number + mini icons (inline, not fullscreen) ── */}
-        <div className="flex items-start justify-between gap-0.5 relative z-10 flex-shrink-0">
-          {/* Day number */}
+        {/* ── Day number — centered ── */}
+        <div className="flex flex-col items-center flex-shrink-0 relative z-10">
           <span
             className="font-semibold leading-none"
             style={{
@@ -424,46 +414,41 @@ export function Calendar() {
             {label}
           </span>
 
-          {/* Mini event icons — right-aligned, tiny */}
+          {/* Weekday label in week view — below day number */}
+          {tall && (
+            <span className="text-[9px] font-medium mt-0.5" style={{ color: isToday ? "rgba(167,139,250,0.50)" : "rgba(255,255,255,0.18)", letterSpacing: "0.06em" }}>
+              {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
+            </span>
+          )}
+
+          {/* ── Icon row — centered, below date, tiny ── */}
           {miniIcons.length > 0 && (
-            <div className="flex items-center gap-[2px] flex-shrink-0 mt-[1px]">
-              {miniIcons.slice(0, tall ? 3 : 2).map((ic, idx) => (
+            <div className="flex items-center justify-center gap-[2px] mt-[2px]" style={{ flexShrink: 0 }}>
+              {miniIcons.slice(0, 3).map((ic, idx) => (
                 <span
                   key={idx}
                   style={{
-                    fontSize: tall ? 9 : 8,
-                    filter: `drop-shadow(0 0 4px ${ic.color}99)`,
-                    opacity: isPast ? 0.28 : 0.72,
+                    fontSize: tall ? 9 : 7,
+                    filter: `drop-shadow(0 0 3px ${ic.color}88)`,
+                    opacity: isPast ? 0.25 : 0.68,
                     lineHeight: 1,
-                    display: "flex",
-                    alignItems: "center",
                   }}
                 >
                   {ic.emoji}
-                  {ic.count && ic.count > 1 && (
-                    <span style={{ fontSize: tall ? 7 : 6, color: ic.color, fontWeight: 700, marginLeft: 0.5, opacity: 0.9, lineHeight: 1 }}>
-                      {ic.count}
-                    </span>
-                  )}
                 </span>
               ))}
-              {miniIcons.length > (tall ? 3 : 2) && (
-                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.28)", lineHeight: 1 }}>+{miniIcons.length - (tall ? 3 : 2)}</span>
+              {miniIcons.length > 3 && (
+                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)", lineHeight: 1, fontWeight: 600 }}>
+                  +{miniIcons.length - 3}
+                </span>
               )}
             </div>
           )}
         </div>
 
-        {/* Weekday label in week view */}
-        {tall && (
-          <span className="text-[9px] font-medium mt-0.5 flex-shrink-0 relative z-10" style={{ color: isToday ? "rgba(167,139,250,0.50)" : "rgba(255,255,255,0.18)", letterSpacing: "0.06em" }}>
-            {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
-          </span>
-        )}
-
         {/* ── Week view: collapsed task chips ── */}
         {tall && chipGroups.length > 0 && (
-          <div className="flex flex-col gap-[2px] mt-1 relative z-10 flex-shrink-0" style={{ minWidth: 0, overflow: "hidden" }}>
+          <div className="flex flex-col gap-[2px] mt-1 relative z-10 flex-shrink-0 self-stretch" style={{ minWidth: 0, overflow: "hidden" }}>
             {chipGroups.slice(0, 2).map((g) => (
               <div
                 key={g.key}
@@ -687,23 +672,19 @@ export function Calendar() {
 
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-white/5">
-              {(["birthday", "holiday", "deadline", "meeting"] as EventCategory[]).map((cat) => (
+              {(["birthday", "holiday", "meeting"] as EventCategory[]).map((cat) => (
                 <div key={cat} className="flex items-center gap-1.5">
-                  <span style={{ fontSize: 13, filter: `drop-shadow(0 0 4px ${EVENT_META[cat].color}aa)` }}>{EVENT_META[cat].emoji}</span>
+                  <span style={{ fontSize: 12, filter: `drop-shadow(0 0 3px ${EVENT_META[cat].color}99)`, opacity: 0.80 }}>{EVENT_META[cat].emoji}</span>
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>{EVENT_META[cat].label}</span>
                 </div>
               ))}
               <div className="flex items-center gap-1.5">
-                <span style={{ fontSize: 13, filter: "drop-shadow(0 0 4px #ef4444aa)", opacity: 0.70 }}>⏰</span>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>Дедлайн задачи</span>
-              </div>
-              <div className="flex items-center gap-1.5">
                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.35)" }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>· Задача</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>Задача</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "transparent", border: "1.5px dashed rgba(167,139,250,0.60)" }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>◌ Запланировано</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>Запланировано</span>
               </div>
             </div>
           </div>
