@@ -41,18 +41,130 @@ export function Sidebar() {
           borderRight: "1px solid rgba(167,139,250,0.08)",
         }}
       >
-        {/* Logo */}
+        {/* Logo — Sphere Tracker icon */}
         <div
-          className="mb-7 w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+          className="mb-7 w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
           style={{
-            background: "linear-gradient(135deg,rgba(167,139,250,0.5),rgba(139,92,246,0.3))",
-            boxShadow: "0 0 20px rgba(167,139,250,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
-            border: "1px solid rgba(167,139,250,0.25)",
-            color: "rgba(255,255,255,0.9)",
-            letterSpacing: "0.05em",
+            background: "rgba(167,139,250,0.06)",
+            boxShadow: "0 0 18px rgba(167,139,250,0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
+            border: "1px solid rgba(167,139,250,0.18)",
           }}
         >
-          L
+          <svg
+            viewBox="0 0 40 44"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            width="30"
+            height="33"
+          >
+            <defs>
+              <filter id="glw" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="1.4" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#c4b5fd" />
+                <stop offset="100%" stopColor="#86efac" />
+              </linearGradient>
+            </defs>
+
+            {/* ── Upper arc of the sphere ── */}
+            {/* Goes from bottom-left (6,26) over the top (20,5) to bottom-right (34,26) */}
+            <path
+              d="M 6,26 C 6,10 34,10 34,26"
+              stroke="#c4b5fd"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Branch stem growing from top-right of arc (~31, 15) ── */}
+            <path
+              d="M 29,14 C 31,11 33,8 32,5"
+              stroke="#c4b5fd"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Leaf 1 — center, largest ── */}
+            <path
+              d="M 31,9 C 35,7 36,4 33,3 C 30,4 29,7 31,9 Z"
+              stroke="url(#leafGrad)"
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Leaf 2 — left of stem ── */}
+            <path
+              d="M 30,12 C 26,10 25,7 27,6 C 29,7 30,10 30,12 Z"
+              stroke="url(#leafGrad)"
+              strokeWidth="0.95"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Leaf 3 — small tip ── */}
+            <path
+              d="M 32,6 C 34,4 36,2 35,1 C 33,1 31,4 32,6 Z"
+              stroke="url(#leafGrad)"
+              strokeWidth="0.85"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Lower arc (palm) — holds the sphere from below ── */}
+            <path
+              d="M 7,28 C 7,38 33,38 33,28"
+              stroke="#c4b5fd"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Finger 1 (index) spreading from left end ── */}
+            <path
+              d="M 7,27 C 4,25 3,21 5,19"
+              stroke="#c4b5fd"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Finger 2 (middle) ── */}
+            <path
+              d="M 7,28 C 3,27 2,24 4,22"
+              stroke="#c4b5fd"
+              strokeWidth="1"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+
+            {/* ── Finger 3 (ring/pinky) ── */}
+            <path
+              d="M 7,29 C 3,30 2,33 4,35"
+              stroke="#c4b5fd"
+              strokeWidth="0.9"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glw)"
+            />
+          </svg>
         </div>
 
         {navItems.map((item) => {
