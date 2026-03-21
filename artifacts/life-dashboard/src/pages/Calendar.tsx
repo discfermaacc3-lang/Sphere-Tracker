@@ -149,7 +149,7 @@ export function Calendar() {
   const {
     currentMonth, prevMonth, nextMonth, goToMonth,
     tasks, goals, calendarEvents, addCalendarEvent, deleteCalendarEvent,
-    toggleTask, addTask, deleteTask, deleteRecurringFromDate, editRecurringFromDate,
+    toggleTask, addTask, deleteTask, deleteRecurringFromDate, editRecurringFromDate, deleteRecurringFromTemplate,
     calendarDrafts, addCalendarDraft, removeCalendarDraft,
   } = useStore();
 
@@ -243,9 +243,11 @@ export function Calendar() {
   ];
 
   const selectedDateStr = selectedDay ? toDateStr(year, month, selectedDay) : null;
-  // Exclude routine tasks from day panel
+  // Exclude auto-routine tasks from day panel (but keep user recurring tasks)
+  const isVisibleTask = (t: Task) =>
+    t.type !== "routine" || !!t.recurringTemplateId || !!t.checklistItemId;
   const dayTasks = selectedDateStr
-    ? tasks.filter((t) => t.dueDate === selectedDateStr && t.type !== "routine")
+    ? tasks.filter((t) => t.dueDate === selectedDateStr && isVisibleTask(t))
     : [];
   const dayEvents = selectedDay ? getEventsForDate(calendarEvents, toDateStr(year, month, selectedDay)) : [];
   const defaultEventDate = toDateStr(year, month, selectedDay ?? new Date().getDate());
@@ -253,8 +255,8 @@ export function Calendar() {
 
   const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
   const overviewTasks = viewMode === "week"
-    ? tasks.filter((t) => t.type !== "routine" && t.dueDate && weekDays.includes(t.dueDate))
-    : tasks.filter((t) => t.type !== "routine" && t.dueDate?.startsWith(monthPrefix));
+    ? tasks.filter((t) => isVisibleTask(t) && t.dueDate && weekDays.includes(t.dueDate))
+    : tasks.filter((t) => isVisibleTask(t) && t.dueDate?.startsWith(monthPrefix));
   const overviewGoals = viewMode === "week"
     ? goals.filter((g) => g.level === "week" && g.year === year && g.month === month)
     : goals.filter((g) => (g.level === "week" || g.level === "month") && g.year === year && g.month === month);
@@ -281,7 +283,7 @@ export function Calendar() {
     const isPast = ds < todayStr;
     const isSelectedDay = selectedDateStr === ds;
     const dayEvList = getEventsForDate(calendarEvents, ds);
-    const dayTkList = tasks.filter((t) => t.dueDate === ds && t.type !== "routine");
+    const dayTkList = tasks.filter((t) => t.dueDate === ds && isVisibleTask(t));
     const totalItems = dayEvList.length + dayTkList.length;
     const glowStyle = getCellGlow(ds);
     const hasGlow = ds === activeHighlight;
@@ -383,7 +385,7 @@ export function Calendar() {
             />
           ))}
           {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => {
-            const isFutureRecurring = ds > todayStr && !!t.checklistItemId;
+            const isFutureRecurring = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
             const dotColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
             return isFutureRecurring ? (
               <div
@@ -412,7 +414,7 @@ export function Calendar() {
         {tall && dayTkList.length > 0 && (
           <div className="flex flex-col gap-0.5 mt-1.5" style={{ minWidth: 0 }}>
             {dayTkList.slice(0, 3).map((t) => {
-              const isFutureRecurring = ds > todayStr && !!t.checklistItemId;
+              const isFutureRecurring = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
               const chipColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
               return (
                 <div
@@ -655,7 +657,7 @@ export function Calendar() {
               {dayTasks.map((t) => {
                 const s = t.category === "Mission" ? null : sphereColors[t.sphere];
                 const dotColor = t.category === "Mission" ? "#fbbf24" : s!.color;
-                const isRecurring = !!t.checklistItemId;
+                const isRecurring = !!t.checklistItemId || !!t.recurringTemplateId;
                 const isFuturePlanned = selectedDateStr! > todayStr && isRecurring;
                 return (
                   <div
@@ -974,9 +976,13 @@ export function Calendar() {
               {/* This and all following */}
               <button
                 onClick={() => {
-                  if (!recurringDialog.task.checklistItemId || !recurringDialog.task.dueDate) return;
+                  if (!recurringDialog.task.dueDate) return;
                   if (recurringDialog.action === "delete") {
-                    deleteRecurringFromDate(recurringDialog.task.checklistItemId, recurringDialog.task.dueDate);
+                    if (recurringDialog.task.checklistItemId) {
+                      deleteRecurringFromDate(recurringDialog.task.checklistItemId, recurringDialog.task.dueDate);
+                    } else if (recurringDialog.task.recurringTemplateId) {
+                      deleteRecurringFromTemplate(recurringDialog.task.recurringTemplateId, recurringDialog.task.dueDate);
+                    }
                   }
                   setRecurringDialog(null);
                 }}

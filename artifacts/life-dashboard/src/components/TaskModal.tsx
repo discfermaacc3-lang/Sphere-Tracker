@@ -513,10 +513,10 @@ export function TaskModal(props: Props) {
                         onClick={() => toggleDay(idx)}
                         className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all"
                         style={{
-                          background: active ? "#6366f125" : "rgba(255,255,255,0.04)",
-                          color: active ? "#818cf8" : "rgba(255,255,255,0.30)",
-                          border: `1px solid ${active ? "#6366f148" : "transparent"}`,
-                          boxShadow: active ? "0 0 8px rgba(99,102,241,0.15)" : "none",
+                          background: active ? "rgba(167,139,250,0.18)" : "rgba(255,255,255,0.04)",
+                          color: active ? "#c4b5fd" : "rgba(255,255,255,0.30)",
+                          border: `1px solid ${active ? "rgba(167,139,250,0.50)" : "transparent"}`,
+                          boxShadow: active ? "0 0 10px rgba(167,139,250,0.30), inset 0 0 6px rgba(167,139,250,0.10)" : "none",
                         }}
                       >
                         {label}

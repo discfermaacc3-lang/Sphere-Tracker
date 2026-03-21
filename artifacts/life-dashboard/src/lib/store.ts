@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { SphereKey, sphereKeys } from "./sphereColors";
 
 export type TaskCategory =
@@ -274,6 +274,8 @@ type Store = {
   deleteTask: (id: string) => void;
   deleteRecurringFromDate: (checklistItemId: string, fromDate: string) => void;
   editRecurringFromDate: (checklistItemId: string, fromDate: string, updates: Partial<Omit<Task, "id">>) => void;
+  deleteRecurringFromTemplate: (recurringTemplateId: string, fromDate: string) => void;
+  addRecurringTaskBatch: (fields: Omit<Task, "id" | "done">, days: number[], endDate: string | null) => void;
   rescheduleTask: (id: string, newDate: string) => void;
 
   routineTemplates: RoutineTemplate[];
@@ -488,15 +490,10 @@ function autoUncompleteGoals(tasks: Task[], goals: Goal[], penaltyXP: number): {
   return { goals: currentGoals, penaltyXP: totalPenalty };
 }
 
-// Custom localStorage storage that revives Date objects
-const dateAwareStorage = {
+// Custom localStorage storage with proper Zustand v5 API (createJSONStorage)
+const dateAwareStorage = createJSONStorage(() => ({
   getItem: (name: string): string | null => {
-    try {
-      const str = localStorage.getItem(name);
-      return str; // Return raw string — Zustand will parse it
-    } catch {
-      return null;
-    }
+    try { return localStorage.getItem(name); } catch { return null; }
   },
   setItem: (name: string, value: string): void => {
     try { localStorage.setItem(name, value); } catch { /* quota */ }
@@ -504,7 +501,7 @@ const dateAwareStorage = {
   removeItem: (name: string): void => {
     try { localStorage.removeItem(name); } catch { /* ignore */ }
   },
-};
+}));
 
 export const useStore = create<Store>()(
   persist(
@@ -786,6 +783,42 @@ export const useStore = create<Store>()(
               : t
           ),
         })),
+      deleteRecurringFromTemplate: (recurringTemplateId, fromDate) =>
+        set((s) => ({
+          tasks: s.tasks.filter(
+            (t) => !(t.recurringTemplateId === recurringTemplateId && t.dueDate && t.dueDate >= fromDate)
+          ),
+        })),
+      addRecurringTaskBatch: (fields, days, endDate) =>
+        set((s) => {
+          const templateId = "rtb-" + Date.now() + "-" + Math.floor(Math.random() * 99999);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const end = endDate ? (() => { const d = new Date(endDate); d.setHours(0, 0, 0, 0); return d; })()
+            : (() => { const d = new Date(today); d.setDate(d.getDate() + 90); return d; })(); // 90-day window if no end
+          const newTasks: Task[] = [];
+          const cur = new Date(today);
+          let idx = 0;
+          while (cur <= end) {
+            const dow = cur.getDay();
+            const ourDow = dow === 0 ? 6 : dow - 1; // Mon=0..Sun=6
+            if (days.includes(ourDow)) {
+              const dueDateStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+              newTasks.push({
+                ...fields,
+                id: `rbt-${templateId}-${idx++}`,
+                dueDate: dueDateStr,
+                done: false,
+                noDeadline: false,
+                recurringTemplateId: templateId,
+                recurringDays: days,
+                recurringEndDate: endDate ?? undefined,
+              });
+            }
+            cur.setDate(cur.getDate() + 1);
+          }
+          return { tasks: [...s.tasks, ...newTasks] };
+        }),
       rescheduleTask: (id, newDate) =>
         set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, dueDate: newDate } : t)) })),
 

@@ -325,6 +325,7 @@ export function Tasks() {
     tasks, toggleTask, addTask, editTask, deleteTask, rescheduleTask,
     routineTemplates, addRoutineTemplate, editRoutineTemplate, deleteRoutineTemplate, refreshDay,
     recurringTaskTemplates, addRecurringTaskTemplate, deleteRecurringTaskTemplate,
+    addRecurringTaskBatch, deleteRecurringFromTemplate,
     totalXP, dayXP, goals,
   } = useStore();
 
@@ -670,16 +671,26 @@ export function Tasks() {
             if (editingTask) {
               editTask(editingTask.id, fields);
             } else if (fields.recurringDays && fields.recurringDays.length > 0) {
-              addRecurringTaskTemplate({
-                text: fields.text,
-                description: fields.description,
-                category: fields.category,
-                sphere: fields.sphere,
-                xp: fields.xp,
-                xpDifficulty: fields.xpDifficulty,
-                days: fields.recurringDays,
-              });
-              refreshDay();
+              addRecurringTaskBatch(
+                {
+                  text: fields.text,
+                  description: fields.description,
+                  category: fields.category,
+                  sphere: fields.sphere,
+                  xp: fields.xp,
+                  xpDifficulty: fields.xpDifficulty,
+                  type: fields.type ?? "routine",
+                  priority: fields.priority ?? false,
+                  noDeadline: false,
+                  goalId: fields.goalId,
+                  timeFrom: fields.timeFrom,
+                  timeTo: fields.timeTo,
+                  recurringDays: fields.recurringDays,
+                  recurringEndDate: fields.recurringEndDate,
+                },
+                fields.recurringDays,
+                fields.recurringEndDate ?? null
+              );
             } else {
               addTask({ ...fields, done: false });
             }
