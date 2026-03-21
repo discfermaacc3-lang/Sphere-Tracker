@@ -284,7 +284,6 @@ export function Calendar() {
     const isSelectedDay = selectedDateStr === ds;
     const dayEvList = getEventsForDate(calendarEvents, ds);
     const dayTkList = tasks.filter((t) => t.dueDate === ds && isVisibleTask(t));
-    const totalItems = dayEvList.length + dayTkList.length;
     const glowStyle = getCellGlow(ds);
     const hasGlow = ds === activeHighlight;
     const dayNum = parseInt(String(label));
@@ -372,14 +371,6 @@ export function Calendar() {
       }
     }
 
-    /* Dots: one dot per unique task group */
-    const totalCellItems = dayEvList.length + chipGroups.length;
-
-    /* ── Max 2 visible chips in week view, rest goes to overflow ── */
-    const MAX_CHIPS = 2;
-    const visibleChips2  = chipGroups.slice(0, MAX_CHIPS);
-    const overflowChips2 = chipGroups.length - MAX_CHIPS;
-
     return (
       <div
         key={ds}
@@ -394,8 +385,8 @@ export function Calendar() {
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          gap: 2,
-          padding: tall ? "9px 8px 7px" : "5px 5px 4px",
+          gap: tall ? 5 : 2,
+          padding: tall ? "10px 9px 8px" : "6px 6px 5px",
           border: cellBorder,
           background: cellBackground,
           boxShadow: cellBoxShadow,
@@ -404,16 +395,26 @@ export function Calendar() {
           cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
-        {/* ── ROW 1: day number (left) + event icons (right) ── */}
+        {/* ── Month view: event icons as absolute overlay (top-right) ── */}
+        {!tall && miniIcons.length > 0 && (
+          <div className="absolute top-[3px] right-[3px] flex gap-[1px]" style={{ lineHeight: 1 }}>
+            {miniIcons.slice(0, 2).map((ic, idx) => (
+              <span key={idx} style={{ fontSize: 6, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.20 : 0.55, lineHeight: 1 }}>
+                {ic.emoji}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ── ROW 1: day number — centered for month, left for week + icons right ── */}
         <div
-          className="flex items-start justify-between flex-shrink-0"
-          style={{ gap: 2, minWidth: 0, overflow: "hidden" }}
+          className="flex items-start flex-shrink-0"
+          style={{ justifyContent: tall ? "space-between" : "center", gap: 2, minWidth: 0 }}
         >
-          {/* Day number */}
           <span
             className="font-semibold leading-none flex-shrink-0"
             style={{
-              fontSize: tall ? 18 : 13,
+              fontSize: tall ? 18 : 12,
               color: isToday
                 ? "#a78bfa"
                 : isSelectedDay
@@ -429,24 +430,16 @@ export function Calendar() {
             {label}
           </span>
 
-          {/* Event icons — compact row on the right */}
-          {miniIcons.length > 0 && (
-            <div className="flex items-center gap-[1px] flex-shrink-0 mt-[1px]" style={{ lineHeight: 1 }}>
+          {/* Week view: event icons inline with day number */}
+          {tall && miniIcons.length > 0 && (
+            <div className="flex items-center gap-[2px] flex-shrink-0 mt-[2px]" style={{ lineHeight: 1 }}>
               {miniIcons.slice(0, 3).map((ic, idx) => (
-                <span
-                  key={idx}
-                  style={{
-                    fontSize: tall ? 9 : 7,
-                    filter: `drop-shadow(0 0 2px ${ic.color}88)`,
-                    opacity: isPast ? 0.22 : 0.65,
-                    lineHeight: 1,
-                  }}
-                >
+                <span key={idx} style={{ fontSize: 9, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.22 : 0.65, lineHeight: 1 }}>
                   {ic.emoji}
                 </span>
               ))}
               {miniIcons.length > 3 && (
-                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
+                <span style={{ fontSize: 7, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
                   +{miniIcons.length - 3}
                 </span>
               )}
@@ -454,113 +447,62 @@ export function Calendar() {
           )}
         </div>
 
-        {/* ── ROW 2 (week only): weekday label ── */}
-        {tall && (
-          <span
-            className="flex-shrink-0 leading-none"
-            style={{
-              fontSize: 9,
-              fontWeight: 500,
-              color: isToday ? "rgba(167,139,250,0.50)" : "rgba(255,255,255,0.18)",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
-          </span>
-        )}
+        {/* ── Spacer pushes dots to bottom ── */}
+        <div style={{ flex: 1, minHeight: 0 }} />
 
-        {/* ── WEEK VIEW: text task chips (readable size, max 2 + overflow) ── */}
-        {tall && chipGroups.length > 0 && (
-          <>
-            {visibleChips2.map((g) => (
-              <div
-                key={g.key}
-                onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
-                className="flex-shrink-0"
-                style={{
-                  background: g.isFutureRecurring ? "transparent" : g.color + "14",
-                  border: `1px ${g.isFutureRecurring ? "dashed" : "solid"} ${g.color}${g.isFutureRecurring ? "42" : "28"}`,
-                  borderRadius: 4,
-                  padding: "2px 5px",
-                  fontSize: 9,
-                  color: g.done
-                    ? "rgba(255,255,255,0.20)"
-                    : g.isFutureRecurring
-                    ? g.color + "bb"
-                    : "rgba(255,255,255,0.62)",
-                  textDecoration: g.done ? "line-through" : "none",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  opacity: g.isFutureRecurring ? 0.72 : 1,
-                  lineHeight: "1.4",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {g.isFutureRecurring ? "◌ " : ""}
-                  {g.text}
-                </span>
-                {g.count > 1 && (
-                  <span style={{
-                    flexShrink: 0,
-                    fontSize: 8,
-                    fontWeight: 600,
-                    opacity: 0.65,
-                    color: g.color,
-                    background: g.color + "20",
-                    borderRadius: 3,
-                    padding: "0 3px",
-                  }}>
-                    ×{g.count}
-                  </span>
-                )}
-              </div>
-            ))}
-            {overflowChips2 > 0 && (
-              <span
-                onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
-                className="flex-shrink-0"
-                style={{
-                  fontSize: 8,
-                  color: "#a78bfa",
-                  opacity: 0.75,
-                  lineHeight: "1.3",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  textDecorationStyle: "dotted",
-                  textDecorationColor: "#a78bfa88",
-                }}
-              >
-                + ещё {overflowChips2}
-              </span>
-            )}
-          </>
-        )}
-
-        {/* ── MONTH VIEW: colored dot indicators (one per unique task group) ── */}
-        {!tall && (dayEvList.length > 0 || chipGroups.length > 0) && (
+        {/* ── UNIFIED DOTS: one lavender dot per task group, event-colored dot per event ──
+             Both month and week views use dots only — no text chips. */}
+        {(dayEvList.length > 0 || chipGroups.length > 0) && (
           <div
-            className="mt-auto flex gap-[3px] flex-shrink-0"
-            style={{ overflow: "hidden", flexWrap: "nowrap", maxHeight: 5 }}
+            className="flex flex-wrap flex-shrink-0"
+            style={{ gap: tall ? 4 : 3, overflow: "hidden", maxHeight: tall ? 40 : 5 }}
           >
-            {dayEvList.slice(0, 2).map((e) => (
+            {/* Event dots — keep category color */}
+            {dayEvList.slice(0, tall ? 5 : 2).map((e) => (
               <div
                 key={e.id}
-                style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
+                style={{
+                  width: tall ? 6 : 4, height: tall ? 6 : 4,
+                  borderRadius: "50%", flexShrink: 0,
+                  background: EVENT_META[e.category].color,
+                  boxShadow: `0 0 4px ${EVENT_META[e.category].color}`,
+                  opacity: isPast ? 0.35 : 0.80,
+                }}
               />
             ))}
-            {chipGroups.slice(0, Math.max(0, 3 - dayEvList.length)).map((g) => (
-              g.isFutureRecurring ? (
-                <div key={g.key} style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: "transparent", border: `1.5px dashed ${g.color}`, opacity: 0.45 }} />
-              ) : (
-                <div key={g.key} style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, opacity: 0.50, background: g.color }} />
+
+            {/* Task dots — one per unique group — lavender */}
+            {chipGroups
+              .slice(0, tall ? 30 : Math.max(0, 3 - dayEvList.length))
+              .map((g) =>
+                g.isFutureRecurring ? (
+                  <div
+                    key={g.key}
+                    style={{
+                      width: tall ? 6 : 4, height: tall ? 6 : 4,
+                      borderRadius: "50%", flexShrink: 0,
+                      background: "transparent",
+                      border: "1.5px dashed rgba(167,139,250,0.65)",
+                      opacity: 0.60,
+                    }}
+                  />
+                ) : (
+                  <div
+                    key={g.key}
+                    style={{
+                      width: tall ? 6 : 4, height: tall ? 6 : 4,
+                      borderRadius: "50%", flexShrink: 0,
+                      background: "#a78bfa",
+                      boxShadow: "0 0 5px rgba(167,139,250,0.80)",
+                      opacity: g.done ? 0.22 : isPast ? 0.38 : 0.82,
+                    }}
+                  />
+                )
               )
-            ))}
-            {(dayEvList.length + chipGroups.length) > 3 && (
+            }
+
+            {/* Overflow indicator — month view only */}
+            {!tall && (dayEvList.length + chipGroups.length) > 3 && (
               <span style={{ fontSize: 6, color: "rgba(255,255,255,0.32)", lineHeight: "4px", fontWeight: 700 }}>
                 +{dayEvList.length + chipGroups.length - 3}
               </span>
@@ -692,42 +634,38 @@ export function Calendar() {
 
         return (
           <div
-            className="rounded-2xl border border-white/5 p-4"
-            style={{ background: "rgba(255,255,255,0.02)" }}
+            className="rounded-2xl border border-white/5"
+            style={{ background: "rgba(255,255,255,0.02)", padding: "14px 10px 10px" }}
           >
-            {/* Inner padded wrapper: headers + cells share the same column widths */}
-            <div style={{ paddingInline: innerPad }}>
+            {/* Weekday headers */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap, marginBottom: 8 }}>
+              {WEEKDAYS.map((d) => (
+                <div
+                  key={d}
+                  style={{
+                    textAlign: "center",
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.28)",
+                    fontWeight: 700,
+                    letterSpacing: "0.10em",
+                    textTransform: "uppercase",
+                    paddingBottom: 2,
+                  }}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
 
-              {/* Weekday headers */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap, marginBottom: 8 }}>
-                {WEEKDAYS.map((d) => (
-                  <div
-                    key={d}
-                    style={{
-                      textAlign: "center",
-                      fontSize: 10,
-                      color: "rgba(255,255,255,0.28)",
-                      fontWeight: 700,
-                      letterSpacing: "0.10em",
-                      textTransform: "uppercase",
-                      paddingBottom: 2,
-                    }}
-                  >
-                    {d}
-                  </div>
-                ))}
-              </div>
-
-              {/* Day cells — height auto via aspectRatio on each cell */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap }}>
-                {isMonth
-                  ? monthCells.map((day, idx) => {
-                      if (day === null) return <div key={idx} style={{ aspectRatio: "1" }} />;
-                      return renderDayCell(toDateStr(year, month, day), day, false);
-                    })
-                  : weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))
-                }
-              </div>
+            {/* Day cells */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap }}>
+              {isMonth
+                ? monthCells.map((day, idx) => {
+                    if (day === null) return <div key={idx} style={{ aspectRatio: "1" }} />;
+                    return renderDayCell(toDateStr(year, month, day), day, false);
+                  })
+                : weekDays.map((ds) => renderDayCell(ds, parseInt(ds.slice(8)), true))
+              }
             </div>
 
             {/* Legend */}
