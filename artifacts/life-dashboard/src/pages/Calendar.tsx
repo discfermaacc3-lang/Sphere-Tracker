@@ -332,13 +332,27 @@ export function Calendar() {
         : "rgba(255,255,255,0.028)";
     }
 
+    /* Determine center emoji icon */
+    const hasBirthday = dayEvList.some((e) => e.category === "birthday");
+    const hasHoliday  = dayEvList.some((e) => e.category === "holiday");
+    const hasMeeting  = dayEvList.some((e) => e.category === "meeting");
+    const hasDeadline = dayEvList.some((e) => e.category === "deadline");
+    const hasTaskDeadline = dayTkList.some((t) => !t.recurringTemplateId && !t.checklistItemId);
+    let cellIcon: string | null = null;
+    let cellIconColor = "rgba(255,255,255,0.5)";
+    if (hasBirthday)     { cellIcon = "🎂"; cellIconColor = EVENT_META.birthday.color; }
+    else if (hasHoliday) { cellIcon = "⭐"; cellIconColor = EVENT_META.holiday.color; }
+    else if (hasMeeting) { cellIcon = "📅"; cellIconColor = EVENT_META.meeting.color; }
+    else if (hasDeadline){ cellIcon = "⏰"; cellIconColor = EVENT_META.deadline.color; }
+    else if (hasTaskDeadline) { cellIcon = "⏰"; cellIconColor = "#ef4444"; }
+
     return (
       <div
         key={ds}
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
         onMouseEnter={() => setHoveredCellDs(ds)}
         onMouseLeave={() => setHoveredCellDs(null)}
-        className="relative group/cell rounded-xl flex flex-col cursor-pointer"
+        className="relative group/cell rounded-xl flex flex-col"
         style={{
           aspectRatio: "1",
           padding: tall ? "12px 10px 8px" : "8px 7px 6px",
@@ -347,11 +361,38 @@ export function Calendar() {
           boxShadow: cellBoxShadow,
           backdropFilter: cellBackdropFilter,
           transition: "border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease",
+          cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
+        {/* Center emoji icon for event type */}
+        {cellIcon && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: tall ? 24 : 17,
+                filter: `drop-shadow(0 0 7px ${cellIconColor}cc)`,
+                opacity: isPast ? 0.28 : 0.65,
+                lineHeight: 1,
+              }}
+            >
+              {cellIcon}
+            </span>
+          </div>
+        )}
+
         {/* Day number */}
         <span
-          className="font-semibold leading-none"
+          className="font-semibold leading-none relative z-10"
           style={{
             fontSize: tall ? 20 : 15,
             color: isToday
@@ -377,7 +418,7 @@ export function Calendar() {
         )}
 
         {/* Dot indicators — pushed to bottom */}
-        <div className="mt-auto flex gap-[3px] flex-wrap pt-1">
+        <div className="mt-auto flex gap-[3px] flex-wrap pt-1 relative z-10">
           {dayEvList.slice(0, 3).map((e) => (
             <div
               key={e.id}
@@ -412,7 +453,7 @@ export function Calendar() {
 
         {/* Week view: compact task name chips */}
         {tall && dayTkList.length > 0 && (
-          <div className="flex flex-col gap-0.5 mt-1.5" style={{ minWidth: 0 }}>
+          <div className="flex flex-col gap-0.5 mt-1.5 relative z-10" style={{ minWidth: 0 }}>
             {dayTkList.slice(0, 3).map((t) => {
               const isFutureRecurring = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
               const chipColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
@@ -606,13 +647,17 @@ export function Calendar() {
             </div>
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-white/5">
-              {EVENT_CATEGORIES.map((cat) => (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-white/5">
+              {(["birthday", "holiday", "deadline", "meeting"] as EventCategory[]).map((cat) => (
                 <div key={cat} className="flex items-center gap-1.5">
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: EVENT_META[cat].color, boxShadow: `0 0 4px ${EVENT_META[cat].color}` }} />
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>{EVENT_META[cat].emoji} {EVENT_META[cat].label}</span>
+                  <span style={{ fontSize: 13, filter: `drop-shadow(0 0 4px ${EVENT_META[cat].color}aa)` }}>{EVENT_META[cat].emoji}</span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>{EVENT_META[cat].label}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontSize: 13, filter: "drop-shadow(0 0 4px #ef4444aa)", opacity: 0.70 }}>⏰</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>Дедлайн задачи</span>
+              </div>
               <div className="flex items-center gap-1.5">
                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.35)" }} />
                 <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>· Задача</span>

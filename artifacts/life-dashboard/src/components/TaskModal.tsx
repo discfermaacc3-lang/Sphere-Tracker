@@ -1,10 +1,103 @@
 import { useState } from "react";
 import { Task, TaskCategory, XpDifficulty, RoutineTemplate, useStore, computeGoalEarnedXP } from "@/lib/store";
 import { sphereColors, SphereKey, sphereKeys } from "@/lib/sphereColors";
-import { CustomDatePicker } from "./CustomDatePicker";
 import { CustomTimePicker } from "./CustomTimePicker";
 import { DreamSelect } from "./DreamSelect";
-import { MiniDatePicker } from "./MiniDatePicker";
+
+const CAL_MONTH_NAMES = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const CAL_WEEKDAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+function InlineDatePicker({ value, onChange }: { value: string; onChange: (d: string) => void }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const initDate = value || todayStr;
+  const [calYear, setCalYear] = useState(() => parseInt(initDate.slice(0, 4)));
+  const [calMonth, setCalMonth] = useState(() => parseInt(initDate.slice(5, 7)) - 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const firstDayMon = firstDay === 0 ? 6 : firstDay - 1;
+  const cells = [...Array(firstDayMon).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
+    else setCalMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
+    else setCalMonth(m => m + 1);
+  }
+
+  return (
+    <div style={{ background: "rgba(167,139,250,0.05)", border: "1px solid rgba(167,139,250,0.20)", borderRadius: 16, padding: "12px 10px 10px" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <button
+          onClick={prevMonth}
+          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+          style={{ color: "rgba(167,139,250,0.70)", background: "rgba(167,139,250,0.08)", fontSize: 16 }}
+        >‹</button>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontWeight: 600, letterSpacing: "0.04em" }}>
+          {CAL_MONTH_NAMES[calMonth]} {calYear}
+        </span>
+        <button
+          onClick={nextMonth}
+          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+          style={{ color: "rgba(167,139,250,0.70)", background: "rgba(167,139,250,0.08)", fontSize: 16 }}
+        >›</button>
+      </div>
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {CAL_WEEKDAYS.map(d => (
+          <div key={d} style={{ textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.22)", paddingBottom: 4, letterSpacing: "0.05em" }}>{d}</div>
+        ))}
+      </div>
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((day, idx) => {
+          if (!day) return <div key={idx} />;
+          const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const isSelected = ds === value;
+          const isToday = ds === todayStr;
+          const isPast = ds < todayStr;
+          return (
+            <button
+              key={idx}
+              onClick={() => onChange(ds)}
+              style={{
+                aspectRatio: "1",
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: isSelected || isToday ? 700 : 400,
+                background: isSelected
+                  ? "rgba(167,139,250,0.32)"
+                  : isToday
+                  ? "rgba(167,139,250,0.10)"
+                  : "transparent",
+                border: isSelected
+                  ? "1px solid rgba(167,139,250,0.75)"
+                  : isToday
+                  ? "1px solid rgba(167,139,250,0.38)"
+                  : "1px solid transparent",
+                color: isSelected
+                  ? "#c4b5fd"
+                  : isToday
+                  ? "#a78bfa"
+                  : isPast
+                  ? "rgba(255,255,255,0.22)"
+                  : "rgba(255,255,255,0.70)",
+                boxShadow: isSelected ? "0 0 12px rgba(167,139,250,0.35)" : "none",
+                textShadow: isSelected ? "0 0 8px rgba(167,139,250,0.60)" : "none",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const CATEGORY_LABELS: Record<TaskCategory, string> = {
   Body: "Тело", Mindset: "Мышление", Creativity: "Творчество",
@@ -94,13 +187,20 @@ export function TaskModal(props: Props) {
   const [priority, setPriority] = useState(
     props.mode === "task" ? (props.initial?.priority ?? false) : false
   );
-  const [noDeadline, setNoDeadline] = useState(
-    props.mode === "task" ? (props.initial?.noDeadline ?? false) : true
-  );
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const initDateMode = (): "none" | "today" | "pick" => {
+    if (props.mode !== "task") return "none";
+    if (props.initial?.noDeadline ?? true) return "none";
+    if (props.initial?.dueDate === todayIso) return "today";
+    if (props.initial?.dueDate) return "pick";
+    return "none";
+  };
+  const [dateMode, setDateMode] = useState<"none" | "today" | "pick">(initDateMode);
+  const noDeadline = dateMode === "none";
   const [dueDate, setDueDate] = useState(
     props.mode === "task"
-      ? (props.initial?.dueDate ?? new Date().toISOString().slice(0, 10))
-      : ""
+      ? (props.initial?.dueDate ?? todayIso)
+      : todayIso
   );
   const [timeFrom, setTimeFrom] = useState(
     props.mode === "task" ? (props.initial?.timeFrom ?? "") : ""
@@ -356,45 +456,75 @@ export function TaskModal(props: Props) {
           {props.mode === "task" && (
             <Field label="Срок">
               <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <div
-                    onClick={() => setNoDeadline(!noDeadline)}
-                    className="w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0"
-                    style={{
-                      borderColor: noDeadline ? "#6366f1" : "rgba(255,255,255,0.2)",
-                      background: noDeadline ? "#6366f130" : "transparent",
-                    }}
-                  >
-                    {noDeadline && <span className="text-[9px] text-indigo-400">✓</span>}
-                  </div>
-                  <span className="text-xs text-white/50">Без срока</span>
-                </label>
+                {/* Mode toggle: Без срока / На сегодня / Выбрать день */}
+                <div className="flex gap-1.5">
+                  {([
+                    { id: "none",  label: "Без срока",    icon: "∞" },
+                    { id: "today", label: "На сегодня",   icon: "📍" },
+                    { id: "pick",  label: "Выбрать день", icon: "📅" },
+                  ] as { id: "none" | "today" | "pick"; label: string; icon: string }[]).map((opt) => {
+                    const isActive = dateMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          setDateMode(opt.id);
+                          if (opt.id === "today") setDueDate(todayIso);
+                        }}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1 transition-all"
+                        style={{
+                          background: isActive ? "rgba(167,139,250,0.18)" : "rgba(255,255,255,0.04)",
+                          color: isActive ? "#c4b5fd" : "rgba(255,255,255,0.35)",
+                          border: isActive ? "1px solid rgba(167,139,250,0.50)" : "1px solid transparent",
+                          boxShadow: isActive ? "0 0 10px rgba(167,139,250,0.20)" : "none",
+                          cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>{opt.icon}</span>
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                {!noDeadline && (
-                  <div className="flex flex-col gap-2">
-                    <CustomDatePicker
-                      value={dueDate}
-                      onChange={setDueDate}
-                      accentColor="#6366f1"
-                      placeholder="Выбрать дату"
-                    />
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <CustomTimePicker
-                          value={timeFrom}
-                          onChange={setTimeFrom}
-                          placeholder="Начало"
-                          accentColor="#6366f1"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <CustomTimePicker
-                          value={timeTo}
-                          onChange={setTimeTo}
-                          placeholder="Конец"
-                          accentColor="#6366f1"
-                        />
-                      </div>
+                {/* Selected date display (today or pick mode) */}
+                {dateMode !== "none" && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                    <span style={{ fontSize: 13 }}>🗓</span>
+                    <span style={{ fontSize: 12, color: "rgba(167,139,250,0.85)", fontWeight: 600 }}>
+                      {dueDate
+                        ? `${dueDate.slice(8)}.${dueDate.slice(5, 7)}.${dueDate.slice(0, 4)}`
+                        : "Дата не выбрана"}
+                    </span>
+                    {dateMode === "today" && (
+                      <span style={{ fontSize: 10, color: "rgba(167,139,250,0.45)", marginLeft: "auto" }}>сегодня</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Inline calendar for "pick" mode */}
+                {dateMode === "pick" && (
+                  <InlineDatePicker value={dueDate} onChange={setDueDate} />
+                )}
+
+                {/* Time pickers */}
+                {dateMode !== "none" && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <CustomTimePicker
+                        value={timeFrom}
+                        onChange={setTimeFrom}
+                        placeholder="Начало"
+                        accentColor="#a78bfa"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <CustomTimePicker
+                        value={timeTo}
+                        onChange={setTimeTo}
+                        placeholder="Конец"
+                        accentColor="#a78bfa"
+                      />
                     </div>
                   </div>
                 )}
@@ -562,7 +692,7 @@ export function TaskModal(props: Props) {
                       ))}
                     </div>
                     {recurringEndType === "until" && (
-                      <MiniDatePicker
+                      <InlineDatePicker
                         value={recurringEndDate}
                         onChange={setRecurringEndDate}
                       />

@@ -148,7 +148,7 @@ export type EventCategory = "birthday" | "holiday" | "deadline" | "meeting";
 
 export const EVENT_META: Record<EventCategory, { label: string; emoji: string; color: string }> = {
   birthday: { label: "День рождения", emoji: "🎂", color: "#f43f5e" },
-  holiday:  { label: "Праздник",      emoji: "✨", color: "#f59e0b" },
+  holiday:  { label: "Праздник",      emoji: "⭐", color: "#f59e0b" },
   deadline: { label: "Дедлайн",       emoji: "⏰", color: "#ef4444" },
   meeting:  { label: "Встреча",       emoji: "📅", color: "#6366f1" },
 };
