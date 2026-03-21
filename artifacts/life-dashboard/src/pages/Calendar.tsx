@@ -344,31 +344,37 @@ export function Calendar() {
     if (hasHoliday)  miniIcons.push({ emoji: "⭐", color: EVENT_META.holiday.color });
     if (hasMeeting)  miniIcons.push({ emoji: "📅", color: EVENT_META.meeting.color });
 
-    /* ── Smart-collapse recurring tasks in chips ──
-       Group dayTkList by recurringTemplateId (or by id if solo).
-       Result: unique entries like { text, count, color, isFutureRecurring } */
-    type ChipGroup = { key: string; text: string; count: number; color: string; isFutureRecurring: boolean; done: boolean };
+    /* ── Smart-collapse: group tasks by templateId, then by exact name ──
+       Covers both recurring series and plain duplicate-named tasks. */
+    type ChipGroup = {
+      key: string; text: string; count: number;
+      color: string; isFutureRecurring: boolean; done: boolean;
+    };
     const chipGroups: ChipGroup[] = [];
-    const seenTpl = new Set<string>();
+    const seenKey = new Map<string, number>(); // key → chipGroups index
+
     for (const t of dayTkList) {
-      const tplKey = t.recurringTemplateId ?? t.checklistItemId ?? t.id;
-      if (t.recurringTemplateId || t.checklistItemId) {
-        if (seenTpl.has(tplKey)) {
-          const existing = chipGroups.find(g => g.key === tplKey);
-          if (existing) existing.count++;
-          continue;
-        }
-        seenTpl.add(tplKey);
+      // Primary key: templateId or checklistId; fallback: task text (catches same-named dupes)
+      const groupKey = t.recurringTemplateId ?? t.checklistItemId ?? t.text;
+      const isFR = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
+      if (seenKey.has(groupKey)) {
+        chipGroups[seenKey.get(groupKey)!].count++;
+      } else {
+        seenKey.set(groupKey, chipGroups.length);
+        chipGroups.push({
+          key: groupKey,
+          text: t.text,
+          count: 1,
+          color: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color,
+          isFutureRecurring: isFR,
+          done: t.done,
+        });
       }
-      chipGroups.push({
-        key: tplKey,
-        text: t.text,
-        count: 1,
-        color: t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color,
-        isFutureRecurring: ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId),
-        done: t.done,
-      });
     }
+
+    const MAX_CHIPS = 3;
+    const visibleChips  = chipGroups.slice(0, MAX_CHIPS);
+    const overflowChips = chipGroups.length - MAX_CHIPS;
 
     /* Dots: one dot per unique task group */
     const totalCellItems = dayEvList.length + chipGroups.length;
@@ -383,8 +389,9 @@ export function Calendar() {
         style={{
           aspectRatio: "1",
           minHeight: 0,
+          maxHeight: tall ? 200 : 120,
           overflow: "hidden",
-          padding: tall ? "9px 7px 6px" : "5px 4px 4px",
+          padding: tall ? "8px 6px 5px" : "4px 3px 3px",
           border: cellBorder,
           background: cellBackground,
           boxShadow: cellBoxShadow,
@@ -393,44 +400,44 @@ export function Calendar() {
           cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
-        {/* ── Day number — centered ── */}
-        <div className="flex flex-col items-center flex-shrink-0 relative z-10">
+        {/* ── Day number + icons block — always centered ── */}
+        <div className="flex flex-col items-center flex-shrink-0 relative z-10 w-full">
           <span
             className="font-semibold leading-none"
             style={{
-              fontSize: tall ? 18 : 13,
+              fontSize: tall ? 17 : 12,
               color: isToday
                 ? "#a78bfa"
                 : isSelectedDay
                 ? "rgba(255,255,255,0.95)"
                 : isOtherMonth
-                ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.28)"
+                ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.26)"
                 : isPast
-                ? "rgba(255,255,255,0.18)"
+                ? "rgba(255,255,255,0.16)"
                 : "rgba(255,255,255,0.60)",
-              textShadow: isToday ? "0 0 16px rgba(167,139,250,0.70)" : "none",
+              textShadow: isToday ? "0 0 14px rgba(167,139,250,0.70)" : "none",
             }}
           >
             {label}
           </span>
 
-          {/* Weekday label in week view — below day number */}
+          {/* Weekday label (week view only) */}
           {tall && (
-            <span className="text-[9px] font-medium mt-0.5" style={{ color: isToday ? "rgba(167,139,250,0.50)" : "rgba(255,255,255,0.18)", letterSpacing: "0.06em" }}>
+            <span className="text-[8px] font-medium mt-[2px]" style={{ color: isToday ? "rgba(167,139,250,0.48)" : "rgba(255,255,255,0.16)", letterSpacing: "0.05em" }}>
               {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
             </span>
           )}
 
-          {/* ── Icon row — centered, below date, tiny ── */}
+          {/* ── Event icon row: tiny, horizontal, strictly below date ── */}
           {miniIcons.length > 0 && (
-            <div className="flex items-center justify-center gap-[2px] mt-[2px]" style={{ flexShrink: 0 }}>
+            <div className="flex items-center justify-center gap-[1px] mt-[1px]" style={{ flexShrink: 0, lineHeight: 1 }}>
               {miniIcons.slice(0, 3).map((ic, idx) => (
                 <span
                   key={idx}
                   style={{
-                    fontSize: tall ? 9 : 7,
-                    filter: `drop-shadow(0 0 3px ${ic.color}88)`,
-                    opacity: isPast ? 0.25 : 0.68,
+                    fontSize: tall ? 8 : 6,
+                    filter: `drop-shadow(0 0 2px ${ic.color}88)`,
+                    opacity: isPast ? 0.22 : 0.62,
                     lineHeight: 1,
                   }}
                 >
@@ -438,75 +445,86 @@ export function Calendar() {
                 </span>
               ))}
               {miniIcons.length > 3 && (
-                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)", lineHeight: 1, fontWeight: 600 }}>
-                  +{miniIcons.length - 3}
-                </span>
+                <span style={{ fontSize: 5, color: "rgba(255,255,255,0.28)", lineHeight: 1, fontWeight: 700 }}>+{miniIcons.length - 3}</span>
               )}
             </div>
           )}
         </div>
 
-        {/* ── Week view: collapsed task chips ── */}
-        {tall && chipGroups.length > 0 && (
-          <div className="flex flex-col gap-[2px] mt-1 relative z-10 flex-shrink-0 self-stretch" style={{ minWidth: 0, overflow: "hidden" }}>
-            {chipGroups.slice(0, 2).map((g) => (
+        {/* ── Collapsed task chips (BOTH month & week views) ── */}
+        {chipGroups.length > 0 && (
+          <div
+            className="flex flex-col mt-[2px] relative z-10 flex-shrink-0 self-stretch"
+            style={{ gap: tall ? 2 : 1, minWidth: 0, overflow: "hidden" }}
+          >
+            {visibleChips.map((g) => (
               <div
                 key={g.key}
+                onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
                 style={{
-                  background: g.isFutureRecurring ? "transparent" : g.color + "14",
-                  border: `1px ${g.isFutureRecurring ? "dashed" : "solid"} ${g.color}${g.isFutureRecurring ? "48" : "28"}`,
-                  borderRadius: 4,
-                  padding: "1px 4px",
-                  fontSize: 8,
-                  color: g.done ? "rgba(255,255,255,0.20)" : g.isFutureRecurring ? g.color + "bb" : "rgba(255,255,255,0.58)",
+                  background: g.isFutureRecurring ? "transparent" : g.color + "12",
+                  border: `1px ${g.isFutureRecurring ? "dashed" : "solid"} ${g.color}${g.isFutureRecurring ? "40" : "22"}`,
+                  borderRadius: 3,
+                  padding: tall ? "1px 4px" : "0px 3px",
+                  fontSize: tall ? 8 : 6,
+                  color: g.done
+                    ? "rgba(255,255,255,0.18)"
+                    : g.isFutureRecurring
+                    ? g.color + "aa"
+                    : "rgba(255,255,255,0.55)",
                   textDecoration: g.done ? "line-through" : "none",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  opacity: g.isFutureRecurring ? 0.70 : 1,
-                  lineHeight: "1.4",
+                  opacity: g.isFutureRecurring ? 0.68 : 1,
+                  lineHeight: tall ? "1.45" : "1.35",
+                  cursor: "pointer",
                 }}
               >
                 {g.isFutureRecurring ? "◌ " : ""}
                 {g.text}
                 {g.count > 1 && (
-                  <span style={{ opacity: 0.60, fontSize: 7, marginLeft: 2 }}>×{g.count}</span>
+                  <span style={{ opacity: 0.55, fontSize: tall ? 6 : 5, marginLeft: 1 }}>×{g.count}</span>
                 )}
               </div>
             ))}
-            {chipGroups.length > 2 && (
-              <span style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", paddingLeft: 2, lineHeight: "1.3" }}>
-                +{chipGroups.length - 2} ещё
+            {overflowChips > 0 && (
+              <span
+                onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
+                style={{
+                  fontSize: tall ? 7 : 5,
+                  color: "#a78bfa",
+                  opacity: 0.70,
+                  paddingLeft: tall ? 2 : 1,
+                  lineHeight: "1.3",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                }}
+              >
+                + ещё {overflowChips}
               </span>
             )}
           </div>
         )}
 
-        {/* ── Dot indicators (month view + week bottom) ── */}
-        <div
-          className="mt-auto flex gap-[3px] pt-1 relative z-10 flex-shrink-0"
-          style={{ overflow: "hidden", flexWrap: "wrap", alignContent: "flex-start", maxHeight: tall ? 10 : 8 }}
-        >
-          {dayEvList.slice(0, 3).map((e) => (
-            <div
-              key={e.id}
-              style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
-            />
-          ))}
-          {chipGroups.slice(0, Math.max(0, 3 - dayEvList.length)).map((g) => (
-            g.isFutureRecurring ? (
+        {/* ── Dot indicators at bottom — event dots only ── */}
+        {dayEvList.length > 0 && (
+          <div
+            className="mt-auto flex gap-[3px] pt-[2px] relative z-10 flex-shrink-0"
+            style={{ overflow: "hidden", flexWrap: "nowrap", maxHeight: 6 }}
+          >
+            {dayEvList.slice(0, 3).map((e) => (
               <div
-                key={g.key}
-                style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: "transparent", border: `1.5px dashed ${g.color}`, opacity: 0.45 }}
+                key={e.id}
+                style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
               />
-            ) : (
-              <div key={g.key} style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, opacity: 0.45, background: g.color }} />
-            )
-          ))}
-          {totalCellItems > 3 && (
-            <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)", lineHeight: "4px", fontWeight: 600 }}>+{totalCellItems - 3}</span>
-          )}
-        </div>
+            ))}
+            {dayEvList.length > 3 && (
+              <span style={{ fontSize: 5, color: "rgba(255,255,255,0.28)", lineHeight: "4px", fontWeight: 700 }}>+{dayEvList.length - 3}</span>
+            )}
+          </div>
+        )}
 
         {/* Hover tooltip */}
         {tooltipLines.length > 0 && (
