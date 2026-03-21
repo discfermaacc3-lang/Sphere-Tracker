@@ -4,6 +4,8 @@ import { TaskModal } from "@/components/TaskModal";
 
 const MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 const CAT_COLORS = ["#ec4899","#8b5cf6","#06b6d4","#10b981","#f59e0b","#ef4444","#6366f1","#14b8a6"];
+const LAV     = "167,139,250";
+const LAV_HEX = "#a78bfa";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -15,7 +17,7 @@ function inputCls(extra = "") {
 }
 
 export function Ideas() {
-  const { ideas, addIdea, deleteIdea, addTask, customIdeaCategories, addIdeaCategory } = useStore();
+  const { ideas, addIdea, editIdea, deleteIdea, addTask, customIdeaCategories, addIdeaCategory } = useStore();
 
   const allCategories = useMemo(
     () => [...IDEA_CATEGORIES, ...customIdeaCategories],
@@ -39,6 +41,13 @@ export function Ideas() {
   const [showCatForm, setShowCatForm]   = useState(false);
   const [newCatLabel, setNewCatLabel]   = useState("");
   const [newCatEmoji, setNewCatEmoji]   = useState("💫");
+
+  const [editingIdea, setEditingIdea]           = useState<Idea | null>(null);
+  const [editTitle, setEditTitle]               = useState("");
+  const [editDescription, setEditDescription]   = useState("");
+  const [editCategory, setEditCategory]         = useState<IdeaCategory>("other");
+  const [editGiftFor, setEditGiftFor]           = useState<string[]>([]);
+  const [editGiftInput, setEditGiftInput]       = useState("");
 
   const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -67,6 +76,32 @@ export function Ideas() {
     const nextColor = CAT_COLORS[customIdeaCategories.length % CAT_COLORS.length];
     addIdeaCategory({ label: newCatLabel.trim(), emoji: newCatEmoji || "💫", color: nextColor });
     setNewCatLabel(""); setNewCatEmoji("💫"); setShowCatForm(false);
+  }
+
+  function openEditIdea(idea: Idea) {
+    setEditingIdea(idea);
+    setEditTitle(idea.title);
+    setEditDescription(idea.description ?? "");
+    setEditCategory(idea.category);
+    setEditGiftFor(idea.giftFor ?? []);
+    setEditGiftInput("");
+  }
+
+  function handleEditSave() {
+    if (!editingIdea || !editTitle.trim()) return;
+    editIdea(editingIdea.id, {
+      title: editTitle.trim(),
+      description: editDescription.trim() || undefined,
+      category: editCategory,
+      giftFor: editCategory === "gift" && editGiftFor.length > 0 ? editGiftFor : undefined,
+    });
+    setEditingIdea(null);
+  }
+
+  function handleEditAddGiftTag() {
+    const tag = editGiftInput.trim();
+    if (tag && !editGiftFor.includes(tag)) setEditGiftFor((p) => [...p, tag]);
+    setEditGiftInput("");
   }
 
   const allPersons = useMemo(
@@ -167,7 +202,6 @@ export function Ideas() {
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSave()}
             />
           </div>
-
           <div>
             <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Описание (опционально)</p>
             <textarea
@@ -178,7 +212,6 @@ export function Ideas() {
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-
           <div>
             <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Категория</p>
             <div className="grid grid-cols-3 gap-2">
@@ -202,23 +235,15 @@ export function Ideas() {
               })}
             </div>
           </div>
-
-          {/* Gift "Кому" tags — only for gift category */}
           {category === "gift" && (
             <div>
               <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Кому</p>
               <div className="flex gap-2 flex-wrap mb-2">
                 {giftFor.map((person) => (
-                  <span
-                    key={person}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                    style={{ background: "#f43f5e18", color: "#f43f5e", border: "1px solid #f43f5e30" }}
-                  >
+                  <span key={person} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                    style={{ background: "#f43f5e18", color: "#f43f5e", border: "1px solid #f43f5e30" }}>
                     {person}
-                    <button
-                      onClick={() => setGiftFor((p) => p.filter((x) => x !== person))}
-                      className="ml-0.5 opacity-60 hover:opacity-100"
-                    >×</button>
+                    <button onClick={() => setGiftFor((p) => p.filter((x) => x !== person))} className="ml-0.5 opacity-60 hover:opacity-100">×</button>
                   </span>
                 ))}
               </div>
@@ -230,18 +255,14 @@ export function Ideas() {
                   onChange={(e) => setGiftInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddGiftTag(); } }}
                 />
-                <button
-                  onClick={handleAddGiftTag}
-                  disabled={!giftInput.trim()}
+                <button onClick={handleAddGiftTag} disabled={!giftInput.trim()}
                   className="px-3 py-2 rounded-xl text-sm disabled:opacity-30 transition-all whitespace-nowrap"
-                  style={{ background: "rgba(244,63,94,0.14)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.25)" }}
-                >
+                  style={{ background: "rgba(244,63,94,0.14)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.25)" }}>
                   + Добавить
                 </button>
               </div>
             </div>
           )}
-
           <div className="flex gap-3 pt-1">
             <button
               onClick={() => { setShowForm(false); setTitle(""); setDescription(""); setGiftFor([]); setGiftInput(""); }}
@@ -249,12 +270,9 @@ export function Ideas() {
             >
               Отмена
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim()}
+            <button onClick={handleSave} disabled={!title.trim()}
               className="flex-1 py-2 rounded-xl text-sm font-semibold disabled:opacity-30 transition-all"
-              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}
-            >
+              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}>
               Сохранить
             </button>
           </div>
@@ -279,43 +297,36 @@ export function Ideas() {
           if (count === 0) return null;
           const active = filterCat === cat.key;
           return (
-            <button
-              key={cat.key}
+            <button key={cat.key}
               onClick={() => { setFilterCat(active ? "all" : cat.key); setPersonFilter(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
               style={{
                 background: active ? cat.color + "22" : "rgba(255,255,255,0.04)",
                 color: active ? cat.color : "rgba(255,255,255,0.35)",
                 border: `1px solid ${active ? cat.color + "45" : "transparent"}`,
-              }}
-            >
+              }}>
               {cat.emoji} {cat.label} · {count}
             </button>
           );
         })}
       </div>
 
-      {/* Person filter — shows when gift category active and there are persons */}
+      {/* Person filter */}
       {filterCat === "gift" && allPersons.length > 0 && (
-        <div
-          className="rounded-2xl border border-white/6 px-4 py-3 flex flex-col gap-2"
-          style={{ background: "rgba(244,63,94,0.04)" }}
-        >
+        <div className="rounded-2xl border border-white/6 px-4 py-3 flex flex-col gap-2"
+          style={{ background: "rgba(244,63,94,0.04)" }}>
           <p className="text-[9px] text-white/25 uppercase tracking-widest font-medium">Фильтр по получателю</p>
           <div className="flex gap-1.5 flex-wrap">
             {allPersons.map((person) => {
               const active = personFilter === person;
               return (
-                <button
-                  key={person}
-                  onClick={() => setPersonFilter(active ? null : person)}
+                <button key={person} onClick={() => setPersonFilter(active ? null : person)}
                   className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
                   style={{
                     background: active ? "#f43f5e22" : "rgba(255,255,255,0.04)",
                     color: active ? "#f43f5e" : "rgba(255,255,255,0.35)",
                     border: `1px solid ${active ? "#f43f5e45" : "transparent"}`,
-                  }}
-                >
+                  }}>
                   {person}
                 </button>
               );
@@ -326,10 +337,7 @@ export function Ideas() {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div
-          className="rounded-2xl border border-white/5 p-10 text-center"
-          style={{ background: "rgba(255,255,255,0.015)" }}
-        >
+        <div className="rounded-2xl border border-white/5 p-10 text-center" style={{ background: "rgba(255,255,255,0.015)" }}>
           <p className="text-3xl mb-3">💡</p>
           <p className="text-white/30 text-sm">Нет идей в этой категории</p>
         </div>
@@ -345,6 +353,7 @@ export function Ideas() {
               cat={cat}
               onDelete={() => deleteIdea(idea.id)}
               onConvert={() => setIdeaToTask(idea)}
+              onEdit={() => openEditIdea(idea)}
             />
           );
         })}
@@ -371,6 +380,148 @@ export function Ideas() {
           onClose={() => setIdeaToTask(null)}
         />
       )}
+
+      {/* Edit idea modal */}
+      {editingIdea && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(18px)" }}
+          onClick={e => e.target === e.currentTarget && setEditingIdea(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl overflow-hidden flex flex-col"
+            style={{
+              background: "rgba(10,9,22,0.98)",
+              border: `1px solid rgba(${LAV},0.22)`,
+              boxShadow: `0 0 80px rgba(${LAV},0.12), 0 0 200px rgba(${LAV},0.04)`,
+              maxHeight: "90vh",
+            }}
+          >
+            {/* Modal header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+              style={{ borderBottom: `1px solid rgba(${LAV},0.10)`, background: `rgba(${LAV},0.03)` }}
+            >
+              <p
+                className="text-sm font-semibold tracking-[0.18em] uppercase"
+                style={{ color: LAV_HEX, textShadow: `0 0 12px rgba(${LAV},0.55)` }}
+              >
+                ✦ Редактировать идею
+              </p>
+              <button
+                onClick={() => setEditingIdea(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/70 hover:bg-white/5 transition-all text-lg"
+              >✕</button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto">
+              {/* Title */}
+              <div>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Название</p>
+                <input
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none transition-colors"
+                  onFocus={e => (e.currentTarget.style.borderColor = `rgba(${LAV},0.40)`)}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                  placeholder="О чём идея?"
+                  value={editTitle}
+                  autoFocus
+                  onChange={e => setEditTitle(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleEditSave()}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Описание (опционально)</p>
+                <textarea
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/70 placeholder-white/20 outline-none transition-colors resize-none"
+                  onFocus={e => (e.currentTarget.style.borderColor = `rgba(${LAV},0.40)`)}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                  placeholder="Подробнее..."
+                  rows={3}
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Категория</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {allCategories.map((cat) => {
+                    const active = editCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        onClick={() => setEditCategory(cat.key)}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
+                        style={{
+                          background: active ? cat.color + "20" : "rgba(255,255,255,0.04)",
+                          color: active ? cat.color : "rgba(255,255,255,0.35)",
+                          border: `1px solid ${active ? cat.color + "50" : "rgba(255,255,255,0.06)"}`,
+                          boxShadow: active ? `0 0 12px ${cat.color}22` : "none",
+                        }}
+                      >
+                        <span>{cat.emoji}</span>
+                        <span className="truncate">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Gift tags */}
+              {editCategory === "gift" && (
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Кому</p>
+                  <div className="flex gap-2 flex-wrap mb-2">
+                    {editGiftFor.map((person) => (
+                      <span key={person} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{ background: "#f43f5e18", color: "#f43f5e", border: "1px solid #f43f5e30" }}>
+                        {person}
+                        <button onClick={() => setEditGiftFor(p => p.filter(x => x !== person))} className="ml-0.5 opacity-60 hover:opacity-100">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      className={inputCls("flex-1")}
+                      placeholder="Имя..."
+                      value={editGiftInput}
+                      onChange={e => setEditGiftInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleEditAddGiftTag(); } }}
+                    />
+                    <button onClick={handleEditAddGiftTag} disabled={!editGiftInput.trim()}
+                      className="px-3 py-2 rounded-xl text-sm disabled:opacity-30 transition-all whitespace-nowrap"
+                      style={{ background: "rgba(244,63,94,0.14)", color: "#f43f5e", border: "1px solid rgba(244,63,94,0.25)" }}>
+                      + Добавить
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setEditingIdea(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/60 border border-white/8 transition-colors"
+                >Отмена</button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={!editTitle.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30"
+                  style={{
+                    background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                    color: "white",
+                    boxShadow: "0 0 18px rgba(99,102,241,0.28)",
+                  }}
+                >Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -380,13 +531,17 @@ function IdeaCard({
   cat,
   onDelete,
   onConvert,
+  onEdit,
 }: {
   idea: Idea;
   cat: { key: string; label: string; emoji: string; color: string };
   onDelete: () => void;
   onConvert: () => void;
+  onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const LAV     = "167,139,250";
+  const LAV_HEX = "#a78bfa";
 
   return (
     <div
@@ -430,11 +585,8 @@ function IdeaCard({
           {idea.giftFor && idea.giftFor.length > 0 && (
             <div className="flex gap-1.5 flex-wrap mt-2">
               {idea.giftFor.map((person) => (
-                <span
-                  key={person}
-                  className="text-[9px] px-2 py-0.5 rounded-full font-medium"
-                  style={{ color: cat.color, background: cat.color + "18", border: `1px solid ${cat.color}30` }}
-                >
+                <span key={person} className="text-[9px] px-2 py-0.5 rounded-full font-medium"
+                  style={{ color: cat.color, background: cat.color + "18", border: `1px solid ${cat.color}30` }}>
                   ♥ {person}
                 </span>
               ))}
@@ -448,6 +600,20 @@ function IdeaCard({
 
         {/* Actions — show on hover */}
         <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          {/* Edit button */}
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"
+            style={{
+              background: `rgba(${LAV},0.12)`,
+              color: LAV_HEX,
+              border: `1px solid rgba(${LAV},0.22)`,
+              boxShadow: `0 0 10px rgba(${LAV},0.10)`,
+            }}
+            title="Редактировать"
+          >
+            ✏ Изменить
+          </button>
           <button
             onClick={onConvert}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"

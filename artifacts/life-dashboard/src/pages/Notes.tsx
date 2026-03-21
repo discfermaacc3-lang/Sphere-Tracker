@@ -16,6 +16,8 @@ const EMOJI_PALETTE = [
   "🌺","💫","🎪","🧠","❤️","🌊","🌈","🏆","🎭","🔮","🌻","🐝","🦊","🌴","🍃",
 ];
 
+type Note = ReturnType<typeof useStore>["notes"][0];
+
 export function Notes() {
   const { notes, addNote, editNote, deleteNote, noteCategories, addNoteCategory, deleteNoteCategory } = useStore();
 
@@ -30,6 +32,12 @@ export function Notes() {
   const [catName, setCatName]               = useState("");
   const [catEmoji, setCatEmoji]             = useState("📝");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const [editingNote, setEditingNote]       = useState<Note | null>(null);
+  const [editTitle, setEditTitle]           = useState("");
+  const [editText, setEditText]             = useState("");
+  const [editCatId, setEditCatId]           = useState("");
+  const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
 
   const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -56,6 +64,25 @@ export function Notes() {
     if (!catName.trim()) return;
     addNoteCategory({ name: catName.trim(), emoji: catEmoji });
     setCatName(""); setCatEmoji("📝"); setShowCatForm(false); setShowEmojiPicker(false);
+  }
+
+  function openEdit(note: Note) {
+    setEditingNote(note);
+    setEditTitle(note.title);
+    setEditText(note.text ?? "");
+    setEditCatId(note.categoryId ?? "");
+    setShowEditEmojiPicker(false);
+  }
+
+  function handleEditSave() {
+    if (!editingNote) return;
+    if (!editTitle.trim() && !editText.trim()) return;
+    editNote(editingNote.id, {
+      title: editTitle.trim() || "Без названия",
+      text: editText.trim(),
+      categoryId: editCatId || undefined,
+    });
+    setEditingNote(null);
   }
 
   const glassCard = {
@@ -141,23 +168,16 @@ export function Notes() {
 
       {/* ══ Create category form ══ */}
       {showCatForm && (
-        <div
-          className="rounded-2xl p-4 flex flex-col gap-3"
-          style={glassCard}
-        >
+        <div className="rounded-2xl p-4 flex flex-col gap-3" style={glassCard}>
           <p className="text-[10px] uppercase tracking-[0.22em] font-semibold" style={{ color: `rgba(${LAV},0.55)` }}>
             Новая категория
           </p>
           <div className="flex gap-3 items-start">
-            {/* Emoji picker */}
             <div className="relative">
               <button
                 onClick={() => setShowEmojiPicker(v => !v)}
                 className="w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all"
-                style={{
-                  background: `rgba(${LAV},0.10)`,
-                  border: `1px solid rgba(${LAV},0.22)`,
-                }}
+                style={{ background: `rgba(${LAV},0.10)`, border: `1px solid rgba(${LAV},0.22)` }}
               >
                 {catEmoji}
               </button>
@@ -172,17 +192,13 @@ export function Notes() {
                   }}
                 >
                   {EMOJI_PALETTE.map(e => (
-                    <button
-                      key={e}
-                      onClick={() => { setCatEmoji(e); setShowEmojiPicker(false); }}
+                    <button key={e} onClick={() => { setCatEmoji(e); setShowEmojiPicker(false); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all hover:bg-white/8"
                     >{e}</button>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Name input */}
             <div className="flex-1 flex gap-2">
               <input
                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/20 outline-none focus:border-purple-400/40 transition-colors"
@@ -192,18 +208,11 @@ export function Notes() {
                 onChange={e => setCatName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleSaveCategory(); if (e.key === "Escape") { setShowCatForm(false); setShowEmojiPicker(false); } }}
               />
-              <button
-                onClick={handleSaveCategory}
-                disabled={!catName.trim()}
+              <button onClick={handleSaveCategory} disabled={!catName.trim()}
                 className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-30"
-                style={{
-                  background: `rgba(${LAV},0.20)`,
-                  color: LAV_HEX,
-                  border: `1px solid rgba(${LAV},0.30)`,
-                }}
+                style={{ background: `rgba(${LAV},0.20)`, color: LAV_HEX, border: `1px solid rgba(${LAV},0.30)` }}
               >Создать</button>
-              <button
-                onClick={() => { setShowCatForm(false); setShowEmojiPicker(false); }}
+              <button onClick={() => { setShowCatForm(false); setShowEmojiPicker(false); }}
                 className="px-3 py-2 rounded-xl text-xs text-white/30 hover:text-white/60 border border-white/8 transition-colors"
               >Отмена</button>
             </div>
@@ -239,13 +248,11 @@ export function Notes() {
             />
           </div>
 
-          {/* Category selector */}
           {noteCategories.length > 0 && (
             <div>
               <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Категория</p>
               <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setNoteCategory("")}
+                <button onClick={() => setNoteCategory("")}
                   className="px-3 py-1.5 rounded-xl text-xs transition-all"
                   style={{
                     background: noteCategory === "" ? `rgba(${LAV},0.18)` : "rgba(255,255,255,0.04)",
@@ -254,9 +261,7 @@ export function Notes() {
                   }}
                 >Без категории</button>
                 {noteCategories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setNoteCategory(cat.id)}
+                  <button key={cat.id} onClick={() => setNoteCategory(cat.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all"
                     style={{
                       background: noteCategory === cat.id ? `rgba(${LAV},0.18)` : "rgba(255,255,255,0.04)",
@@ -264,8 +269,7 @@ export function Notes() {
                       border: noteCategory === cat.id ? `1px solid rgba(${LAV},0.32)` : "1px solid rgba(255,255,255,0.07)",
                     }}
                   >
-                    <span>{cat.emoji}</span>
-                    <span>{cat.name}</span>
+                    <span>{cat.emoji}</span><span>{cat.name}</span>
                   </button>
                 ))}
               </div>
@@ -273,13 +277,10 @@ export function Notes() {
           )}
 
           <div className="flex gap-3">
-            <button
-              onClick={() => { setTitle(""); setText(""); setNoteCategory(""); setShowForm(false); }}
+            <button onClick={() => { setTitle(""); setText(""); setNoteCategory(""); setShowForm(false); }}
               className="flex-1 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 border border-white/8 transition-colors"
             >Отмена</button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim() && !text.trim()}
+            <button onClick={handleSave} disabled={!title.trim() && !text.trim()}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-30"
               style={{
                 background: `linear-gradient(135deg, rgba(${LAV},0.35), rgba(139,92,246,0.40))`,
@@ -293,10 +294,7 @@ export function Notes() {
 
       {/* ══ Empty state ══ */}
       {notes.length === 0 && !showForm && (
-        <div
-          className="rounded-2xl border border-white/5 p-10 text-center"
-          style={{ background: "rgba(255,255,255,0.012)" }}
-        >
+        <div className="rounded-2xl border border-white/5 p-10 text-center" style={{ background: "rgba(255,255,255,0.012)" }}>
           <p className="text-4xl mb-3">📝</p>
           <p className="text-white/30 text-sm">Нет заметок</p>
           <p className="text-white/15 text-xs mt-1">Нажми «+ Новая заметка»</p>
@@ -305,10 +303,7 @@ export function Notes() {
 
       {/* ══ Empty filtered state ══ */}
       {notes.length > 0 && filtered.length === 0 && (
-        <div
-          className="rounded-2xl border border-white/5 p-8 text-center"
-          style={{ background: "rgba(255,255,255,0.012)" }}
-        >
+        <div className="rounded-2xl border border-white/5 p-8 text-center" style={{ background: "rgba(255,255,255,0.012)" }}>
           <p className="text-2xl mb-2">🔍</p>
           <p className="text-white/30 text-sm">Нет заметок в этой категории</p>
         </div>
@@ -328,6 +323,7 @@ export function Notes() {
               onToggle={() => setExpandedId(expandedId === note.id ? null : note.id)}
               onDelete={() => deleteNote(note.id)}
               onChangeCategory={catId => editNote(note.id, { categoryId: catId || undefined })}
+              onEdit={() => openEdit(note)}
               isToday
             />
           ))}
@@ -350,10 +346,129 @@ export function Notes() {
               onToggle={() => setExpandedId(expandedId === note.id ? null : note.id)}
               onDelete={() => deleteNote(note.id)}
               onChangeCategory={catId => editNote(note.id, { categoryId: catId || undefined })}
+              onEdit={() => openEdit(note)}
               isToday={false}
             />
           ))}
         </section>
+      )}
+
+      {/* ══ Edit modal ══ */}
+      {editingNote && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(18px)" }}
+          onClick={e => e.target === e.currentTarget && setEditingNote(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl overflow-hidden flex flex-col"
+            style={{
+              background: "rgba(10,9,22,0.98)",
+              border: `1px solid rgba(${LAV},0.22)`,
+              boxShadow: `0 0 80px rgba(${LAV},0.12), 0 0 200px rgba(${LAV},0.04)`,
+            }}
+          >
+            {/* Modal header */}
+            <div
+              className="flex items-center justify-between px-6 py-4"
+              style={{ borderBottom: `1px solid rgba(${LAV},0.10)`, background: `rgba(${LAV},0.03)` }}
+            >
+              <p
+                className="text-sm font-semibold tracking-[0.18em] uppercase"
+                style={{ color: LAV_HEX, textShadow: `0 0 12px rgba(${LAV},0.55)` }}
+              >
+                ✦ Редактировать заметку
+              </p>
+              <button
+                onClick={() => setEditingNote(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white/25 hover:text-white/70 hover:bg-white/5 transition-all text-lg"
+              >✕</button>
+            </div>
+
+            {/* Modal body */}
+            <div className="px-6 py-5 flex flex-col gap-4">
+              {/* Title */}
+              <div>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Название</p>
+                <input
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium text-white/80 placeholder-white/20 outline-none transition-colors"
+                  style={{ outline: "none" }}
+                  onFocus={e => (e.currentTarget.style.borderColor = `rgba(${LAV},0.40)`)}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                  placeholder="Название заметки…"
+                  value={editTitle}
+                  autoFocus
+                  onChange={e => setEditTitle(e.target.value)}
+                />
+              </div>
+
+              {/* Text */}
+              <div>
+                <p className="text-[10px] text-white/30 uppercase tracking-widest mb-1.5 font-medium">Содержание</p>
+                <textarea
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/70 placeholder-white/20 outline-none transition-colors resize-none leading-relaxed"
+                  onFocus={e => (e.currentTarget.style.borderColor = `rgba(${LAV},0.40)`)}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+                  placeholder="Содержание заметки…"
+                  rows={5}
+                  value={editText}
+                  onChange={e => setEditText(e.target.value)}
+                />
+              </div>
+
+              {/* Category */}
+              {noteCategories.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2 font-medium">Категория</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setEditCatId("")}
+                      className="px-3 py-1.5 rounded-xl text-xs transition-all"
+                      style={{
+                        background: editCatId === "" ? `rgba(${LAV},0.18)` : "rgba(255,255,255,0.04)",
+                        color: editCatId === "" ? LAV_HEX : "rgba(255,255,255,0.35)",
+                        border: editCatId === "" ? `1px solid rgba(${LAV},0.32)` : "1px solid rgba(255,255,255,0.07)",
+                      }}
+                    >Без категории</button>
+                    {noteCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setEditCatId(cat.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all"
+                        style={{
+                          background: editCatId === cat.id ? `rgba(${LAV},0.18)` : "rgba(255,255,255,0.04)",
+                          color: editCatId === cat.id ? LAV_HEX : "rgba(255,255,255,0.35)",
+                          border: editCatId === cat.id ? `1px solid rgba(${LAV},0.32)` : "1px solid rgba(255,255,255,0.07)",
+                        }}
+                      >
+                        <span>{cat.emoji}</span><span>{cat.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setEditingNote(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/60 border border-white/8 transition-colors"
+                >Отмена</button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={!editTitle.trim() && !editText.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30"
+                  style={{
+                    background: `linear-gradient(135deg, rgba(${LAV},0.35), rgba(139,92,246,0.45))`,
+                    color: "white",
+                    border: `1px solid rgba(${LAV},0.32)`,
+                    boxShadow: `0 0 18px rgba(${LAV},0.18)`,
+                  }}
+                >Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -367,15 +482,17 @@ function NoteCard({
   onToggle,
   onDelete,
   onChangeCategory,
+  onEdit,
   isToday,
 }: {
-  note: ReturnType<typeof useStore>["notes"][0];
+  note: Note;
   category: NoteCategory | undefined;
   categories: NoteCategory[];
   expanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
   onChangeCategory: (id: string) => void;
+  onEdit: () => void;
   isToday: boolean;
 }) {
   const [showCatMenu, setShowCatMenu] = useState(false);
@@ -398,11 +515,7 @@ function NoteCard({
           : "rgba(255,255,255,0.018)",
       }}
     >
-      <button
-        className="w-full flex items-center gap-4 px-5 py-4 text-left"
-        onClick={onToggle}
-      >
-        {/* Dot / category emoji */}
+      <button className="w-full flex items-center gap-4 px-5 py-4 text-left" onClick={onToggle}>
         {category ? (
           <span className="text-base flex-shrink-0">{category.emoji}</span>
         ) : (
@@ -424,10 +537,8 @@ function NoteCard({
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {category && (
-            <span
-              className="text-[9px] px-2 py-0.5 rounded-full font-medium"
-              style={{ background: `rgba(${LAV},0.12)`, color: LAV_HEX }}
-            >
+            <span className="text-[9px] px-2 py-0.5 rounded-full font-medium"
+              style={{ background: `rgba(${LAV},0.12)`, color: LAV_HEX }}>
               {category.name}
             </span>
           )}
@@ -485,10 +596,23 @@ function NoteCard({
             )}
           </div>
         )}
-        <button
-          onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="text-[10px] text-white/20 hover:text-red-400 transition-colors ml-auto"
-        >удалить</button>
+        <div className="flex items-center gap-3 ml-auto">
+          {/* Edit button */}
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(); }}
+            className="text-[10px] transition-all flex items-center gap-1"
+            style={{ color: `rgba(${LAV},0.35)` }}
+            onMouseEnter={e => (e.currentTarget.style.color = LAV_HEX)}
+            onMouseLeave={e => (e.currentTarget.style.color = `rgba(${LAV},0.35)`)}
+            title="Редактировать"
+          >
+            ✏ изменить
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            className="text-[10px] text-white/20 hover:text-red-400 transition-colors"
+          >удалить</button>
+        </div>
       </div>
     </div>
   );
