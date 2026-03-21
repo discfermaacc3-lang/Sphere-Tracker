@@ -372,12 +372,13 @@ export function Calendar() {
       }
     }
 
-    const MAX_CHIPS = 3;
-    const visibleChips  = chipGroups.slice(0, MAX_CHIPS);
-    const overflowChips = chipGroups.length - MAX_CHIPS;
-
     /* Dots: one dot per unique task group */
     const totalCellItems = dayEvList.length + chipGroups.length;
+
+    /* ── Max 2 visible chips in week view, rest goes to overflow ── */
+    const MAX_CHIPS = 2;
+    const visibleChips2  = chipGroups.slice(0, MAX_CHIPS);
+    const overflowChips2 = chipGroups.length - MAX_CHIPS;
 
     return (
       <div
@@ -385,13 +386,16 @@ export function Calendar() {
         onClick={() => setSelectedDay(isSelectedDay ? null : dayNum)}
         onMouseEnter={() => setHoveredCellDs(ds)}
         onMouseLeave={() => setHoveredCellDs(null)}
-        className="relative group/cell rounded-xl flex flex-col items-center"
+        className="relative group/cell rounded-xl"
         style={{
           aspectRatio: "1",
           minHeight: 0,
-          maxHeight: tall ? 200 : 120,
+          maxHeight: tall ? 220 : 110,
           overflow: "hidden",
-          padding: tall ? "8px 6px 5px" : "4px 3px 3px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: tall ? "9px 8px 7px" : "5px 5px 4px",
           border: cellBorder,
           background: cellBackground,
           boxShadow: cellBoxShadow,
@@ -400,44 +404,41 @@ export function Calendar() {
           cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
-        {/* ── Day number + icons block — always centered ── */}
-        <div className="flex flex-col items-center flex-shrink-0 relative z-10 w-full">
+        {/* ── ROW 1: day number (left) + event icons (right) ── */}
+        <div
+          className="flex items-start justify-between flex-shrink-0"
+          style={{ gap: 2, minWidth: 0, overflow: "hidden" }}
+        >
+          {/* Day number */}
           <span
-            className="font-semibold leading-none"
+            className="font-semibold leading-none flex-shrink-0"
             style={{
-              fontSize: tall ? 17 : 12,
+              fontSize: tall ? 18 : 13,
               color: isToday
                 ? "#a78bfa"
                 : isSelectedDay
                 ? "rgba(255,255,255,0.95)"
                 : isOtherMonth
-                ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.26)"
+                ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.28)"
                 : isPast
                 ? "rgba(255,255,255,0.16)"
-                : "rgba(255,255,255,0.60)",
-              textShadow: isToday ? "0 0 14px rgba(167,139,250,0.70)" : "none",
+                : "rgba(255,255,255,0.62)",
+              textShadow: isToday ? "0 0 14px rgba(167,139,250,0.72)" : "none",
             }}
           >
             {label}
           </span>
 
-          {/* Weekday label (week view only) */}
-          {tall && (
-            <span className="text-[8px] font-medium mt-[2px]" style={{ color: isToday ? "rgba(167,139,250,0.48)" : "rgba(255,255,255,0.16)", letterSpacing: "0.05em" }}>
-              {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
-            </span>
-          )}
-
-          {/* ── Event icon row: tiny, horizontal, strictly below date ── */}
+          {/* Event icons — compact row on the right */}
           {miniIcons.length > 0 && (
-            <div className="flex items-center justify-center gap-[1px] mt-[1px]" style={{ flexShrink: 0, lineHeight: 1 }}>
+            <div className="flex items-center gap-[1px] flex-shrink-0 mt-[1px]" style={{ lineHeight: 1 }}>
               {miniIcons.slice(0, 3).map((ic, idx) => (
                 <span
                   key={idx}
                   style={{
-                    fontSize: tall ? 8 : 6,
+                    fontSize: tall ? 9 : 7,
                     filter: `drop-shadow(0 0 2px ${ic.color}88)`,
-                    opacity: isPast ? 0.22 : 0.62,
+                    opacity: isPast ? 0.22 : 0.65,
                     lineHeight: 1,
                   }}
                 >
@@ -445,83 +446,124 @@ export function Calendar() {
                 </span>
               ))}
               {miniIcons.length > 3 && (
-                <span style={{ fontSize: 5, color: "rgba(255,255,255,0.28)", lineHeight: 1, fontWeight: 700 }}>+{miniIcons.length - 3}</span>
+                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
+                  +{miniIcons.length - 3}
+                </span>
               )}
             </div>
           )}
         </div>
 
-        {/* ── Collapsed task chips (BOTH month & week views) ── */}
-        {chipGroups.length > 0 && (
-          <div
-            className="flex flex-col mt-[2px] relative z-10 flex-shrink-0 self-stretch"
-            style={{ gap: tall ? 2 : 1, minWidth: 0, overflow: "hidden" }}
+        {/* ── ROW 2 (week only): weekday label ── */}
+        {tall && (
+          <span
+            className="flex-shrink-0 leading-none"
+            style={{
+              fontSize: 9,
+              fontWeight: 500,
+              color: isToday ? "rgba(167,139,250,0.50)" : "rgba(255,255,255,0.18)",
+              letterSpacing: "0.05em",
+            }}
           >
-            {visibleChips.map((g) => (
+            {WEEKDAYS[new Date(ds + "T12:00:00").getDay() === 0 ? 6 : new Date(ds + "T12:00:00").getDay() - 1]}
+          </span>
+        )}
+
+        {/* ── WEEK VIEW: text task chips (readable size, max 2 + overflow) ── */}
+        {tall && chipGroups.length > 0 && (
+          <>
+            {visibleChips2.map((g) => (
               <div
                 key={g.key}
                 onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
+                className="flex-shrink-0"
                 style={{
-                  background: g.isFutureRecurring ? "transparent" : g.color + "12",
-                  border: `1px ${g.isFutureRecurring ? "dashed" : "solid"} ${g.color}${g.isFutureRecurring ? "40" : "22"}`,
-                  borderRadius: 3,
-                  padding: tall ? "1px 4px" : "0px 3px",
-                  fontSize: tall ? 8 : 6,
+                  background: g.isFutureRecurring ? "transparent" : g.color + "14",
+                  border: `1px ${g.isFutureRecurring ? "dashed" : "solid"} ${g.color}${g.isFutureRecurring ? "42" : "28"}`,
+                  borderRadius: 4,
+                  padding: "2px 5px",
+                  fontSize: 9,
                   color: g.done
-                    ? "rgba(255,255,255,0.18)"
+                    ? "rgba(255,255,255,0.20)"
                     : g.isFutureRecurring
-                    ? g.color + "aa"
-                    : "rgba(255,255,255,0.55)",
+                    ? g.color + "bb"
+                    : "rgba(255,255,255,0.62)",
                   textDecoration: g.done ? "line-through" : "none",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  opacity: g.isFutureRecurring ? 0.68 : 1,
-                  lineHeight: tall ? "1.45" : "1.35",
+                  opacity: g.isFutureRecurring ? 0.72 : 1,
+                  lineHeight: "1.4",
                   cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
                 }}
               >
-                {g.isFutureRecurring ? "◌ " : ""}
-                {g.text}
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {g.isFutureRecurring ? "◌ " : ""}
+                  {g.text}
+                </span>
                 {g.count > 1 && (
-                  <span style={{ opacity: 0.55, fontSize: tall ? 6 : 5, marginLeft: 1 }}>×{g.count}</span>
+                  <span style={{
+                    flexShrink: 0,
+                    fontSize: 8,
+                    fontWeight: 600,
+                    opacity: 0.65,
+                    color: g.color,
+                    background: g.color + "20",
+                    borderRadius: 3,
+                    padding: "0 3px",
+                  }}>
+                    ×{g.count}
+                  </span>
                 )}
               </div>
             ))}
-            {overflowChips > 0 && (
+            {overflowChips2 > 0 && (
               <span
                 onClick={(e) => { e.stopPropagation(); setSelectedDay(dayNum); }}
+                className="flex-shrink-0"
                 style={{
-                  fontSize: tall ? 7 : 5,
+                  fontSize: 8,
                   color: "#a78bfa",
-                  opacity: 0.70,
-                  paddingLeft: tall ? 2 : 1,
+                  opacity: 0.75,
                   lineHeight: "1.3",
                   cursor: "pointer",
                   textDecoration: "underline",
                   textDecorationStyle: "dotted",
+                  textDecorationColor: "#a78bfa88",
                 }}
               >
-                + ещё {overflowChips}
+                + ещё {overflowChips2}
               </span>
             )}
-          </div>
+          </>
         )}
 
-        {/* ── Dot indicators at bottom — event dots only ── */}
-        {dayEvList.length > 0 && (
+        {/* ── MONTH VIEW: colored dot indicators (one per unique task group) ── */}
+        {!tall && (dayEvList.length > 0 || chipGroups.length > 0) && (
           <div
-            className="mt-auto flex gap-[3px] pt-[2px] relative z-10 flex-shrink-0"
-            style={{ overflow: "hidden", flexWrap: "nowrap", maxHeight: 6 }}
+            className="mt-auto flex gap-[3px] flex-shrink-0"
+            style={{ overflow: "hidden", flexWrap: "nowrap", maxHeight: 5 }}
           >
-            {dayEvList.slice(0, 3).map((e) => (
+            {dayEvList.slice(0, 2).map((e) => (
               <div
                 key={e.id}
                 style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 3px ${EVENT_META[e.category].color}` }}
               />
             ))}
-            {dayEvList.length > 3 && (
-              <span style={{ fontSize: 5, color: "rgba(255,255,255,0.28)", lineHeight: "4px", fontWeight: 700 }}>+{dayEvList.length - 3}</span>
+            {chipGroups.slice(0, Math.max(0, 3 - dayEvList.length)).map((g) => (
+              g.isFutureRecurring ? (
+                <div key={g.key} style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, background: "transparent", border: `1.5px dashed ${g.color}`, opacity: 0.45 }} />
+              ) : (
+                <div key={g.key} style={{ width: 4, height: 4, borderRadius: "50%", flexShrink: 0, opacity: 0.50, background: g.color }} />
+              )
+            ))}
+            {(dayEvList.length + chipGroups.length) > 3 && (
+              <span style={{ fontSize: 6, color: "rgba(255,255,255,0.32)", lineHeight: "4px", fontWeight: 700 }}>
+                +{dayEvList.length + chipGroups.length - 3}
+              </span>
             )}
           </div>
         )}
