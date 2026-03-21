@@ -333,18 +333,22 @@ export function Calendar() {
     }
 
     /* Determine center emoji icon */
-    const hasBirthday = dayEvList.some((e) => e.category === "birthday");
-    const hasHoliday  = dayEvList.some((e) => e.category === "holiday");
-    const hasMeeting  = dayEvList.some((e) => e.category === "meeting");
-    const hasDeadline = dayEvList.some((e) => e.category === "deadline");
-    const hasTaskDeadline = dayTkList.some((t) => !t.recurringTemplateId && !t.checklistItemId);
+    const hasBirthday    = dayEvList.some((e) => e.category === "birthday");
+    const hasHoliday     = dayEvList.some((e) => e.category === "holiday");
+    const hasMeeting     = dayEvList.some((e) => e.category === "meeting");
+    const hasDeadline    = dayEvList.some((e) => e.category === "deadline");
+    const deadlineCount  = dayEvList.filter((e) => e.category === "deadline").length;
+    const taskDeadlines  = dayTkList.filter((t) => !t.recurringTemplateId && !t.checklistItemId && !t.noDeadline);
+    const taskDeadlineCount = taskDeadlines.length;
+    const hasTaskDeadline   = taskDeadlineCount > 0;
     let cellIcon: string | null = null;
     let cellIconColor = "rgba(255,255,255,0.5)";
-    if (hasBirthday)     { cellIcon = "🎂"; cellIconColor = EVENT_META.birthday.color; }
-    else if (hasHoliday) { cellIcon = "⭐"; cellIconColor = EVENT_META.holiday.color; }
-    else if (hasMeeting) { cellIcon = "📅"; cellIconColor = EVENT_META.meeting.color; }
-    else if (hasDeadline){ cellIcon = "⏰"; cellIconColor = EVENT_META.deadline.color; }
-    else if (hasTaskDeadline) { cellIcon = "⏰"; cellIconColor = "#ef4444"; }
+    let cellIconCount = 0; // badge number when >1
+    if (hasBirthday)      { cellIcon = "🎂"; cellIconColor = EVENT_META.birthday.color; }
+    else if (hasHoliday)  { cellIcon = "⭐"; cellIconColor = EVENT_META.holiday.color; }
+    else if (hasMeeting)  { cellIcon = "📅"; cellIconColor = EVENT_META.meeting.color; }
+    else if (hasDeadline) { cellIcon = "⏰"; cellIconColor = EVENT_META.deadline.color; cellIconCount = deadlineCount; }
+    else if (hasTaskDeadline) { cellIcon = "⏰"; cellIconColor = "#ef4444"; cellIconCount = taskDeadlineCount; }
 
     return (
       <div
@@ -355,7 +359,9 @@ export function Calendar() {
         className="relative group/cell rounded-xl flex flex-col"
         style={{
           aspectRatio: "1",
-          padding: tall ? "12px 10px 8px" : "8px 7px 6px",
+          minHeight: 0,
+          overflow: "hidden",
+          padding: tall ? "10px 8px 6px" : "7px 6px 5px",
           border: cellBorder,
           background: cellBackground,
           boxShadow: cellBoxShadow,
@@ -377,16 +383,34 @@ export function Calendar() {
               zIndex: 0,
             }}
           >
-            <span
-              style={{
-                fontSize: tall ? 24 : 17,
-                filter: `drop-shadow(0 0 7px ${cellIconColor}cc)`,
-                opacity: isPast ? 0.28 : 0.65,
-                lineHeight: 1,
-              }}
-            >
-              {cellIcon}
-            </span>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 1, lineHeight: 1 }}>
+              <span
+                style={{
+                  fontSize: tall ? 22 : 15,
+                  filter: `drop-shadow(0 0 7px ${cellIconColor}cc)`,
+                  opacity: isPast ? 0.28 : 0.60,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+              >
+                {cellIcon}
+              </span>
+              {cellIconCount > 1 && (
+                <span
+                  style={{
+                    fontSize: tall ? 9 : 7,
+                    fontWeight: 700,
+                    color: cellIconColor,
+                    opacity: isPast ? 0.28 : 0.75,
+                    lineHeight: 1,
+                    marginTop: 1,
+                    textShadow: `0 0 6px ${cellIconColor}99`,
+                  }}
+                >
+                  {cellIconCount}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -417,15 +441,15 @@ export function Calendar() {
           </span>
         )}
 
-        {/* Dot indicators — pushed to bottom */}
-        <div className="mt-auto flex gap-[3px] flex-wrap pt-1 relative z-10">
+        {/* Dot indicators — pushed to bottom, max 4 dots then "+N" */}
+        <div className="mt-auto flex gap-[3px] flex-wrap pt-1 relative z-10" style={{ overflow: "hidden", maxHeight: tall ? 14 : 10, alignContent: "flex-start" }}>
           {dayEvList.slice(0, 3).map((e) => (
             <div
               key={e.id}
-              style={{ width: tall ? 6 : 5, height: tall ? 6 : 5, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
+              style={{ width: tall ? 6 : 4, height: tall ? 6 : 4, borderRadius: "50%", flexShrink: 0, background: EVENT_META[e.category].color, boxShadow: `0 0 4px ${EVENT_META[e.category].color}` }}
             />
           ))}
-          {dayTkList.slice(0, Math.max(0, 4 - dayEvList.length)).map((t) => {
+          {dayTkList.slice(0, Math.max(0, 3 - dayEvList.length)).map((t) => {
             const isFutureRecurring = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
             const dotColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
             return isFutureRecurring ? (
@@ -436,50 +460,51 @@ export function Calendar() {
                   borderRadius: "50%", flexShrink: 0,
                   background: "transparent",
                   border: `1.5px dashed ${dotColor}`,
-                  opacity: 0.55,
+                  opacity: 0.50,
                 }}
               />
             ) : (
               <div
                 key={t.id}
-                style={{ width: tall ? 5 : 4, height: tall ? 5 : 4, borderRadius: "50%", flexShrink: 0, opacity: 0.55, background: dotColor }}
+                style={{ width: tall ? 5 : 4, height: tall ? 5 : 4, borderRadius: "50%", flexShrink: 0, opacity: 0.50, background: dotColor }}
               />
             );
           })}
-          {totalItems > 4 && (
-            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)", lineHeight: "5px" }}>+{totalItems - 4}</span>
+          {totalItems > 3 && (
+            <span style={{ fontSize: 7, color: "rgba(255,255,255,0.30)", lineHeight: tall ? "6px" : "4px", fontWeight: 600 }}>+{totalItems - 3}</span>
           )}
         </div>
 
-        {/* Week view: compact task name chips */}
+        {/* Week view: compact task name chips — max 2, then "+N" */}
         {tall && dayTkList.length > 0 && (
-          <div className="flex flex-col gap-0.5 mt-1.5 relative z-10" style={{ minWidth: 0 }}>
-            {dayTkList.slice(0, 3).map((t) => {
+          <div className="flex flex-col gap-[2px] mt-1 relative z-10" style={{ minWidth: 0, overflow: "hidden" }}>
+            {dayTkList.slice(0, 2).map((t) => {
               const isFutureRecurring = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
               const chipColor = t.category === "Mission" ? "#fbbf24" : sphereColors[t.sphere].color;
               return (
                 <div
                   key={t.id}
                   style={{
-                    background: isFutureRecurring ? "transparent" : chipColor + "18",
-                    border: `1px ${isFutureRecurring ? "dashed" : "solid"} ${chipColor}${isFutureRecurring ? "55" : "30"}`,
-                    borderRadius: 5,
-                    padding: "1px 5px",
-                    fontSize: 9,
-                    color: t.done ? "rgba(255,255,255,0.22)" : isFutureRecurring ? chipColor + "cc" : "rgba(255,255,255,0.62)",
+                    background: isFutureRecurring ? "transparent" : chipColor + "15",
+                    border: `1px ${isFutureRecurring ? "dashed" : "solid"} ${chipColor}${isFutureRecurring ? "50" : "28"}`,
+                    borderRadius: 4,
+                    padding: "1px 4px",
+                    fontSize: 8,
+                    color: t.done ? "rgba(255,255,255,0.20)" : isFutureRecurring ? chipColor + "bb" : "rgba(255,255,255,0.58)",
                     textDecoration: t.done ? "line-through" : "none",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    opacity: isFutureRecurring ? 0.72 : 1,
+                    opacity: isFutureRecurring ? 0.70 : 1,
+                    lineHeight: "1.4",
                   }}
                 >
                   {isFutureRecurring ? "◌ " : ""}{t.text}
                 </div>
               );
             })}
-            {dayTkList.length > 3 && (
-              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.22)", paddingLeft: 2 }}>+{dayTkList.length - 3}</span>
+            {dayTkList.length > 2 && (
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.28)", paddingLeft: 2, lineHeight: "1.3" }}>+{dayTkList.length - 2} ещё</span>
             )}
           </div>
         )}

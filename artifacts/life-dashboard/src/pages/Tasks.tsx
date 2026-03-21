@@ -560,6 +560,29 @@ export function Tasks() {
   const doneTodayCount = todayTasks.filter((t) => t.done).length;
   const totalTodayCount = todayTasks.length;
 
+  // Helper: group tasks by recurringTemplateId (or solo by id)
+  function groupByTemplate(list: Task[]): { key: string; tasks: Task[] }[] {
+    const groups: { key: string; tasks: Task[] }[] = [];
+    const seen = new Set<string>();
+    for (const t of list) {
+      if (t.recurringTemplateId) {
+        if (!seen.has(t.recurringTemplateId)) {
+          seen.add(t.recurringTemplateId);
+          groups.push({
+            key: t.recurringTemplateId,
+            tasks: list.filter(u => u.recurringTemplateId === t.recurringTemplateId),
+          });
+        }
+      } else {
+        groups.push({ key: t.id, tasks: [t] });
+      }
+    }
+    return groups;
+  }
+
+  const routineGroups = groupByTemplate(routine);
+  const specialGroups = groupByTemplate(special);
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full">
 
@@ -717,18 +740,34 @@ export function Tasks() {
                     <p className="text-white/10 text-xs mt-1">Нажми «Обновить день» на вкладке Шаблоны</p>
                   </div>
                 )}
-                {routine.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    goalTitle={goalTitleById(task.goalId)}
-                    onToggle={() => toggleTask(task.id)}
-                    onEdit={() => { setEditingTask(task); setShowModal(true); }}
-                    onDelete={() => deleteTask(task.id)}
-                    onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
-                    onReschedule={(d) => rescheduleTask(task.id, d)}
-                  />
-                ))}
+                {routineGroups.map(({ key, tasks: grp }) => {
+                  if (grp.length > 1) {
+                    return (
+                      <RecurringGroupCard
+                        key={key}
+                        tasks={grp}
+                        goalTitle={goalTitleById(grp[0].goalId)}
+                        onToggle={(id) => toggleTask(id)}
+                        onEdit={(task) => { setEditingTask(task); setShowModal(true); }}
+                        onDelete={(id) => deleteTask(id)}
+                        onDeleteSeries={() => deleteRecurringFromTemplate(grp[0].recurringTemplateId!, TODAY)}
+                      />
+                    );
+                  }
+                  const task = grp[0];
+                  return (
+                    <TaskCard
+                      key={key}
+                      task={task}
+                      goalTitle={goalTitleById(task.goalId)}
+                      onToggle={() => toggleTask(task.id)}
+                      onEdit={() => { setEditingTask(task); setShowModal(true); }}
+                      onDelete={() => deleteTask(task.id)}
+                      onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
+                      onReschedule={(d) => rescheduleTask(task.id, d)}
+                    />
+                  );
+                })}
               </div>
             </section>
           )}
@@ -749,18 +788,34 @@ export function Tasks() {
                     <p className="text-white/10 text-xs mt-1">Добавь задачи на сегодня через кнопку «+ Задача»</p>
                   </div>
                 )}
-                {special.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    goalTitle={goalTitleById(task.goalId)}
-                    onToggle={() => toggleTask(task.id)}
-                    onEdit={() => { setEditingTask(task); setShowModal(true); }}
-                    onDelete={() => deleteTask(task.id)}
-                    onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
-                    onReschedule={(d) => rescheduleTask(task.id, d)}
-                  />
-                ))}
+                {specialGroups.map(({ key, tasks: grp }) => {
+                  if (grp.length > 1) {
+                    return (
+                      <RecurringGroupCard
+                        key={key}
+                        tasks={grp}
+                        goalTitle={goalTitleById(grp[0].goalId)}
+                        onToggle={(id) => toggleTask(id)}
+                        onEdit={(task) => { setEditingTask(task); setShowModal(true); }}
+                        onDelete={(id) => deleteTask(id)}
+                        onDeleteSeries={() => deleteRecurringFromTemplate(grp[0].recurringTemplateId!, TODAY)}
+                      />
+                    );
+                  }
+                  const task = grp[0];
+                  return (
+                    <TaskCard
+                      key={key}
+                      task={task}
+                      goalTitle={goalTitleById(task.goalId)}
+                      onToggle={() => toggleTask(task.id)}
+                      onEdit={() => { setEditingTask(task); setShowModal(true); }}
+                      onDelete={() => deleteTask(task.id)}
+                      onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
+                      onReschedule={(d) => rescheduleTask(task.id, d)}
+                    />
+                  );
+                })}
               </div>
             </section>
           )}
