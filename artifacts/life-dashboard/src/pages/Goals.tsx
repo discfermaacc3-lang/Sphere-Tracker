@@ -270,7 +270,7 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
 
             {/* ── Period dates ── */}
             {!isDraft && (goal.startDate || goal.endDate) && (
-              <p className="text-[10px] mt-1.5" style={{ color: overdue ? "rgba(239,68,68,0.60)" : "rgba(255,255,255,0.22)" }}>
+              <p className="text-[9px] mt-1.5" style={{ color: overdue ? "rgba(239,68,68,0.45)" : "rgba(255,255,255,0.16)" }}>
                 {goal.startDate ? formatDate(goal.startDate) : "?"} → {goal.endDate ? formatDate(goal.endDate) : "?"}
               </p>
             )}
@@ -278,30 +278,30 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
             {/* ── Progress bar (steps) ── */}
             {!isDraft && items.length > 0 && (
               <div className="mt-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="flex-1 h-[4px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${pct}%`,
                         background: goal.done || allDone
-                          ? "linear-gradient(90deg,#16a34a,#22c55e)"
-                          : `linear-gradient(90deg,rgba(${rgb},0.50),rgba(${rgb},1))`,
-                        boxShadow: `0 0 10px rgba(${rgb},0.45)`,
+                          ? "linear-gradient(90deg,rgba(34,197,94,0.65),rgba(52,211,153,0.80))"
+                          : `linear-gradient(90deg,rgba(${rgb},0.38),rgba(${rgb},0.75))`,
+                        boxShadow: allDone ? "0 0 6px rgba(52,211,153,0.28)" : `0 0 6px rgba(${rgb},0.22)`,
                       }}
                     />
                   </div>
-                  <span className="text-[10px] flex-shrink-0 font-medium tabular-nums"
-                    style={{ color: goal.done || allDone ? "#22c55e" : `rgba(${rgb},0.80)` }}>
+                  <span className="text-[9px] flex-shrink-0 tabular-nums"
+                    style={{ color: goal.done || allDone ? "rgba(52,211,153,0.70)" : `rgba(${rgb},0.55)` }}>
                     {doneItems}/{items.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.22)" }}>
-                    {goal.done || allDone ? "Все шаги выполнены" : `${doneItems} из ${items.length} шагов`}
+                  <span className="text-[8px]" style={{ color: "rgba(255,255,255,0.16)" }}>
+                    {goal.done || allDone ? "✓ Все шаги выполнены" : `${doneItems} из ${items.length} шагов`}
                   </span>
-                  <span className="text-[9px]" style={{ color: `rgba(${LAV},0.45)` }}>
-                    Награда: +{goal.xp} XP
+                  <span className="text-[8px]" style={{ color: `rgba(${LAV},0.30)` }}>
+                    +{goal.xp} XP
                   </span>
                 </div>
               </div>
@@ -309,24 +309,49 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
 
             {/* ── "No steps" XP info ── */}
             {!isDraft && items.length === 0 && !goal.done && (
-              <p className="text-[9px] mt-2" style={{ color: `rgba(${LAV},0.40)` }}>
+              <p className="text-[9px] mt-2" style={{ color: `rgba(${LAV},0.28)` }}>
                 Добавь шаги и получи +{goal.xp} XP при завершении
               </p>
             )}
 
-            {/* ── COMPLETE GOAL button ── */}
-            {!goal.done && (allDone || items.length === 0) && !isDraft && (
+            {/* ── COMPLETE GOAL button (always visible when not done, glows only when ready) ── */}
+            {!goal.done && !isDraft && (
               <button
-                onClick={onToggle}
-                className="mt-3 flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold transition-all"
+                onClick={allDone || items.length === 0 ? onToggle : undefined}
+                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all duration-300 group/complete"
                 style={{
-                  background: "linear-gradient(135deg,rgba(34,197,94,0.20),rgba(16,185,129,0.25))",
-                  border: "1px solid rgba(34,197,94,0.38)",
-                  color: "#4ade80",
-                  boxShadow: "0 0 18px rgba(34,197,94,0.20)",
+                  background: allDone || items.length === 0
+                    ? "rgba(167,139,250,0.09)"
+                    : "rgba(255,255,255,0.02)",
+                  border: allDone || items.length === 0
+                    ? "1px solid rgba(167,139,250,0.32)"
+                    : "1px solid rgba(255,255,255,0.07)",
+                  color: allDone || items.length === 0
+                    ? "rgba(167,139,250,0.80)"
+                    : "rgba(255,255,255,0.18)",
+                  boxShadow: allDone || items.length === 0
+                    ? "0 0 14px rgba(167,139,250,0.12)"
+                    : "none",
+                  cursor: allDone || items.length === 0 ? "pointer" : "default",
+                }}
+                onMouseEnter={e => {
+                  if (!(allDone || items.length === 0)) return;
+                  const el = e.currentTarget;
+                  el.style.background = "rgba(167,139,250,0.16)";
+                  el.style.borderColor = "rgba(167,139,250,0.55)";
+                  el.style.color = "rgba(167,139,250,1)";
+                  el.style.boxShadow = "0 0 22px rgba(167,139,250,0.28)";
+                }}
+                onMouseLeave={e => {
+                  if (!(allDone || items.length === 0)) return;
+                  const el = e.currentTarget;
+                  el.style.background = "rgba(167,139,250,0.09)";
+                  el.style.borderColor = "rgba(167,139,250,0.32)";
+                  el.style.color = "rgba(167,139,250,0.80)";
+                  el.style.boxShadow = "0 0 14px rgba(167,139,250,0.12)";
                 }}
               >
-                <span>✓</span>
+                <span style={{ opacity: allDone || items.length === 0 ? 1 : 0.5 }}>✦</span>
                 <span>Завершить цель · +{goal.xp} XP</span>
               </button>
             )}
@@ -350,7 +375,7 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
               className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] transition-all"
               style={{
                 background: expanded ? `rgba(${rgb},0.16)` : "rgba(255,255,255,0.04)",
-                color: expanded ? (sphereData?.color ?? LAV_HEX) : "rgba(255,255,255,0.26)",
+                color: expanded ? (sphereData?.color ?? LAV_HEX) : "rgba(255,255,255,0.18)",
                 border: `1px solid rgba(${rgb},${expanded ? "0.30" : "0.09"})`,
                 transform: expanded ? "rotate(180deg)" : "none",
                 transition: "all 0.22s",
@@ -359,11 +384,11 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
             >▾</button>
             <button
               onClick={onEdit}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs text-white/22 hover:text-white/60 hover:bg-white/5 transition-all"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs text-white/[0.14] hover:text-white/50 hover:bg-white/5 transition-all"
             >✎</button>
             <button
               onClick={onDelete}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs text-white/22 hover:text-red-400 hover:bg-red-500/5 transition-all"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs text-white/[0.12] hover:text-red-400/75 hover:bg-red-500/5 transition-all"
             >✕</button>
           </div>
         </div>
@@ -1098,7 +1123,7 @@ export function Goals() {
 
       {/* ══ Archive section (done goals) ══ */}
       {archiveTabGoals.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mt-5">
           {/* Archive header */}
           <button
             onClick={() => setShowArchive(v => !v)}
