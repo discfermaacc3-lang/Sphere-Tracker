@@ -10,6 +10,194 @@ const XP_COLORS: Record<string, string> = {
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
+const DAY_LABELS_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  const months = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+  return `${parseInt(d)} ${months[parseInt(m) - 1]}`;
+}
+
+/* ── Collapsed card for a recurring series ── */
+function RecurringGroupCard({
+  tasks,
+  goalTitle,
+  onToggle,
+  onEdit,
+  onDelete,
+  onDeleteSeries,
+}: {
+  tasks: Task[];
+  goalTitle?: string;
+  onToggle: (id: string) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+  onDeleteSeries: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const first = tasks[0];
+  const isMission = first.category === "Mission";
+  const s = isMission ? null : sphereColors[first.sphere];
+  const borderColor = isMission ? "rgba(251,191,36,0.30)" : (s!.color + "28");
+  const bgColor = isMission ? "rgba(251,191,36,0.05)" : `${s!.color}06`;
+
+  const days = first.recurringDays ?? [];
+  const scheduleStr = days.length > 0
+    ? "Каждый " + days.map(d => DAY_LABELS_SHORT[d]).join(", ")
+    : `${tasks.length} повторов`;
+
+  const nextTask = tasks.find(t => !t.done && (t.dueDate ?? "") >= TODAY);
+  const nextDate = nextTask?.dueDate;
+
+  return (
+    <div
+      className="rounded-2xl border flex flex-col overflow-hidden transition-all"
+      style={{ borderColor, background: bgColor }}
+    >
+      {/* Collapsed header */}
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        {/* Cycle icon */}
+        <span style={{ fontSize: 16, filter: `drop-shadow(0 0 6px ${s?.color ?? "#a78bfa"}90)`, flexShrink: 0 }}>🔄</span>
+
+        {/* Text block */}
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-sm font-medium truncate"
+            style={{ color: "rgba(255,255,255,0.75)" }}
+          >
+            {first.text}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>
+              {scheduleStr}
+            </span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.18)" }}>·</span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+              {tasks.length} дат
+            </span>
+            {nextDate && (
+              <>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.18)" }}>·</span>
+                <span style={{ fontSize: 10, color: "rgba(167,139,250,0.65)" }}>
+                  следующий {formatDate(nextDate)}
+                </span>
+              </>
+            )}
+            {goalTitle && (
+              <>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.18)" }}>·</span>
+                <span style={{ fontSize: 10, color: "rgba(167,139,250,0.50)" }}>🎯 {goalTitle}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+            style={{
+              color: "rgba(167,139,250,0.55)",
+              background: "rgba(167,139,250,0.06)",
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.2s ease",
+            }}
+            title={expanded ? "Свернуть" : "Развернуть"}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button
+            onClick={onDeleteSeries}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+            style={{ color: "rgba(255,255,255,0.22)", background: "transparent", fontSize: 13 }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f87171"; e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.22)"; e.currentTarget.style.background = "transparent"; }}
+            title="Удалить серию"
+          >✕</button>
+        </div>
+      </div>
+
+      {/* Expanded list */}
+      {expanded && (
+        <div
+          className="border-t flex flex-col"
+          style={{ borderColor: "rgba(255,255,255,0.05)" }}
+        >
+          {tasks.map((task, i) => {
+            const isPast = task.dueDate && task.dueDate < TODAY;
+            return (
+              <div
+                key={task.id}
+                className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 group/inst transition-colors"
+                style={{
+                  borderColor: "rgba(255,255,255,0.04)",
+                  background: i % 2 === 0 ? "rgba(255,255,255,0.010)" : "transparent",
+                  opacity: task.done || isPast ? 0.45 : 1,
+                }}
+              >
+                {/* Checkbox */}
+                <button
+                  onClick={() => onToggle(task.id)}
+                  className="w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center transition-all"
+                  style={{
+                    borderColor: task.done ? s?.color ?? "#a78bfa" : "rgba(255,255,255,0.22)",
+                    background: task.done ? (s?.color ?? "#a78bfa") + "30" : "transparent",
+                  }}
+                >
+                  {task.done && <span style={{ fontSize: 8, color: s?.color ?? "#a78bfa" }}>✓</span>}
+                </button>
+
+                {/* Date */}
+                <span style={{ fontSize: 11, color: "rgba(167,139,250,0.65)", width: 52, flexShrink: 0 }}>
+                  {task.dueDate ? formatDate(task.dueDate) : "—"}
+                </span>
+
+                {/* Weekday */}
+                {task.dueDate && (
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", width: 22, flexShrink: 0 }}>
+                    {DAY_LABELS_SHORT[(() => { const d = new Date(task.dueDate + "T12:00:00"); const dow = d.getDay(); return dow === 0 ? 6 : dow - 1; })()]}
+                  </span>
+                )}
+
+                <span
+                  className="flex-1 text-xs truncate"
+                  style={{
+                    color: task.done ? "rgba(255,255,255,0.30)" : "rgba(255,255,255,0.65)",
+                    textDecoration: task.done ? "line-through" : "none",
+                  }}
+                >
+                  {task.text}
+                </span>
+
+                {/* Edit / Delete buttons */}
+                <div className="flex gap-1 opacity-0 group-hover/inst:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => onEdit(task)}
+                    className="text-[10px] px-2 py-0.5 rounded-lg"
+                    style={{ color: "rgba(167,139,250,0.65)", background: "rgba(167,139,250,0.08)" }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onClick={() => onDelete(task.id)}
+                    className="text-[10px] px-2 py-0.5 rounded-lg"
+                    style={{ color: "rgba(239,68,68,0.55)", background: "rgba(239,68,68,0.06)" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TaskCard({
   task,
   goalTitle,
@@ -580,39 +768,81 @@ export function Tasks() {
       )}
 
       {/* ─── UPCOMING ─── */}
-      {tab === "upcoming" && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-medium text-white/60">Предстоящие задачи</p>
-            <span className="text-xs text-white/25">{upcomingTasks.length} задач</span>
-          </div>
-          {upcomingTasks.length === 0 ? (
-            <div
-              className="rounded-2xl border border-white/5 p-8 text-center"
-              style={{ background: "rgba(255,255,255,0.015)" }}
-            >
-              <p className="text-3xl mb-3">📅</p>
-              <p className="text-white/30 text-sm">Нет предстоящих задач</p>
-              <p className="text-white/15 text-xs mt-1">Задачи с будущей датой появятся здесь</p>
+      {tab === "upcoming" && (() => {
+        // Group recurring by templateId, keep standalone separate
+        const groups: { key: string; tasks: Task[] }[] = [];
+        const seen = new Set<string>();
+        for (const t of upcomingTasks) {
+          if (t.recurringTemplateId) {
+            if (!seen.has(t.recurringTemplateId)) {
+              seen.add(t.recurringTemplateId);
+              groups.push({
+                key: t.recurringTemplateId,
+                tasks: upcomingTasks.filter(u => u.recurringTemplateId === t.recurringTemplateId),
+              });
+            }
+          } else {
+            groups.push({ key: t.id, tasks: [t] });
+          }
+        }
+        const seriesCount = groups.filter(g => g.tasks.length > 1).length;
+        return (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-white/60">Предстоящие задачи</p>
+              <div className="flex items-center gap-2">
+                {seriesCount > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(167,139,250,0.10)", color: "rgba(167,139,250,0.65)" }}>
+                    🔄 {seriesCount} сер.
+                  </span>
+                )}
+                <span className="text-xs text-white/25">{upcomingTasks.length} задач</span>
+              </div>
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {upcomingTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  goalTitle={goalTitleById(task.goalId)}
-                  onToggle={() => toggleTask(task.id)}
-                  onEdit={() => { setEditingTask(task); setShowModal(true); }}
-                  onDelete={() => deleteTask(task.id)}
-                  onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringTaskTemplate(task.recurringTemplateId!) : undefined}
-                  onReschedule={(d) => rescheduleTask(task.id, d)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+            {groups.length === 0 ? (
+              <div
+                className="rounded-2xl border border-white/5 p-8 text-center"
+                style={{ background: "rgba(255,255,255,0.015)" }}
+              >
+                <p className="text-3xl mb-3">📅</p>
+                <p className="text-white/30 text-sm">Нет предстоящих задач</p>
+                <p className="text-white/15 text-xs mt-1">Задачи с будущей датой появятся здесь</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {groups.map(({ key, tasks: grpTasks }) => {
+                  if (grpTasks.length > 1 && grpTasks[0].recurringTemplateId) {
+                    return (
+                      <RecurringGroupCard
+                        key={key}
+                        tasks={grpTasks}
+                        goalTitle={goalTitleById(grpTasks[0].goalId)}
+                        onToggle={(id) => toggleTask(id)}
+                        onEdit={(task) => { setEditingTask(task); setShowModal(true); }}
+                        onDelete={(id) => deleteTask(id)}
+                        onDeleteSeries={() => deleteRecurringFromTemplate(grpTasks[0].recurringTemplateId!, TODAY)}
+                      />
+                    );
+                  }
+                  const task = grpTasks[0];
+                  return (
+                    <TaskCard
+                      key={key}
+                      task={task}
+                      goalTitle={goalTitleById(task.goalId)}
+                      onToggle={() => toggleTask(task.id)}
+                      onEdit={() => { setEditingTask(task); setShowModal(true); }}
+                      onDelete={() => deleteTask(task.id)}
+                      onDeleteSeries={task.recurringTemplateId ? () => deleteRecurringFromTemplate(task.recurringTemplateId!, TODAY) : undefined}
+                      onReschedule={(d) => rescheduleTask(task.id, d)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {/* ─── TEMPLATES ─── */}
       {tab === "templates" && (

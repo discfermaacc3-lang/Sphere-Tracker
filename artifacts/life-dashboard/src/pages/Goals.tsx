@@ -946,7 +946,7 @@ function ArchiveCard({
    Goals page
    ══════════════════════════════════════════ */
 export function Goals() {
-  const { goals, addGoal, editGoal, deleteGoal, toggleGoal, tasks, addTask, goalAchievements, removeGoalAchievement } = useStore();
+  const { goals, addGoal, editGoal, deleteGoal, toggleGoal, tasks, addTask, addRecurringTaskBatch, goalAchievements, removeGoalAchievement } = useStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>("mid");
   const [showModal, setShowModal] = useState(false);
@@ -1312,7 +1312,31 @@ export function Goals() {
             checklistItemId: taskModalItem.checklistItemId,
           }}
           onSave={fields => {
-            addTask({ ...fields, done: false } as Parameters<typeof addTask>[0]);
+            if (fields.recurringDays && fields.recurringDays.length > 0) {
+              addRecurringTaskBatch(
+                {
+                  text: fields.text,
+                  description: fields.description,
+                  category: fields.category,
+                  sphere: fields.sphere,
+                  xp: fields.xp,
+                  xpDifficulty: fields.xpDifficulty,
+                  type: fields.type ?? "special",
+                  priority: fields.priority ?? false,
+                  noDeadline: false,
+                  goalId: fields.goalId,
+                  checklistItemId: taskModalItem?.checklistItemId,
+                  timeFrom: fields.timeFrom,
+                  timeTo: fields.timeTo,
+                  recurringDays: fields.recurringDays,
+                  recurringEndDate: fields.recurringEndDate,
+                },
+                fields.recurringDays,
+                fields.recurringEndDate ?? null
+              );
+            } else {
+              addTask({ ...fields, done: false } as Parameters<typeof addTask>[0]);
+            }
             setTaskModalItem(null);
           }}
           onClose={() => setTaskModalItem(null)}
