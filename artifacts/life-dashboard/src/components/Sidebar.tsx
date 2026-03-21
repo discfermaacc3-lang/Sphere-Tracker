@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import logoSrc from "@assets/image_1774123650282.png";
 
 const navItems = [
   { key: "home",     label: "Главная",    icon: "✦"  },
@@ -41,123 +42,32 @@ export function Sidebar() {
           borderRight: "1px solid rgba(167,139,250,0.08)",
         }}
       >
-        {/* Logo — neon hand + sprout icon */}
+        {/* Logo — approved neon PNG */}
         <div
-          className="mb-7 w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+          className="mb-7 flex-shrink-0 overflow-hidden"
           style={{
-            background: "linear-gradient(135deg,rgba(167,139,250,0.18),rgba(109,40,217,0.14))",
-            boxShadow: "0 0 20px rgba(167,139,250,0.4), 0 0 40px rgba(167,139,250,0.14), inset 0 1px 0 rgba(255,255,255,0.07)",
-            border: "1px solid rgba(167,139,250,0.32)",
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            background: "rgb(18,12,34)",
+            boxShadow: "0 0 18px rgba(167,139,250,0.5), 0 0 36px rgba(167,139,250,0.18)",
+            border: "1px solid rgba(167,139,250,0.28)",
+            position: "relative",
           }}
         >
-          {/* SVG traced from approved reference — one continuous neon line */}
-          <svg viewBox="0 0 100 108" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="34">
-            <defs>
-              <filter id="neon" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur stdDeviation="3.5" result="blur1" />
-                <feGaussianBlur stdDeviation="1.5" result="blur2" in="SourceGraphic" />
-                <feMerge>
-                  <feMergeNode in="blur1" />
-                  <feMergeNode in="blur2" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-
-            {/* ── Outer arc sweeping from left-wrist over top to right ── */}
-            {/* Starts at wrist area (18,75), sweeps CCW over top (50,14), ends at (82,62) */}
-            <path
-              d="M 20,72 C 16,60 12,42 18,28 C 26,12 44,6 62,10 C 78,14 88,30 86,52 C 85,62 80,68 76,72"
-              stroke="#ddd6fe"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Palm base (left side, connecting wrist to fingers) ── */}
-            <path
-              d="M 20,72 C 18,78 22,86 30,88 C 44,92 62,90 74,84 C 80,80 80,74 76,72"
-              stroke="#ddd6fe"
-              strokeWidth="4.5"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Finger 1 (index — leftmost, tallest) ── */}
-            <path
-              d="M 20,72 C 16,68 12,60 14,52"
-              stroke="#ddd6fe"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Finger 2 (middle) ── */}
-            <path
-              d="M 24,74 C 19,70 17,63 20,56"
-              stroke="#ddd6fe"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Finger 3 (ring) ── */}
-            <path
-              d="M 29,76 C 25,73 24,67 27,61"
-              stroke="#ddd6fe"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Plant stem ── */}
-            <path
-              d="M 50,82 C 50,72 50,58 50,36"
-              stroke="#ddd6fe"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Left leaf (large) ── */}
-            <path
-              d="M 50,58 C 44,52 30,46 28,36 C 32,28 44,34 50,48"
-              stroke="#ddd6fe"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Right leaf (large) ── */}
-            <path
-              d="M 50,54 C 56,48 70,42 72,32 C 68,24 56,30 50,44"
-              stroke="#ddd6fe"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-
-            {/* ── Top bud / small center leaf ── */}
-            <path
-              d="M 50,38 C 46,30 46,20 50,14 C 54,20 54,30 50,38"
-              stroke="#ddd6fe"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#neon)"
-            />
-          </svg>
+          <img
+            src={logoSrc}
+            alt="logo"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              mixBlendMode: "screen",
+            }}
+          />
         </div>
 
         {navItems.map((item) => {
