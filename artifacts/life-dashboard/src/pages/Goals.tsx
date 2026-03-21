@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useStore, Goal, Task, computeGoalEarnedXP } from "@/lib/store";
+import { useStore, Goal, Task, GoalAchievement, computeGoalEarnedXP } from "@/lib/store";
 import { sphereColors, SphereKey } from "@/lib/sphereColors";
 import { GoalModal } from "@/components/GoalModal";
 import { TaskModal } from "@/components/TaskModal";
@@ -38,6 +38,12 @@ function hexToRgb(hex: string): string {
   try {
     return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`;
   } catch { return LAV; }
+}
+
+function formatCompletedAt(iso?: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 function isDraftGoal(g: Goal): boolean {
@@ -692,15 +698,236 @@ function GoalCard({ goal, goals, tasks, onToggle, onEdit, onDelete, onAddToDay }
 }
 
 /* ══════════════════════════════════════════
+   ArchiveCard — выполненная цель
+   ══════════════════════════════════════════ */
+function ArchiveCard({
+  goal,
+  goals,
+  tasks,
+  onToggle,
+  onEdit,
+  onDelete,
+  onToggleMapVisibility,
+}: {
+  goal: Goal;
+  goals: Goal[];
+  tasks: Task[];
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleMapVisibility: () => void;
+}) {
+  const sphere = goal.sphere ? sphereColors[goal.sphere] : null;
+  const rgb    = sphere ? hexToRgb(sphere.color) : "160,174,210";
+
+  const SILVER = "160,174,210";
+  const earned = computeGoalEarnedXP(goal, goals, tasks);
+  const pct    = goal.targetXP > 0 ? Math.min(100, Math.round(earned / goal.targetXP * 100)) : 100;
+
+  return (
+    <div
+      className="relative rounded-[1.4rem] overflow-hidden transition-all duration-300"
+      style={{
+        background: "rgba(12,11,28,0.75)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        border: `1px solid rgba(${SILVER},0.22)`,
+        boxShadow: `0 0 28px rgba(${SILVER},0.06), inset 0 0 0 1px rgba(255,255,255,0.025)`,
+        opacity: 0.88,
+      }}
+    >
+      {/* COMPLETED badge — top-right ribbon */}
+      <div
+        className="absolute top-3.5 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+        style={{
+          background: "rgba(34,197,94,0.10)",
+          border: "1px solid rgba(34,197,94,0.22)",
+          boxShadow: "0 0 12px rgba(34,197,94,0.12)",
+        }}
+      >
+        <span className="text-green-400 font-bold text-[10px] leading-none">✓</span>
+        <span
+          className="text-[8px] font-bold tracking-[0.20em] uppercase"
+          style={{ color: "rgba(34,197,94,0.85)" }}
+        >
+          COMPLETED
+        </span>
+      </div>
+
+      {/* Main content */}
+      <div className="px-5 pt-4 pb-3">
+        {/* Top row */}
+        <div className="flex items-start gap-3 pr-24">
+          {/* Sphere icon */}
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: `rgba(${rgb},0.10)`, border: `1px solid rgba(${rgb},0.18)` }}
+          >
+            <span className="text-base leading-none" style={{ filter: "grayscale(40%)", opacity: 0.70 }}>
+              {sphere?.emoji ?? "🎯"}
+            </span>
+          </div>
+
+          {/* Title + date */}
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-sm font-medium leading-snug"
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                textDecoration: "line-through",
+                textDecorationColor: "rgba(255,255,255,0.18)",
+              }}
+            >
+              {goal.title}
+            </p>
+            {goal.description && (
+              <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: "rgba(255,255,255,0.22)" }}>
+                {goal.description}
+              </p>
+            )}
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              {goal.completedAt && (
+                <span className="text-[9px] flex items-center gap-1" style={{ color: "rgba(34,197,94,0.55)" }}>
+                  <span>📅</span>
+                  Дата завершения: {formatCompletedAt(goal.completedAt)}
+                </span>
+              )}
+              {sphere && (
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-md"
+                  style={{ background: `rgba(${rgb},0.08)`, color: `rgba(${rgb},0.45)` }}
+                >
+                  {sphere.label}
+                </span>
+              )}
+              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.20)" }}>
+                +{goal.xp} XP
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* XP progress bar */}
+        <div className="mt-3">
+          <div
+            className="h-[3px] rounded-full overflow-hidden"
+            style={{ background: `rgba(${SILVER},0.08)` }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${pct}%`,
+                background: "linear-gradient(90deg,rgba(34,197,94,0.45),rgba(52,211,153,0.60))",
+                boxShadow: "0 0 6px rgba(34,197,94,0.22)",
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[8px]" style={{ color: "rgba(255,255,255,0.14)" }}>{pct}% выполнено</span>
+            <span className="text-[8px]" style={{ color: "rgba(34,197,94,0.40)" }}>{earned}/{goal.targetXP} XP</span>
+          </div>
+        </div>
+
+        {/* Checklist items (all strikethrough) */}
+        {goal.checklistItems && goal.checklistItems.length > 0 && (
+          <div
+            className="mt-3 rounded-xl overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            {goal.checklistItems.map(item => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2.5 px-3 py-2 border-b last:border-b-0"
+                style={{ borderColor: "rgba(255,255,255,0.04)" }}
+              >
+                <span className="text-[9px] flex-shrink-0" style={{ color: "rgba(34,197,94,0.50)" }}>✓</span>
+                <span
+                  className="text-[11px] flex-1"
+                  style={{
+                    color: "rgba(255,255,255,0.25)",
+                    textDecoration: "line-through",
+                    textDecorationColor: "rgba(255,255,255,0.12)",
+                  }}
+                >
+                  {item.text}
+                  {item.recurring && (
+                    <span className="ml-1.5 text-[9px]" style={{ color: "rgba(255,255,255,0.15)" }}>
+                      ⟳ {item.recurring.completedSessions}/{item.recurring.totalSessions}
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Actions row */}
+        <div className="flex items-center gap-2 mt-3">
+          {/* Eye toggle — map visibility */}
+          <button
+            onClick={onToggleMapVisibility}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-medium transition-all"
+            style={{
+              background: goal.hiddenFromMap ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)",
+              color: goal.hiddenFromMap ? "rgba(239,68,68,0.50)" : "rgba(34,197,94,0.50)",
+              border: goal.hiddenFromMap ? "1px solid rgba(239,68,68,0.15)" : "1px solid rgba(34,197,94,0.15)",
+            }}
+            title={goal.hiddenFromMap ? "Показать в карте целей" : "Скрыть из карты целей"}
+          >
+            <span>{goal.hiddenFromMap ? "🙈" : "👁"}</span>
+            <span>{goal.hiddenFromMap ? "Скрыто из карты" : "В карте целей"}</span>
+          </button>
+
+          <div className="flex-1" />
+
+          {/* Un-complete */}
+          <button
+            onClick={onToggle}
+            className="px-2.5 py-1 rounded-lg text-[9px] font-medium transition-all hover:opacity-80"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.20)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}
+            title="Вернуть в активные"
+          >
+            ↩ Вернуть
+          </button>
+          <button
+            onClick={onEdit}
+            className="px-2.5 py-1 rounded-lg text-[9px] font-medium transition-all hover:opacity-80"
+            style={{
+              background: `rgba(${SILVER},0.06)`,
+              color: `rgba(${SILVER},0.35)`,
+              border: `1px solid rgba(${SILVER},0.10)`,
+            }}
+            title="Редактировать"
+          >
+            ✏
+          </button>
+          <button
+            onClick={onDelete}
+            className="w-6 h-6 rounded-lg flex items-center justify-center text-[9px] transition-all hover:opacity-80"
+            style={{ color: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.06)" }}
+            title="Удалить"
+          >✕</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
    Goals page
    ══════════════════════════════════════════ */
 export function Goals() {
-  const { goals, addGoal, editGoal, deleteGoal, toggleGoal, tasks, addTask } = useStore();
+  const { goals, addGoal, editGoal, deleteGoal, toggleGoal, tasks, addTask, goalAchievements, removeGoalAchievement } = useStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>("mid");
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [showArchive, setShowArchive] = useState(true);
 
   const [taskModalItem, setTaskModalItem] = useState<{
     text: string; sphere?: SphereKey; goalId: string; checklistItemId?: string;
@@ -708,11 +935,13 @@ export function Goals() {
 
   const meta = TAB_META[activeTab];
 
-  const tabGoals  = goals.filter(g => !isDraftGoal(g) && getEffectiveCategory(g) === activeTab);
+  const tabGoals       = goals.filter(g => !isDraftGoal(g) && getEffectiveCategory(g) === activeTab);
+  const activeTabGoals = tabGoals.filter(g => !g.done);
+  const archiveTabGoals = tabGoals.filter(g => g.done);
   const draftGoals = goals.filter(isDraftGoal);
 
-  const doneCount  = tabGoals.filter(g => g.done).length;
-  const activeCount = tabGoals.filter(g => !g.done).length;
+  const doneCount  = archiveTabGoals.length;
+  const activeCount = activeTabGoals.length;
 
   function openAdd() { setEditingGoal(null); setShowModal(true); }
   function openEdit(g: Goal) { setEditingGoal(g); setShowModal(true); }
@@ -828,8 +1057,8 @@ export function Goals() {
         </div>
       )}
 
-      {/* ══ Goals list ══ */}
-      {tabGoals.length === 0 ? (
+      {/* ══ Goals list (active only) ══ */}
+      {activeTabGoals.length === 0 && archiveTabGoals.length === 0 ? (
         <div
           className="rounded-[1.75rem] p-10 text-center"
           style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.05)" }}
@@ -852,7 +1081,7 @@ export function Goals() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {tabGoals.map(goal => (
+          {activeTabGoals.map(goal => (
             <GoalCard
               key={goal.id}
               goal={goal}
@@ -864,6 +1093,59 @@ export function Goals() {
               onAddToDay={(text, checklistItemId) => setTaskModalItem({ text, sphere: goal.sphere, goalId: goal.id, checklistItemId })}
             />
           ))}
+        </div>
+      )}
+
+      {/* ══ Archive section (done goals) ══ */}
+      {archiveTabGoals.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {/* Archive header */}
+          <button
+            onClick={() => setShowArchive(v => !v)}
+            className="flex items-center gap-3 px-1 group transition-all"
+          >
+            <div className="flex items-center gap-3 flex-1">
+              <div className="h-px flex-1" style={{ background: "rgba(180,200,255,0.12)" }} />
+              <span
+                className="text-[9px] font-bold tracking-[0.28em] flex items-center gap-2"
+                style={{ color: "rgba(180,200,255,0.40)" }}
+              >
+                <span style={{ fontSize: 12 }}>🏆</span>
+                АРХИВ · ВЫПОЛНЕННЫЕ ЦЕЛИ
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-md"
+                  style={{ background: "rgba(180,200,255,0.08)", color: "rgba(180,200,255,0.45)" }}
+                >
+                  {archiveTabGoals.length}
+                </span>
+              </span>
+              <div className="h-px flex-1" style={{ background: "rgba(180,200,255,0.12)" }} />
+            </div>
+            <span
+              className="text-[10px] transition-transform duration-200"
+              style={{ color: "rgba(180,200,255,0.30)", transform: showArchive ? "rotate(0deg)" : "rotate(-90deg)" }}
+            >
+              ▾
+            </span>
+          </button>
+
+          {/* Archive cards */}
+          {showArchive && (
+            <div className="flex flex-col gap-3">
+              {archiveTabGoals.map(goal => (
+                <ArchiveCard
+                  key={goal.id}
+                  goal={goal}
+                  goals={goals}
+                  tasks={tasks}
+                  onToggle={() => toggleGoal(goal.id)}
+                  onEdit={() => openEdit(goal)}
+                  onDelete={() => deleteGoal(goal.id)}
+                  onToggleMapVisibility={() => editGoal(goal.id, { hiddenFromMap: !goal.hiddenFromMap })}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1017,8 +1299,11 @@ export function Goals() {
         <OverviewModal
           goals={goals}
           tasks={tasks}
+          goalAchievements={goalAchievements}
           onClose={() => setShowOverviewModal(false)}
           onEdit={g => { setShowOverviewModal(false); openEdit(g); }}
+          onToggleMapVisibility={g => editGoal(g.id, { hiddenFromMap: !g.hiddenFromMap })}
+          onToggleGoal={g => toggleGoal(g.id)}
         />
       )}
     </div>
@@ -1026,27 +1311,34 @@ export function Goals() {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   Overview Modal — Все цели · Черновики · Дорожная карта
+   Overview Modal — Все цели · Черновики · Дорожная карта · Архив
 ───────────────────────────────────────────────────────────────── */
-const OVERVIEW_TABS = ["Активные", "Черновики", "Дорожная карта"] as const;
+const OVERVIEW_TABS = ["Активные", "Дорожная карта", "Архив", "Черновики"] as const;
 type OverviewTab = typeof OVERVIEW_TABS[number];
 
 function OverviewModal({
   goals,
   tasks,
+  goalAchievements,
   onClose,
   onEdit,
+  onToggleMapVisibility,
+  onToggleGoal,
 }: {
   goals: Goal[];
   tasks: Task[];
+  goalAchievements: GoalAchievement[];
   onClose: () => void;
   onEdit: (g: Goal) => void;
+  onToggleMapVisibility: (g: Goal) => void;
+  onToggleGoal: (g: Goal) => void;
 }) {
   const [tab, setTab] = useState<OverviewTab>("Активные");
 
   const activeGoals = goals.filter(g => !isDraftGoal(g) && !g.done);
   const doneGoals   = goals.filter(g => !isDraftGoal(g) && g.done);
   const drafts      = goals.filter(isDraftGoal);
+  const visibleActiveGoals = activeGoals.filter(g => !g.hiddenFromMap);
 
   const byLevel = {
     week:  activeGoals.filter(g => getEffectiveCategory(g) === "short"),
@@ -1140,19 +1432,121 @@ function OverviewModal({
                   </div>
                 );
               })}
+              {activeGoals.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-4xl mb-3">🌙</p>
+                  <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.22)" }}>Нет активных целей</p>
+                </div>
+              )}
+            </div>
+          )}
 
-              {doneGoals.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    <span className="text-[9px] font-bold tracking-[0.28em]" style={{ color: "rgba(255,255,255,0.22)" }}>
-                      ЗАВЕРШЕНО
-                    </span>
-                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+          {/* ── Архив ── */}
+          {tab === "Архив" && (
+            <div className="flex flex-col gap-4">
+              {/* Achievement log */}
+              {goalAchievements.length > 0 && (
+                <div
+                  className="rounded-2xl p-4"
+                  style={{ background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.10)" }}
+                >
+                  <p className="text-[8px] font-bold tracking-[0.24em] uppercase mb-3" style={{ color: "rgba(34,197,94,0.50)" }}>
+                    🏆 ИСТОРИЯ ДОСТИЖЕНИЙ
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {[...goalAchievements].reverse().map(a => {
+                      const sp = a.goalSphere ? sphereColors[a.goalSphere] : null;
+                      return (
+                        <div key={a.id} className="flex items-center gap-3">
+                          <span className="text-sm">{sp?.emoji ?? "🎯"}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.55)" }}>
+                              Триумф! Завершена цель: <span style={{ color: "rgba(34,197,94,0.80)" }}>{a.goalTitle}</span>
+                            </p>
+                          </div>
+                          <span
+                            className="text-[9px] flex-shrink-0 font-semibold px-1.5 py-0.5 rounded-md"
+                            style={{ background: "rgba(34,197,94,0.10)", color: "rgba(34,197,94,0.65)" }}
+                          >
+                            +{a.goalXp} XP
+                          </span>
+                          <span className="text-[9px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.20)" }}>
+                            {formatCompletedAt(a.completedAt)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="grid gap-2">
-                    {doneGoals.map(g => <OverviewGoalRow key={g.id} goal={g} allGoals={goals} tasks={tasks} onEdit={onEdit} color="100,200,130" done />)}
-                  </div>
+                </div>
+              )}
+
+              {/* Done goals list */}
+              {doneGoals.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-4xl mb-3">🏆</p>
+                  <p className="text-sm font-light" style={{ color: "rgba(255,255,255,0.22)" }}>Пока нет выполненных целей</p>
+                  <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.12)" }}>
+                    Завершённые цели будут появляться здесь
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {doneGoals.map(g => {
+                    const sphere = g.sphere ? sphereColors[g.sphere] : null;
+                    const rgb = sphere ? hexToRgb(sphere.color) : "160,174,210";
+                    const SILVER = "160,174,210";
+                    return (
+                      <div
+                        key={g.id}
+                        className="flex items-center gap-4 px-4 py-3 rounded-2xl"
+                        style={{
+                          background: "rgba(12,11,28,0.70)",
+                          border: `1px solid rgba(${SILVER},0.16)`,
+                          opacity: 0.90,
+                        }}
+                      >
+                        <span className="text-xl flex-shrink-0" style={{ filter: "grayscale(40%)", opacity: 0.65 }}>
+                          {sphere?.emoji ?? "🎯"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate"
+                              style={{ color: "rgba(255,255,255,0.50)", textDecoration: "line-through", textDecorationColor: "rgba(255,255,255,0.14)" }}>
+                              {g.title}
+                            </p>
+                            <span
+                              className="flex items-center gap-1 flex-shrink-0 px-1.5 py-0.5 rounded-md text-[8px] font-bold"
+                              style={{ background: "rgba(34,197,94,0.10)", color: "rgba(34,197,94,0.75)" }}
+                            >
+                              ✓ COMPLETED
+                            </span>
+                          </div>
+                          {g.completedAt && (
+                            <p className="text-[9px] mt-0.5" style={{ color: "rgba(34,197,94,0.45)" }}>
+                              📅 Дата завершения: {formatCompletedAt(g.completedAt)}
+                            </p>
+                          )}
+                        </div>
+                        {/* Eye toggle */}
+                        <button
+                          onClick={() => onToggleMapVisibility(g)}
+                          className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all text-sm"
+                          style={{
+                            background: g.hiddenFromMap ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.06)",
+                            border: g.hiddenFromMap ? "1px solid rgba(239,68,68,0.15)" : "1px solid rgba(34,197,94,0.12)",
+                          }}
+                          title={g.hiddenFromMap ? "Показать в карте" : "Скрыть из карты"}
+                        >
+                          {g.hiddenFromMap ? "🙈" : "👁"}
+                        </button>
+                        <button
+                          onClick={() => onEdit(g)}
+                          className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[9px] transition-all"
+                          style={{ color: `rgba(${SILVER},0.30)`, border: `1px solid rgba(${SILVER},0.10)` }}
+                        >✏</button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1189,7 +1583,7 @@ function OverviewModal({
                   { lvl: "mid"   as const, label: "МЕСЯЦ",   color: LAV,           emoji: "🌙" },
                   { lvl: "long"  as const, label: "ГОД+",    color: "255,170,90",  emoji: "⭐" },
                 ] as const).map(({ lvl, label, color, emoji }) => {
-                  const gs = activeGoals.filter(g => getEffectiveCategory(g) === lvl);
+                  const gs = visibleActiveGoals.filter(g => getEffectiveCategory(g) === lvl);
                   return (
                     <div
                       key={lvl}
@@ -1219,7 +1613,7 @@ function OverviewModal({
                       ) : gs.map(g => {
                         const sphere = g.sphere ? sphereColors[g.sphere] : null;
                         const rgb = sphere ? hexToRgb(sphere.color) : LAV;
-                        const earned = computeGoalEarnedXP(g, activeGoals, tasks);
+                        const earned = computeGoalEarnedXP(g, visibleActiveGoals, tasks);
                         const pct = g.targetXP > 0 ? Math.min(100, Math.round(earned / g.targetXP * 100)) : 0;
                         return (
                           <button

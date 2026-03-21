@@ -54,6 +54,15 @@ export type GoalChecklistItem = {
   recurring?: GoalChecklistItemRecurring;
 };
 
+export type GoalAchievement = {
+  id: string;
+  goalId: string;
+  goalTitle: string;
+  goalXp: number;
+  goalSphere?: SphereKey;
+  completedAt: string;
+};
+
 export type Goal = {
   id: string;
   title: string;
@@ -75,6 +84,8 @@ export type Goal = {
   endDate?: string;
   checklistItems?: GoalChecklistItem[];
   isIdea?: boolean;
+  completedAt?: string;
+  hiddenFromMap?: boolean;
 };
 
 export type Idea = {
@@ -244,6 +255,9 @@ type Store = {
   editGoalChecklistItem: (goalId: string, itemId: string, updates: Partial<GoalChecklistItem>) => void;
   toggleGoalChecklistItem: (goalId: string, itemId: string) => void;
   deleteGoalChecklistItem: (goalId: string, itemId: string) => void;
+
+  goalAchievements: GoalAchievement[];
+  removeGoalAchievement: (goalId: string) => void;
 
   customIdeaCategories: CustomIdeaCategory[];
   addIdeaCategory: (cat: Omit<CustomIdeaCategory, "key">) => void;
@@ -438,6 +452,7 @@ const defaultNotes: Note[] = [
 ];
 
 function autoCompleteGoals(tasks: Task[], goals: Goal[], bonusXP: number): { goals: Goal[]; bonusXP: number } {
+  const today = new Date().toISOString().slice(0, 10);
   let changed = true;
   let currentGoals = [...goals];
   let totalBonus = bonusXP;
@@ -446,7 +461,7 @@ function autoCompleteGoals(tasks: Task[], goals: Goal[], bonusXP: number): { goa
     const nextGoals = currentGoals.map((g) => {
       if (g.done) return g;
       const earned = computeGoalEarnedXP(g, currentGoals, tasks);
-      if (g.targetXP > 0 && earned >= g.targetXP) { changed = true; totalBonus += g.xp; return { ...g, done: true }; }
+      if (g.targetXP > 0 && earned >= g.targetXP) { changed = true; totalBonus += g.xp; return { ...g, done: true, completedAt: today }; }
       return g;
     });
     currentGoals = nextGoals;
@@ -463,7 +478,7 @@ function autoUncompleteGoals(tasks: Task[], goals: Goal[], penaltyXP: number): {
     const nextGoals = currentGoals.map((g) => {
       if (!g.done) return g;
       const earned = computeGoalEarnedXP(g, currentGoals, tasks);
-      if (earned < g.targetXP) { changed = true; totalPenalty += g.xp; return { ...g, done: false }; }
+      if (earned < g.targetXP) { changed = true; totalPenalty += g.xp; return { ...g, done: false, completedAt: undefined }; }
       return g;
     });
     currentGoals = nextGoals;
@@ -570,6 +585,10 @@ export const useStore = create<Store>()(
         set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)) })),
       deleteGoal: (id) =>
         set((s) => ({ goals: s.goals.filter((g) => g.id !== id && g.parentId !== id) })),
+
+      goalAchievements: [],
+      removeGoalAchievement: (goalId) =>
+        set((s) => ({ goalAchievements: s.goalAchievements.filter((a) => a.goalId !== goalId) })),
       addGoalChecklistItem: (goalId, text, recurring) =>
         set((s) => {
           const itemId = "ci-" + Date.now() + "-" + Math.floor(Math.random() * 9999);
@@ -663,11 +682,16 @@ export const useStore = create<Store>()(
           if (!goal) return {};
           const newDone = !goal.done;
           const xpDelta = newDone ? goal.xp : -goal.xp;
+          const today = new Date().toISOString().slice(0, 10);
+          const updatedAchievements = newDone
+            ? [...s.goalAchievements, { id: "ga-" + Date.now(), goalId: id, goalTitle: goal.title, goalXp: goal.xp, goalSphere: goal.sphere, completedAt: today }]
+            : s.goalAchievements.filter((a) => a.goalId !== id);
           return {
-            goals: s.goals.map((g) => (g.id === id ? { ...g, done: newDone } : g)),
+            goals: s.goals.map((g) => g.id === id ? { ...g, done: newDone, completedAt: newDone ? today : undefined } : g),
             totalXP: Math.max(0, s.totalXP + xpDelta),
             dayXP: Math.max(0, s.dayXP + xpDelta),
             monthXP: Math.max(0, s.monthXP + xpDelta),
+            goalAchievements: updatedAchievements,
           };
         }),
 
@@ -717,6 +741,7 @@ export const useStore = create<Store>()(
               }),
             };
           });
+          const oldDoneIds = new Set(s.goals.filter((g) => g.done).map((g) => g.id));
           if (!wasDone) {
             const result = autoCompleteGoals(newTasks, newGoals, 0);
             newGoals = result.goals; goalsDelta = result.bonusXP;
@@ -724,12 +749,20 @@ export const useStore = create<Store>()(
             const result = autoUncompleteGoals(newTasks, newGoals, 0);
             newGoals = result.goals; goalsDelta = -result.penaltyXP;
           }
+          // Track achievements for auto-completed / auto-uncompleted goals
+          const newlyCompleted = newGoals.filter((g) => g.done && !oldDoneIds.has(g.id));
+          const newlyUncompleted = newGoals.filter((g) => !g.done && oldDoneIds.has(g.id));
+          const updatedAchievements = [
+            ...s.goalAchievements.filter((a) => !newlyUncompleted.some((g) => g.id === a.goalId)),
+            ...newlyCompleted.map((g) => ({ id: "ga-" + Date.now() + g.id, goalId: g.id, goalTitle: g.title, goalXp: g.xp, goalSphere: g.sphere, completedAt: today })),
+          ];
           const totalDelta = taskXPDelta + goalsDelta;
           return {
             tasks: newTasks, goals: newGoals,
             totalXP: Math.max(0, s.totalXP + totalDelta),
             dayXP: Math.max(0, s.dayXP + taskXPDelta),
             monthXP: Math.max(0, s.monthXP + taskXPDelta),
+            goalAchievements: updatedAchievements,
           };
         }),
       addTask: (task) =>
