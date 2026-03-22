@@ -635,7 +635,7 @@ export function Calendar() {
   }
 
   return (
-    <div className="flex flex-col gap-6 mx-auto pb-10 w-full" style={{ maxWidth: 1100, overflow: "visible" }}>
+    <div className="flex flex-col gap-6 mx-auto pb-10 w-full" style={{ maxWidth: 1000, overflow: "visible" }}>
       {/* Header */}
       <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
         <div className="flex flex-col gap-0.5">
@@ -716,7 +716,7 @@ export function Calendar() {
       {/* Calendar grid */}
       {(() => {
         const isMonth = viewMode === "month";
-        const cellGap  = 8;
+        const cellGap  = 10;
 
         return (
           <div
