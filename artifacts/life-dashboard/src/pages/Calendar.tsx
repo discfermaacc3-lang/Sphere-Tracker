@@ -635,7 +635,7 @@ export function Calendar() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10 w-full" style={{ overflow: "visible" }}>
+    <div className="flex flex-col gap-6 mx-auto pb-10 w-full" style={{ maxWidth: 1100, overflow: "visible" }}>
       {/* Header */}
       <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
         <div className="flex flex-col gap-0.5">
@@ -716,15 +716,19 @@ export function Calendar() {
       {/* Calendar grid */}
       {(() => {
         const isMonth = viewMode === "month";
-        /* Both views: 15% side padding — creates a single vertical content corridor.
-           Square cells via aspectRatio on each cell. */
-        const innerPad = "15%";
-        const cellGap  = 4;
+        const cellGap  = 8;
 
         return (
           <div
-            className="rounded-2xl border border-white/5"
-            style={{ background: "rgba(255,255,255,0.02)", padding: "12px" }}
+            className="rounded-2xl"
+            style={{
+              background: "rgba(12,8,28,0.58)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "1px solid rgba(167,139,250,0.16)",
+              boxShadow: "0 0 52px rgba(167,139,250,0.10), 0 16px 48px rgba(0,0,0,0.50)",
+              padding: "16px",
+            }}
           >
             {/* Weekday headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap, marginBottom: 8 }}>
