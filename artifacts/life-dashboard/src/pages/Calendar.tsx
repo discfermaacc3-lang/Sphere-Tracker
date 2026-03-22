@@ -395,91 +395,80 @@ export function Calendar() {
           cursor: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23a78bfa' d='M4 0l16 12-7 2-4 8z'/%3E%3C/svg%3E\") 4 0, pointer",
         }}
       >
-        {/* ── Month view: event icons as absolute overlay (top-right) ── */}
-        {!tall && miniIcons.length > 0 && (
-          <div className="absolute top-[3px] right-[3px] flex gap-[1px]" style={{ lineHeight: 1 }}>
-            {miniIcons.slice(0, 2).map((ic, idx) => (
-              <span key={idx} style={{ fontSize: 6, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.20 : 0.55, lineHeight: 1 }}>
-                {ic.emoji}
-              </span>
-            ))}
+        {/* ════════════════════════════════════════════
+            MONTH VIEW cell layout  (3 rows, compact)
+            ════════════════════════════════════════════ */}
+        {!tall && (<>
+          {/* ROW 1 — Day number, centered */}
+          <div className="flex items-center justify-center flex-shrink-0" style={{ lineHeight: 1 }}>
+            <span
+              className="font-semibold leading-none"
+              style={{
+                fontSize: 12,
+                color: isToday
+                  ? "#a78bfa"
+                  : isSelectedDay
+                  ? "rgba(255,255,255,0.95)"
+                  : isOtherMonth
+                  ? isPast ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.25)"
+                  : isPast
+                  ? "rgba(255,255,255,0.16)"
+                  : "rgba(255,255,255,0.62)",
+                textShadow: isToday ? "0 0 14px rgba(167,139,250,0.72)" : "none",
+              }}
+            >
+              {label}
+            </span>
           </div>
-        )}
 
-        {/* ── ROW 1: day number — centered for month, left for week + icons right ── */}
-        <div
-          className="flex items-start flex-shrink-0"
-          style={{ justifyContent: tall ? "space-between" : "center", gap: 2, minWidth: 0 }}
-        >
-          <span
-            className="font-semibold leading-none flex-shrink-0"
-            style={{
-              fontSize: tall ? 18 : 12,
-              color: isToday
-                ? "#a78bfa"
-                : isSelectedDay
-                ? "rgba(255,255,255,0.95)"
-                : isOtherMonth
-                ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.28)"
-                : isPast
-                ? "rgba(255,255,255,0.16)"
-                : "rgba(255,255,255,0.62)",
-              textShadow: isToday ? "0 0 14px rgba(167,139,250,0.72)" : "none",
-            }}
-          >
-            {label}
-          </span>
-
-          {/* Week view: event icons inline with day number */}
-          {tall && miniIcons.length > 0 && (
-            <div className="flex items-center gap-[2px] flex-shrink-0 mt-[2px]" style={{ lineHeight: 1 }}>
-              {miniIcons.slice(0, 3).map((ic, idx) => (
-                <span key={idx} style={{ fontSize: 9, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.22 : 0.65, lineHeight: 1 }}>
-                  {ic.emoji}
-                </span>
-              ))}
-              {miniIcons.length > 3 && (
-                <span style={{ fontSize: 7, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
-                  +{miniIcons.length - 3}
+          {/* ROW 2 — Primary event icon (centered) + "+N" if extra events */}
+          {miniIcons.length > 0 ? (
+            <div
+              className="flex items-center justify-center gap-[3px] flex-shrink-0"
+              style={{ flex: 1, minHeight: 0 }}
+            >
+              <span
+                style={{
+                  fontSize: 16,
+                  lineHeight: 1,
+                  filter: `drop-shadow(0 0 5px ${miniIcons[0].color}cc)`,
+                  opacity: isPast ? 0.30 : 0.90,
+                }}
+              >
+                {miniIcons[0].emoji}
+              </span>
+              {miniIcons.length > 1 && (
+                <span
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: "#a78bfa",
+                    textShadow: "0 0 6px rgba(167,139,250,0.8)",
+                    lineHeight: 1,
+                    opacity: isPast ? 0.35 : 0.85,
+                  }}
+                >
+                  +{miniIcons.length - 1}
                 </span>
               )}
             </div>
+          ) : (
+            /* No event → spacer keeps dots at bottom */
+            <div style={{ flex: 1, minHeight: 0 }} />
           )}
-        </div>
 
-        {/* ── Spacer pushes dots to bottom ── */}
-        <div style={{ flex: 1, minHeight: 0 }} />
-
-        {/* ── UNIFIED DOTS: one lavender dot per task group, event-colored dot per event ──
-             Both month and week views use dots only — no text chips. */}
-        {(dayEvList.length > 0 || chipGroups.length > 0) && (
-          <div
-            className="flex flex-wrap flex-shrink-0"
-            style={{ gap: tall ? 4 : 3, overflow: "hidden", maxHeight: tall ? 40 : 5 }}
-          >
-            {/* Event dots — keep category color */}
-            {dayEvList.slice(0, tall ? 5 : 2).map((e) => (
-              <div
-                key={e.id}
-                style={{
-                  width: tall ? 6 : 4, height: tall ? 6 : 4,
-                  borderRadius: "50%", flexShrink: 0,
-                  background: EVENT_META[e.category].color,
-                  boxShadow: `0 0 4px ${EVENT_META[e.category].color}`,
-                  opacity: isPast ? 0.35 : 0.80,
-                }}
-              />
-            ))}
-
-            {/* Task dots — one per unique group — lavender */}
-            {chipGroups
-              .slice(0, tall ? 30 : Math.max(0, 3 - dayEvList.length))
-              .map((g) =>
+          {/* ROW 3 — Lavender task dots (bottom row, 6px each) */}
+          {chipGroups.length > 0 && (
+            <div
+              className="flex flex-shrink-0 justify-center"
+              style={{ gap: 3, overflow: "hidden", flexWrap: "nowrap" }}
+            >
+              {chipGroups.slice(0, 4).map((g) =>
                 g.isFutureRecurring ? (
                   <div
                     key={g.key}
                     style={{
-                      width: tall ? 6 : 4, height: tall ? 6 : 4,
+                      width: 5, height: 5,
                       borderRadius: "50%", flexShrink: 0,
                       background: "transparent",
                       border: "1.5px dashed rgba(167,139,250,0.65)",
@@ -490,25 +479,125 @@ export function Calendar() {
                   <div
                     key={g.key}
                     style={{
-                      width: tall ? 6 : 4, height: tall ? 6 : 4,
+                      width: 5, height: 5,
                       borderRadius: "50%", flexShrink: 0,
                       background: "#a78bfa",
-                      boxShadow: "0 0 5px rgba(167,139,250,0.80)",
-                      opacity: g.done ? 0.22 : isPast ? 0.38 : 0.82,
+                      boxShadow: "0 0 5px rgba(167,139,250,0.85)",
+                      opacity: g.done ? 0.20 : isPast ? 0.35 : 0.85,
                     }}
                   />
                 )
-              )
-            }
+              )}
+              {chipGroups.length > 4 && (
+                <span style={{ fontSize: 6, color: "rgba(167,139,250,0.55)", lineHeight: "5px", fontWeight: 700 }}>
+                  +{chipGroups.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+        </>)}
 
-            {/* Overflow indicator — month view only */}
-            {!tall && (dayEvList.length + chipGroups.length) > 3 && (
-              <span style={{ fontSize: 6, color: "rgba(255,255,255,0.32)", lineHeight: "4px", fontWeight: 700 }}>
-                +{dayEvList.length + chipGroups.length - 3}
-              </span>
+        {/* ════════════════════════════════════════════
+            WEEK VIEW cell layout  (tall cells)
+            ════════════════════════════════════════════ */}
+        {tall && (<>
+          {/* ROW 1 — Day number (left) + event icons (right) */}
+          <div
+            className="flex items-start justify-between flex-shrink-0"
+            style={{ gap: 2, minWidth: 0 }}
+          >
+            <span
+              className="font-semibold leading-none flex-shrink-0"
+              style={{
+                fontSize: 18,
+                color: isToday
+                  ? "#a78bfa"
+                  : isSelectedDay
+                  ? "rgba(255,255,255,0.95)"
+                  : isOtherMonth
+                  ? isPast ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.28)"
+                  : isPast
+                  ? "rgba(255,255,255,0.16)"
+                  : "rgba(255,255,255,0.62)",
+                textShadow: isToday ? "0 0 14px rgba(167,139,250,0.72)" : "none",
+              }}
+            >
+              {label}
+            </span>
+            {miniIcons.length > 0 && (
+              <div className="flex items-center gap-[2px] flex-shrink-0 mt-[2px]" style={{ lineHeight: 1 }}>
+                {miniIcons.slice(0, 3).map((ic, idx) => (
+                  <span key={idx} style={{ fontSize: 9, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.22 : 0.65, lineHeight: 1 }}>
+                    {ic.emoji}
+                  </span>
+                ))}
+                {miniIcons.length > 3 && (
+                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
+                    +{miniIcons.length - 3}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-        )}
+
+          {/* ROW 2 — Centered event icon (prominent, week view) */}
+          {miniIcons.length > 0 && (
+            <div className="flex items-center justify-center flex-shrink-0" style={{ paddingBlock: 4 }}>
+              <span
+                style={{
+                  fontSize: 22,
+                  lineHeight: 1,
+                  filter: `drop-shadow(0 0 8px ${miniIcons[0].color}cc)`,
+                  opacity: isPast ? 0.28 : 0.88,
+                }}
+              >
+                {miniIcons[0].emoji}
+              </span>
+              {miniIcons.length > 1 && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", textShadow: "0 0 6px rgba(167,139,250,0.8)", marginLeft: 3, lineHeight: 1 }}>
+                  +{miniIcons.length - 1}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div style={{ flex: 1, minHeight: 0 }} />
+
+          {/* ROW BOTTOM — Lavender task dots */}
+          {chipGroups.length > 0 && (
+            <div
+              className="flex flex-shrink-0 flex-wrap"
+              style={{ gap: 4, overflow: "hidden", maxHeight: 40 }}
+            >
+              {chipGroups.slice(0, 30).map((g) =>
+                g.isFutureRecurring ? (
+                  <div
+                    key={g.key}
+                    style={{
+                      width: 6, height: 6,
+                      borderRadius: "50%", flexShrink: 0,
+                      background: "transparent",
+                      border: "1.5px dashed rgba(167,139,250,0.65)",
+                      opacity: 0.60,
+                    }}
+                  />
+                ) : (
+                  <div
+                    key={g.key}
+                    style={{
+                      width: 6, height: 6,
+                      borderRadius: "50%", flexShrink: 0,
+                      background: "#a78bfa",
+                      boxShadow: "0 0 5px rgba(167,139,250,0.85)",
+                      opacity: g.done ? 0.20 : isPast ? 0.38 : 0.85,
+                    }}
+                  />
+                )
+              )}
+            </div>
+          )}
+        </>)}
 
         {/* Hover tooltip */}
         {tooltipLines.length > 0 && (
@@ -635,7 +724,7 @@ export function Calendar() {
         return (
           <div
             className="rounded-2xl border border-white/5"
-            style={{ background: "rgba(255,255,255,0.02)", padding: "14px 10px 10px" }}
+            style={{ background: "rgba(255,255,255,0.02)", padding: "12px" }}
           >
             {/* Weekday headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: cellGap, marginBottom: 8 }}>
