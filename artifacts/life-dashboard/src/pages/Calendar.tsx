@@ -343,21 +343,29 @@ export function Calendar() {
     if (hasHoliday)  miniIcons.push({ emoji: "⭐", color: EVENT_META.holiday.color });
     if (hasMeeting)  miniIcons.push({ emoji: "📅", color: EVENT_META.meeting.color });
 
-    /* ── Smart-collapse: group tasks by templateId, then by exact name ──
-       Covers both recurring series and plain duplicate-named tasks. */
+    /* ── Smart-collapse: always group by normalised task name first ──
+       This guarantees that recurring tasks with the same name (e.g. 'лдт')
+       collapse into ONE dot regardless of how many templateId variants exist.
+       Secondary dedup: if somehow two different tasks share a name AND a
+       templateId, they're still just one dot. */
     type ChipGroup = {
       key: string; text: string; count: number;
       color: string; isFutureRecurring: boolean; done: boolean;
     };
     const chipGroups: ChipGroup[] = [];
-    const seenKey = new Map<string, number>(); // key → chipGroups index
+    const seenKey = new Map<string, number>(); // normalised name → chipGroups index
 
     for (const t of dayTkList) {
-      // Primary key: templateId or checklistId; fallback: task text (catches same-named dupes)
-      const groupKey = t.recurringTemplateId ?? t.checklistItemId ?? t.text;
+      // Always deduplicate by exact task text — catches same-named recurring & manual tasks.
+      const groupKey = t.text.trim().toLowerCase();
       const isFR = ds > todayStr && (!!t.checklistItemId || !!t.recurringTemplateId);
       if (seenKey.has(groupKey)) {
-        chipGroups[seenKey.get(groupKey)!].count++;
+        const idx = seenKey.get(groupKey)!;
+        chipGroups[idx].count++;
+        // If ANY task in group is not-done, mark group active
+        if (!t.done) chipGroups[idx].done = false;
+        // If ANY is not future-recurring, keep it solid
+        if (!isFR) chipGroups[idx].isFutureRecurring = false;
       } else {
         seenKey.set(groupKey, chipGroups.length);
         chipGroups.push({
@@ -499,15 +507,14 @@ export function Calendar() {
 
         {/* ════════════════════════════════════════════
             WEEK VIEW cell layout  (tall cells)
+            Same 3-row hierarchy as month, just bigger.
+            No text inside cells — only number, icon, dots.
             ════════════════════════════════════════════ */}
         {tall && (<>
-          {/* ROW 1 — Day number (left) + event icons (right) */}
-          <div
-            className="flex items-start justify-between flex-shrink-0"
-            style={{ gap: 2, minWidth: 0 }}
-          >
+          {/* ROW 1 — Day number, centered */}
+          <div className="flex items-center justify-center flex-shrink-0" style={{ lineHeight: 1 }}>
             <span
-              className="font-semibold leading-none flex-shrink-0"
+              className="font-semibold leading-none"
               style={{
                 fontSize: 18,
                 color: isToday
@@ -524,58 +531,46 @@ export function Calendar() {
             >
               {label}
             </span>
-            {miniIcons.length > 0 && (
-              <div className="flex items-center gap-[2px] flex-shrink-0 mt-[2px]" style={{ lineHeight: 1 }}>
-                {miniIcons.slice(0, 3).map((ic, idx) => (
-                  <span key={idx} style={{ fontSize: 9, filter: `drop-shadow(0 0 2px ${ic.color}88)`, opacity: isPast ? 0.22 : 0.65, lineHeight: 1 }}>
-                    {ic.emoji}
-                  </span>
-                ))}
-                {miniIcons.length > 3 && (
-                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.30)", fontWeight: 700, lineHeight: 1 }}>
-                    +{miniIcons.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* ROW 2 — Centered event icon (prominent, week view) */}
-          {miniIcons.length > 0 && (
-            <div className="flex items-center justify-center flex-shrink-0" style={{ paddingBlock: 4 }}>
+          {/* ROW 2 — Primary event icon, geometrically centered; "+N" if extra */}
+          {miniIcons.length > 0 ? (
+            <div
+              className="flex items-center justify-center gap-[4px] flex-shrink-0"
+              style={{ flex: 1, minHeight: 0 }}
+            >
               <span
                 style={{
-                  fontSize: 22,
+                  fontSize: 26,
                   lineHeight: 1,
                   filter: `drop-shadow(0 0 8px ${miniIcons[0].color}cc)`,
-                  opacity: isPast ? 0.28 : 0.88,
+                  opacity: isPast ? 0.28 : 0.90,
                 }}
               >
                 {miniIcons[0].emoji}
               </span>
               {miniIcons.length > 1 && (
-                <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", textShadow: "0 0 6px rgba(167,139,250,0.8)", marginLeft: 3, lineHeight: 1 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", textShadow: "0 0 6px rgba(167,139,250,0.8)", lineHeight: 1, opacity: isPast ? 0.35 : 0.85 }}>
                   +{miniIcons.length - 1}
                 </span>
               )}
             </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0 }} />
           )}
 
-          {/* Spacer */}
-          <div style={{ flex: 1, minHeight: 0 }} />
-
-          {/* ROW BOTTOM — Lavender task dots */}
+          {/* ROW BOTTOM — Lavender task dots, identical size to month (5px) */}
           {chipGroups.length > 0 && (
             <div
-              className="flex flex-shrink-0 flex-wrap"
-              style={{ gap: 4, overflow: "hidden", maxHeight: 40 }}
+              className="flex flex-shrink-0 justify-center flex-wrap"
+              style={{ gap: 4, overflow: "hidden", maxHeight: 36 }}
             >
-              {chipGroups.slice(0, 30).map((g) =>
+              {chipGroups.slice(0, 20).map((g) =>
                 g.isFutureRecurring ? (
                   <div
                     key={g.key}
                     style={{
-                      width: 6, height: 6,
+                      width: 5, height: 5,
                       borderRadius: "50%", flexShrink: 0,
                       background: "transparent",
                       border: "1.5px dashed rgba(167,139,250,0.65)",
@@ -586,7 +581,7 @@ export function Calendar() {
                   <div
                     key={g.key}
                     style={{
-                      width: 6, height: 6,
+                      width: 5, height: 5,
                       borderRadius: "50%", flexShrink: 0,
                       background: "#a78bfa",
                       boxShadow: "0 0 5px rgba(167,139,250,0.85)",
@@ -594,6 +589,11 @@ export function Calendar() {
                     }}
                   />
                 )
+              )}
+              {chipGroups.length > 20 && (
+                <span style={{ fontSize: 6, color: "rgba(167,139,250,0.55)", lineHeight: "5px", fontWeight: 700 }}>
+                  +{chipGroups.length - 20}
+                </span>
               )}
             </div>
           )}
