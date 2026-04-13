@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: sphere-tracker
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: pnpm install && pnpm --filter @workspace/api-server --filter @workspace/life-dashboard run build
+    startCommand: node artifacts/api-server/dist/index.cjs
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sphere-tracker-db
+          property: connectionString
+
+databases:
+  - name: sphere-tracker-db
+    databaseName: sphere_tracker
+    plan: free
