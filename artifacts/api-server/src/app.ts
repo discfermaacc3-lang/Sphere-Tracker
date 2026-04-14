@@ -13,7 +13,7 @@ app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.resolve(
-    import.meta.dirname,
+    __dirname,
     "..",
     "..",
     "life-dashboard",
