@@ -1,20 +1,21 @@
-// Export your models here. Add one export per file
-// export * from "./posts";
+// Export your Mongoose models here. Add one export per file.
+// export * from "./tasks";
 //
-// Each model/table should ideally be split into different files.
-// Each model/table should define a Drizzle table, insert schema, and types:
+// Each model file should define a Mongoose Schema and Model:
 //
-//   import { pgTable, text, serial } from "drizzle-orm/pg-core";
-//   import { createInsertSchema } from "drizzle-zod";
+//   import mongoose from "mongoose";
 //   import { z } from "zod/v4";
 //
-//   export const postsTable = pgTable("posts", {
-//     id: serial("id").primaryKey(),
-//     title: text("title").notNull(),
+//   const taskSchema = new mongoose.Schema({
+//     title:     { type: String, required: true },
+//     done:      { type: Boolean, default: false },
+//     createdAt: { type: Date,    default: Date.now },
 //   });
 //
-//   export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true });
-//   export type InsertPost = z.infer<typeof insertPostSchema>;
-//   export type Post = typeof postsTable.$inferSelect;
+//   export const Task = mongoose.model("Task", taskSchema);
+//
+//   // Optional: Zod schema for API validation
+//   export const InsertTaskSchema = z.object({ title: z.string() });
+//   export type InsertTask = z.infer<typeof InsertTaskSchema>;
 
-export {}
+export {};
