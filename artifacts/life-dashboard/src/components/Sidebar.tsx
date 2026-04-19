@@ -34,7 +34,8 @@ export function Sidebar() {
   return (
     <>
       <aside
-        className="fixed left-0 top-0 h-screen w-[68px] flex flex-col items-center py-7 gap-1 z-40 sidebar-scroll"
+        className="hidden md:flex fixed left-0 top-0 h-screen w-[68px] flex-col items-center py-7 gap-1 z-40 sidebar-scroll"
+
         style={{
           background: "rgba(16,12,38,0.75)",
           backdropFilter: "blur(28px)",
@@ -128,6 +129,52 @@ export function Sidebar() {
           );
         })}
       </aside>
+      
+      {/* ── Mobile bottom nav ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex overflow-x-auto px-1 py-1.5 gap-0.5"
+        style={{
+          background: "rgba(16,12,38,0.92)",
+          backdropFilter: "blur(28px)",
+          WebkitBackdropFilter: "blur(28px)",
+          borderTop: "1px solid rgba(167,139,250,0.08)",
+        }}
+      >
+        {navItems.map((item) => {
+          const active = currentPage === item.key;
+          return (
+            <button
+              key={item.key}
+              onClick={() => handleNav(item.key)}
+              className="flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1.5 px-1 rounded-xl transition-all"
+              style={{ background: active ? "rgba(167,139,250,0.12)" : "transparent" }}
+            >
+              <span
+                style={{
+                  fontSize: 17,
+                  color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.28)",
+                  filter: active ? "drop-shadow(0 0 6px rgba(167,139,250,0.9))" : "none",
+                  lineHeight: 1,
+                }}
+              >
+                {item.icon}
+              </span>
+              <span
+                style={{
+                  fontSize: 7,
+                  color: active ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "100%",
+                }}
+              >
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* ── Guard Modal ── */}
       {pendingNav && (
