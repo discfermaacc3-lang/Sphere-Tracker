@@ -87,6 +87,8 @@ function PageContent() {
 }
 
 function App() {
+  useEffect(() => startSync(), []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div
@@ -96,7 +98,8 @@ function App() {
         <Stars />
         <div className="relative z-10 flex w-full">
           <Sidebar />
-          <main className="ml-[68px] flex-1 min-h-screen overflow-y-auto px-8 py-8">
+          <main className="flex-1 min-h-screen overflow-y-auto px-4 py-5 pb-[88px] md:ml-[68px] md:px-8 md:py-8 md:pb-10">
+
             <PageContent />
           </main>
         </div>
