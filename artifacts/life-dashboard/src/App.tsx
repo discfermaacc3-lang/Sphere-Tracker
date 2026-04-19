@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
+import { startSync } from "@/lib/sync";
 import { Sidebar } from "@/components/Sidebar";
 import { CustomCursor } from "@/components/CustomCursor";
 import { useStore } from "@/lib/store";
