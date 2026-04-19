@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { SphereKey, sphereKeys } from "./sphereColors";
-
+import { localDateStr } from "./utils";
 export type TaskCategory =
   | "Body" | "Mindset" | "Creativity" | "Hobby"
   | "Work" | "Finance" | "Mission" | "Other";
@@ -318,7 +318,7 @@ const defaultMonthData = (): MonthData => ({
   sphereLevels: { ...defaultLevels },
 });
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = localDateStr();
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
 const REAL_MONTH_KEY = monthKey(new Date(CURRENT_YEAR, CURRENT_MONTH, 1));
@@ -456,7 +456,7 @@ const defaultNotes: Note[] = [
 ];
 
 function autoCompleteGoals(tasks: Task[], goals: Goal[], bonusXP: number): { goals: Goal[]; bonusXP: number } {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   let changed = true;
   let currentGoals = [...goals];
   let totalBonus = bonusXP;
@@ -681,7 +681,7 @@ export const useStore = create<Store>()(
           if (!goal) return {};
           const newDone = !goal.done;
           const xpDelta = newDone ? goal.xp : -goal.xp;
-          const today = new Date().toISOString().slice(0, 10);
+          const today = localDateStr();
           const updatedAchievements = newDone
             ? [...s.goalAchievements, { id: "ga-" + Date.now(), goalId: id, goalTitle: goal.title, goalXp: goal.xp, goalSphere: goal.sphere, completedAt: today }]
             : s.goalAchievements.filter((a) => a.goalId !== id);
@@ -712,7 +712,7 @@ export const useStore = create<Store>()(
           const task = s.tasks.find((t) => t.id === id);
           if (!task) return {};
           const wasDone = task.done;
-          const today = new Date().toISOString().slice(0, 10);
+          const today = localDateStr();
           const newTasks = s.tasks.map((t) =>
             t.id === id ? { ...t, done: !t.done, completedAt: !t.done ? today : undefined } : t
           );
@@ -831,7 +831,7 @@ export const useStore = create<Store>()(
         set((s) => ({ routineTemplates: s.routineTemplates.filter((t) => t.id !== id) })),
       refreshDay: () =>
         set((s) => {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = localDateStr();
           const todayJsDay = new Date().getDay(); // 0=Sun
           const todayMonDay = todayJsDay === 0 ? 6 : todayJsDay - 1; // Mon=0..Sun=6
           const existingTexts = s.tasks.filter((t) => t.dueDate === today).map((t) => t.text);
@@ -856,7 +856,7 @@ export const useStore = create<Store>()(
               noDeadline: false, dueDate: today, done: false,
               recurringTemplateId: rt.id,
             }));
-          const today2 = new Date().toISOString().slice(0, 10);
+          const today2 = localDateStr();
           return {
             tasks: [...s.tasks, ...routineTasks, ...recurringTasks],
             focusHistory: s.focusHistory.filter((fs) => fs.date === today2),
