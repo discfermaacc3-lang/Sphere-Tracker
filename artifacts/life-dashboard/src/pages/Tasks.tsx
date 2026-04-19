@@ -3,12 +3,12 @@ import { useStore, Task, RoutineTemplate } from "@/lib/store";
 import { sphereColors, sphereKeys } from "@/lib/sphereColors";
 import { TaskModal } from "@/components/TaskModal";
 import { CustomDatePicker } from "@/components/CustomDatePicker";
-
+import { localDateStr } from "@/lib/utils";
 const XP_COLORS: Record<string, string> = {
   easy: "#22c55e", medium: "#eab308", hard: "#ef4444", custom: "#a855f7",
 };
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = localDateStr();
 
 const DAY_LABELS_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
